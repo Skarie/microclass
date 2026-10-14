@@ -1,0 +1,46 @@
+{
+  "name": "microclass",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "description": "微课堂 — 企业级轻量学习平台（课程/章节/课时 · 题库/考试 · 学习进度）",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @microclass/api",
+    "dev:web": "npm run dev -w @microclass/web",
+    "build": "npm run build -w @microclass/shared && npm run build --workspaces --if-present",
+    "typecheck": "npm run build -w @microclass/shared && npm run typecheck --workspaces --if-present",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:report": "playwright show-report",
+    "migrate": "npm run migrate -w @microclass/api",
+    "backup": "node ops/scripts/backup.mjs",
+    "restore": "node ops/scripts/restore.mjs",
+    "start": "npm run start -w @microclass/api"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.56.0",
+    "@types/node": "^22.10.2",
+    "@vitest/coverage-v8": "^3.2.7",
+    "eslint": "^9.17.0",
+    "eslint-plugin-vue": "^10.11.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.1",
+    "vitest": "^3.2.7"
+  }
+}

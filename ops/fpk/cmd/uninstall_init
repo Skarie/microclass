@@ -1,0 +1,8 @@
+#!/bin/bash
+# 卸载前：先停服务，避免卸载过程中数据库仍被写入。
+set -u
+
+if [ -x "${TRIM_PKGDIR}/cmd/main" ]; then
+    "${TRIM_PKGDIR}/cmd/main" stop
+fi
+exit 0

@@ -1,0 +1,13 @@
+# 构建上下文排除（Dockerfile 位于 ops/docker/，上下文为仓库根）
+node_modules
+**/node_modules
+**/dist
+**/coverage
+data
+media
+.git
+.github
+docs
+*.log
+.env
+.env.*

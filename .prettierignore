@@ -1,0 +1,19 @@
+# 构建产物与依赖
+node_modules/
+dist/
+coverage/
+*.log
+package-lock.json
+data/
+media/
+
+# 备份与打包产物
+backups/
+build/
+*.fpk
+
+# FPK 应用包：manifest 是 key=value 清单、cmd/ 是 Shell、图标是二进制
+ops/fpk/manifest
+ops/fpk/cmd/
+ops/fpk/*.PNG
+ops/fpk/app/ui/images/

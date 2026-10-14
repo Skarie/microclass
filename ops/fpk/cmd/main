@@ -1,0 +1,125 @@
+#!/bin/bash
+# 微课堂 V2 —— fnOS 原生应用生命周期入口（fnpack 会调用 start / stop / status）
+#
+# 由 fnOS 注入的变量：
+#   TRIM_PKGVAR  = /vol1/@appdata/<appname>  （持久化数据目录，升级保留）
+#   TRIM_PKGDIR  = /vol1/@appcenter/<appname>（程序目录，升级会替换）
+set -u
+
+LOG_FILE="${TRIM_PKGVAR}/info.log"
+PID_FILE="${TRIM_PKGVAR}/app.pid"
+PASS_FILE="${TRIM_PKGVAR}/adminpass"
+# 端口默认 8092（与 app/ui/config 的桌面入口一致）；
+# 允许用 MC_PORT 覆盖，便于同包换端口共存或做沙箱验证。
+PORT="${MC_PORT:-8092}"
+
+APP_DIR="${TRIM_PKGDIR}/app/server"
+NODE_BIN="/vol1/@appcenter/nodejs_v22/bin/node"
+[ -x "${NODE_BIN}" ] || NODE_BIN="$(command -v node)"
+
+log_msg() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "${LOG_FILE}"
+}
+
+check_process() {
+    local pid=$1
+    [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null
+}
+
+status() {
+    if [ -f "${PID_FILE}" ]; then
+        pid=$(head -n 1 "${PID_FILE}" | tr -d '[:space:]')
+        if check_process "${pid}"; then
+            return 0
+        fi
+        rm -f "${PID_FILE}"
+    fi
+    return 1
+}
+
+# 首次启动生成管理员初始密码，用户可在日志或该文件中查看
+ensure_admin_pass() {
+    if [ ! -s "${PASS_FILE}" ]; then
+        if command -v openssl >/dev/null 2>&1; then
+            openssl rand -base64 12 | tr -d '/+=' | cut -c1-14 > "${PASS_FILE}"
+        else
+            head -c 32 /dev/urandom | base64 | tr -d '/+=' | cut -c1-14 > "${PASS_FILE}"
+        fi
+        chmod 600 "${PASS_FILE}"
+        log_msg "generated initial admin password at ${PASS_FILE}"
+    fi
+}
+
+start_process() {
+    if status; then
+        return 0
+    fi
+
+    mkdir -p "${TRIM_PKGVAR}/data"
+    ensure_admin_pass
+
+    local admin_pass
+    admin_pass="$(cat "${PASS_FILE}")"
+
+    log_msg "starting microclass on port ${PORT}"
+    cd "${APP_DIR}" || exit 1
+    MC_ENV=production \
+    MC_HOST=0.0.0.0 \
+    MC_PORT="${PORT}" \
+    MC_SITE_NAME="微课堂" \
+    MC_LOG_LEVEL=info \
+    MC_DATA_DIR="${TRIM_PKGVAR}/data" \
+    MC_MIGRATIONS_DIR="${APP_DIR}/migrations" \
+    MC_WEB_DIST="${APP_DIR}/web" \
+    MC_ADMIN_USER=admin \
+    MC_ADMIN_PASS="${admin_pass}" \
+    MC_TRUST_PROXY=1 \
+    TZ=Asia/Shanghai \
+    "${NODE_BIN}" "${APP_DIR}/dist/server.js" >> "${LOG_FILE}" 2>&1 &
+
+    printf "%s" "$!" > "${PID_FILE}"
+    sleep 1
+    if status; then
+        log_msg "started, pid=$(cat "${PID_FILE}")"
+        return 0
+    fi
+    log_msg "failed to start, see ${LOG_FILE}"
+    return 1
+}
+
+stop_process() {
+    if [ ! -r "${PID_FILE}" ]; then
+        return 0
+    fi
+    pid=$(head -n 1 "${PID_FILE}" | tr -d '[:space:]')
+    if check_process "${pid}"; then
+        log_msg "stopping pid=${pid}"
+        kill -TERM "${pid}" >> "${LOG_FILE}" 2>&1
+        local count=0
+        while check_process "${pid}" && [ ${count} -lt 15 ]; do
+            sleep 1
+            count=$((count + 1))
+        done
+        if check_process "${pid}"; then
+            log_msg "force killing pid=${pid}"
+            kill -KILL "${pid}"
+        fi
+    fi
+    rm -f "${PID_FILE}"
+    return 0
+}
+
+case "$1" in
+start)
+    start_process
+    ;;
+stop)
+    stop_process
+    ;;
+status)
+    if status; then exit 0; else exit 3; fi
+    ;;
+*)
+    exit 1
+    ;;
+esac

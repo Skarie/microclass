@@ -1,0 +1,59 @@
+name: microclass
+
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: ops/docker/Dockerfile
+      args:
+        # 版本号注入到镜像（/api/v1/version 会返回它）
+        MC_VERSION: ${MC_VERSION:-2.0.0}
+    image: microclass:${MC_VERSION:-2.0.0}
+    container_name: microclass-api
+    restart: unless-stopped
+    environment:
+      MC_ENV: production
+      MC_PORT: '8091'
+      MC_SITE_NAME: ${MC_SITE_NAME:-微课堂}
+      MC_ADMIN_USER: ${MC_ADMIN_USER:-admin}
+      MC_ADMIN_PASS: ${MC_ADMIN_PASS:?请在 .env 中设置 MC_ADMIN_PASS}
+      MC_MEDIA_ROOTS: ${MC_MEDIA_ROOTS:-[]}
+      MC_SESSION_SECRET: ${MC_SESSION_SECRET:-}
+      MC_ALLOW_REGISTER: ${MC_ALLOW_REGISTER:-true}
+      MC_MAX_UPLOAD_MB: ${MC_MAX_UPLOAD_MB:-200}
+      MC_LOG_LEVEL: ${MC_LOG_LEVEL:-info}
+      # 反向代理后取真实客户端 IP/协议；直连可设为 0
+      MC_TRUST_PROXY: ${MC_TRUST_PROXY:-1}
+      TZ: Asia/Shanghai
+    volumes:
+      - mcdata:/app/data
+      # 媒体目录示例（只读挂载，路径按需修改）
+      - /vol1/1000:/media/nas:ro
+    ports:
+      - '${MC_PORT:-8091}:8091'
+    # 视频是 CPU/IO 敏感但内存占用低的服务：给一个合理的资源上限，
+    # 避免在 NAS 上与其他应用互相挤占。
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+        reservations:
+          memory: 256m
+    healthcheck:
+      # YAML 单引号串里不能用 \' 转义，用折叠块标量承载内联 JS
+      test:
+        - CMD-SHELL
+        - >-
+          node -e "fetch('http://127.0.0.1:8091/api/v1/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '5'
+
+volumes:
+  mcdata:

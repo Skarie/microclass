@@ -1,0 +1,39 @@
+# ---- Node / build ----
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+
+# ---- runtime data (never commit) ----
+data/
+media/
+!media/.gitkeep
+*.sqlite
+*.sqlite-journal
+*.db
+*.db-wal
+*.db-shm
+
+# ---- playwright ----
+playwright-report/
+test-results/
+.playwright/
+
+# ---- backups / packaging artifacts ----
+backups/
+build/
+*.fpk
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# ---- logs ----
+*.log
+npm-debug.log*

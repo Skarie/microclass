@@ -1,0 +1,248 @@
+/**
+ * 设计令牌（Design Tokens）
+ * 所有颜色、间距、圆角、阴影、字体只在此处定义，组件禁止硬编码色值。
+ * 暗色模式通过 <html data-theme="dark"> 切换同一组语义变量。
+ */
+:root {
+  /* ---- 品牌色 ---- */
+  --mc-primary: #1f6feb;
+  --mc-primary-hover: #1a5fd0;
+  --mc-primary-active: #1751b5;
+  --mc-primary-soft: #e8f1fe;
+  --mc-primary-border: #bcd6fb;
+
+  /* ---- 语义色 ---- */
+  --mc-success: #1a7f4b;
+  --mc-success-soft: #e6f6ed;
+  --mc-warning: #b26a00;
+  --mc-warning-soft: #fff5e5;
+  --mc-warning-border: #f0d9a8;
+  --mc-danger: #c62828;
+  --mc-danger-soft: #fdecec;
+  --mc-info: #0d6e8c;
+  --mc-info-soft: #e6f4f8;
+  /* 「压在浅色底上的语义色文字」：直接用上面的填充色做文字时对比度不足 4.5:1
+     （axe 实测 primary 4.07、success 4.48、warning 3.74），这里给一组更深的前景色 */
+  --mc-success-fg: #17703f;
+  --mc-warning-fg: #8a5200;
+  --mc-danger-fg: #a51f1f;
+  --mc-info-fg: #0a5b74;
+
+  /* ---- 中性色（浅色主题） ---- */
+  --mc-bg: #f5f7fa;
+  --mc-bg-elevated: #ffffff;
+  /* 纸张底色（试卷预览 / 扫描页）：印刷品就是白的，浅深主题都不变 */
+  --mc-paper-bg: #ffffff;
+  --mc-paper-fg: #1b2430;
+  --mc-bg-sunken: #eef1f6;
+  --mc-bg-hover: #f0f3f8;
+  --mc-border: #dfe4ec;
+  --mc-border-strong: #c6cedb;
+  --mc-text: #1b2230;
+  --mc-text-secondary: #4d5766;
+  --mc-text-muted: #5b6472;
+  --mc-text-inverse: #ffffff;
+  /* 压在浅色底（primary-soft / 白）上的主色文字：axe 扫描发现 #1f6feb 做文字时对比度不足 4.5:1 */
+  --mc-primary-fg: #12499d;
+
+  /* ---- 排版 ---- */
+  --mc-font-sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC',
+    sans-serif;
+  --mc-font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  --mc-text-xs: 12px;
+  --mc-text-sm: 13px;
+  --mc-text-base: 14px;
+  --mc-text-md: 15px;
+  --mc-text-lg: 18px;
+  --mc-text-xl: 22px;
+  --mc-text-2xl: 28px;
+  --mc-leading: 1.6;
+  --mc-leading-tight: 1.3;
+
+  /* ---- 间距（4px 基准） ---- */
+  --mc-space-1: 4px;
+  --mc-space-2: 8px;
+  --mc-space-3: 12px;
+  --mc-space-4: 16px;
+  --mc-space-5: 20px;
+  --mc-space-6: 24px;
+  --mc-space-8: 32px;
+  --mc-space-10: 40px;
+  --mc-space-12: 48px;
+
+  /* ---- 圆角 ---- */
+  --mc-radius-xs: 2px;
+  --mc-radius-sm: 4px;
+  --mc-radius: 8px;
+  --mc-radius-lg: 12px;
+  --mc-radius-pill: 999px;
+
+  /* ---- 阴影 ---- */
+  --mc-shadow-xs: 0 1px 2px rgb(16 24 40 / 6%);
+  --mc-shadow-sm: 0 1px 3px rgb(16 24 40 / 10%), 0 1px 2px rgb(16 24 40 / 6%);
+  --mc-shadow-md: 0 4px 12px rgb(16 24 40 / 10%);
+  --mc-shadow-lg: 0 12px 32px rgb(16 24 40 / 14%);
+
+  /* ---- 布局尺寸 ---- */
+  --mc-sidebar-width: 232px;
+  --mc-sidebar-collapsed: 64px;
+  --mc-topbar-height: 56px;
+  --mc-content-max: 1440px;
+
+  /* ---- 层级 ---- */
+  --mc-z-dropdown: 100;
+  --mc-z-sticky: 200;
+  --mc-z-modal: 500;
+  --mc-z-toast: 600;
+
+  /* ---- 遮罩与特殊底色（组件里不许再写 rgb()/#fff 这类字面量） ---- */
+  --mc-overlay: rgb(15 19 25 / 45%);
+  --mc-overlay-strong: rgb(15 19 25 / 55%);
+  --mc-overlay-light: rgb(255 255 255 / 18%);
+  --mc-surface-2: rgb(0 0 0 / 4%);
+  --mc-surface-2-strong: rgb(0 0 0 / 8%);
+  --mc-bg-soft: color-mix(in srgb, var(--mc-text-muted) 12%, transparent);
+  --mc-player-bg: #05070a;
+
+  /* ---- 动效 ---- */
+  --mc-transition: 160ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ================= 2.0 追加（只加不改，现有变量语义不变） ================= */
+
+  /* ---- 色阶：用于渐变封面、图表、标签底色（保证与主色同源） ---- */
+  --mc-primary-50: #f2f7ff;
+  --mc-primary-100: #e2eefe;
+  --mc-primary-200: #c3dcfc;
+  --mc-primary-300: #94c0f8;
+  --mc-primary-400: #5b9cf1;
+  --mc-primary-500: #1f6feb;
+  --mc-primary-600: #175dc7;
+  --mc-primary-700: #12499d;
+  --mc-primary-800: #103c80;
+  --mc-primary-900: #0e2f63;
+
+  --mc-neutral-0: #ffffff;
+  --mc-neutral-50: #f8fafc;
+  --mc-neutral-100: #f1f4f9;
+  --mc-neutral-200: #e4e8f0;
+  --mc-neutral-300: #cfd6e2;
+  --mc-neutral-400: #a5aebd;
+  --mc-neutral-500: #7b8595;
+  --mc-neutral-600: #5a6474;
+  --mc-neutral-700: #3f4856;
+  --mc-neutral-800: #2a3240;
+  --mc-neutral-900: #1b2230;
+
+  /* 图表 / 统计用色板（顺序即建议使用顺序，明暗主题共用） */
+  --mc-chart-1: #1f6feb;
+  --mc-chart-2: #17a2b8;
+  --mc-chart-3: #2f9e44;
+  --mc-chart-4: #f08c00;
+  --mc-chart-5: #d6336c;
+  --mc-chart-6: #7048e8;
+  --mc-chart-7: #0ca678;
+  --mc-chart-8: #e8590c;
+
+  /* ---- 排版：补齐阶梯与字重（14px 正文对"企业级后台"偏小，页面标题统一用 3xl） ---- */
+  --mc-text-3xl: 32px;
+  --mc-text-4xl: 40px;
+  --mc-font-normal: 400;
+  --mc-font-medium: 500;
+  --mc-font-semibold: 600;
+  --mc-font-bold: 700;
+  --mc-leading-relaxed: 1.75;
+  --mc-tracking-tight: -0.01em;
+
+  /* ---- 间距语义别名（页面级节奏：区块间距/栅格间距） ---- */
+  --mc-gutter: var(--mc-space-5);
+  --mc-section-gap: var(--mc-space-6);
+  --mc-card-pad: var(--mc-space-5);
+
+  /* ---- 阴影语义（不要直接用 xs/sm/md/lg，按"这个元素离用户多近"选） ---- */
+  --mc-elev-card: var(--mc-shadow-xs);
+  --mc-elev-raised: var(--mc-shadow-sm);
+  --mc-elev-hover: var(--mc-shadow-md);
+  --mc-elev-overlay: var(--mc-shadow-lg);
+
+  /* ---- 焦点环（键盘可达性的统一外观） ---- */
+  --mc-focus-ring: 0 0 0 3px color-mix(in srgb, var(--mc-primary) 28%, transparent);
+  --mc-focus-ring-danger: 0 0 0 3px color-mix(in srgb, var(--mc-danger) 28%, transparent);
+
+  /* ---- 控件尺寸（密度模式可整体切换） ---- */
+  --mc-control-h-sm: 32px;
+  --mc-control-h: 34px;
+  --mc-control-h-lg: 40px;
+  --mc-row-h: 44px;
+  --mc-touch-target: 32px;
+
+  /* ---- 图标尺寸 ---- */
+  --mc-icon-sm: 16px;
+  --mc-icon-md: 20px;
+  --mc-icon-lg: 24px;
+  --mc-icon-stroke: 1.75;
+
+  /* ---- 动效曲线 ---- */
+  --mc-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --mc-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --mc-duration-fast: 120ms;
+  --mc-duration: 180ms;
+}
+
+/** 紧凑密度：表格密集型后台页面用 <html data-density="compact"> 切换 */
+html[data-density='compact'] {
+  --mc-control-h-sm: 24px;
+  --mc-control-h: 30px;
+  --mc-control-h-lg: 34px;
+  --mc-row-h: 36px;
+  --mc-card-pad: var(--mc-space-4);
+  --mc-section-gap: var(--mc-space-4);
+  --mc-gutter: var(--mc-space-4);
+}
+
+html[data-theme='dark'] {
+  --mc-primary: #4d8ef7;
+  --mc-primary-hover: #6ba0f9;
+  --mc-primary-active: #3b7ce0;
+  --mc-primary-soft: #16233a;
+  --mc-primary-border: #2b4570;
+
+  --mc-success: #4cc38a;
+  --mc-success-soft: #14291f;
+  --mc-warning: #e0a44a;
+  --mc-warning-soft: #2b2214;
+  --mc-warning-border: #4a3a1c;
+  --mc-danger: #f4736f;
+  --mc-danger-soft: #2e1a1a;
+  --mc-info: #62b6d4;
+  --mc-info-soft: #14262c;
+
+  --mc-success-fg: #4cc38a;
+  --mc-warning-fg: #e0a44a;
+  --mc-danger-fg: #f4736f;
+  --mc-info-fg: #62b6d4;
+
+  --mc-bg: #0f1319;
+  --mc-bg-elevated: #171c24;
+  --mc-paper-bg: #ffffff;
+  --mc-paper-fg: #1b2430;
+  --mc-bg-sunken: #0b0e13;
+  --mc-bg-hover: #1e242e;
+  --mc-border: #262d38;
+  --mc-border-strong: #38414f;
+  --mc-text: #e6eaf0;
+  --mc-text-secondary: #aab4c2;
+  --mc-text-muted: #8b95a5;
+  --mc-text-inverse: #0f1319;
+  /* 深色主题下浅蓝做主色文字才够对比 */
+  --mc-primary-fg: #a9c8ff;
+
+  --mc-shadow-xs: 0 1px 2px rgb(0 0 0 / 40%);
+  --mc-shadow-sm: 0 1px 3px rgb(0 0 0 / 45%);
+  --mc-shadow-md: 0 4px 14px rgb(0 0 0 / 50%);
+  --mc-shadow-lg: 0 14px 36px rgb(0 0 0 / 55%);
+
+  --mc-surface-2: rgb(255 255 255 / 6%);
+  --mc-surface-2-strong: rgb(255 255 255 / 10%);
+  --mc-player-bg: #000;
+}

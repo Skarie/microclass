@@ -1,0 +1,13 @@
+{
+    ".url": {
+        "microclass.Application": {
+            "title": "{display_name}",
+            "icon": "images/icon_{0}.png",
+            "type": "url",
+            "protocol": "http",
+            "port": "8092",
+            "url": "/",
+            "allUsers": true
+        }
+    }
+}

@@ -1,0 +1,624 @@
+/**
+ * 基础样式与通用组件类：只使用 tokens.css 中的语义变量。
+ * 组件内尽量用 scoped 样式，这里只放跨页面复用的原子类。
+ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--mc-bg);
+  color: var(--mc-text);
+  font-family: var(--mc-font-sans);
+  font-size: var(--mc-text-base);
+  line-height: var(--mc-leading);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: 600;
+  line-height: var(--mc-leading-tight);
+  color: var(--mc-text);
+}
+
+a {
+  color: var(--mc-primary-fg);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--mc-primary-hover);
+}
+
+:focus-visible {
+  outline: 2px solid var(--mc-primary);
+  outline-offset: 2px;
+  border-radius: var(--mc-radius-sm);
+}
+
+/* 跳过导航：键盘用户可直达主内容 */
+.mc-skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: var(--mc-z-toast);
+  padding: var(--mc-space-2) var(--mc-space-4);
+  background: var(--mc-bg-elevated);
+  border: 1px solid var(--mc-primary);
+  border-radius: var(--mc-radius);
+}
+
+.mc-skip-link:focus {
+  left: var(--mc-space-4);
+  top: var(--mc-space-4);
+}
+
+/* ---------- 卡片 ---------- */
+.mc-card {
+  background: var(--mc-bg-elevated);
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius-lg);
+  box-shadow: var(--mc-shadow-xs);
+}
+
+.mc-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mc-space-3);
+  padding: var(--mc-space-4) var(--mc-space-5);
+  border-bottom: 1px solid var(--mc-border);
+}
+
+.mc-card__title {
+  font-size: var(--mc-text-md);
+  font-weight: 600;
+}
+
+.mc-card__body {
+  padding: var(--mc-space-5);
+}
+
+.mc-card__footer {
+  padding: var(--mc-space-3) var(--mc-space-5);
+  border-top: 1px solid var(--mc-border);
+  background: var(--mc-bg-sunken);
+  border-radius: 0 0 var(--mc-radius-lg) var(--mc-radius-lg);
+}
+
+/* ---------- 按钮 ---------- */
+.mc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--mc-space-2);
+  min-height: 34px;
+  padding: 0 var(--mc-space-4);
+  border: 1px solid var(--mc-border-strong);
+  border-radius: var(--mc-radius);
+  background: var(--mc-bg-elevated);
+  color: var(--mc-text);
+  font: inherit;
+  font-size: var(--mc-text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background var(--mc-transition),
+    border-color var(--mc-transition),
+    color var(--mc-transition),
+    box-shadow var(--mc-transition);
+  white-space: nowrap;
+}
+
+.mc-btn:hover:not(:disabled) {
+  background: var(--mc-bg-hover);
+  border-color: var(--mc-primary-border);
+}
+
+.mc-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.mc-btn--primary {
+  background: var(--mc-primary);
+  border-color: var(--mc-primary);
+  color: var(--mc-text-inverse);
+}
+
+.mc-btn--primary:hover:not(:disabled) {
+  background: var(--mc-primary-hover);
+  border-color: var(--mc-primary-hover);
+}
+
+.mc-btn--primary:active:not(:disabled) {
+  background: var(--mc-primary-active);
+}
+
+.mc-btn--danger {
+  color: var(--mc-danger-fg);
+  border-color: var(--mc-danger);
+  background: transparent;
+}
+
+.mc-btn--danger:hover:not(:disabled) {
+  background: var(--mc-danger-soft);
+}
+
+.mc-btn--ghost {
+  border-color: transparent;
+  background: transparent;
+}
+
+.mc-btn--ghost:hover:not(:disabled) {
+  background: var(--mc-bg-hover);
+  border-color: transparent;
+}
+
+.mc-btn--sm {
+  min-height: 32px;
+  padding: 0 var(--mc-space-3);
+  font-size: var(--mc-text-xs);
+}
+
+.mc-btn--lg {
+  min-height: 42px;
+  padding: 0 var(--mc-space-6);
+  font-size: var(--mc-text-md);
+}
+
+.mc-btn--block {
+  width: 100%;
+}
+
+/* ---------- 表单 ---------- */
+.mc-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mc-space-1);
+}
+
+.mc-label {
+  font-size: var(--mc-text-sm);
+  color: var(--mc-text-secondary);
+  font-weight: 500;
+  /* 标签在窄容器里会被压成竖排（真机题库页出现过"题/库"两行），这里禁止换行、不许被压缩 */
+  white-space: nowrap;
+  flex: none;
+}
+
+.mc-label--required::after {
+  content: ' *';
+  color: var(--mc-danger-fg);
+}
+
+.mc-input,
+.mc-select,
+.mc-textarea {
+  width: 100%;
+  min-height: 36px;
+  padding: var(--mc-space-2) var(--mc-space-3);
+  border: 1px solid var(--mc-border-strong);
+  border-radius: var(--mc-radius);
+  background: var(--mc-bg-elevated);
+  color: var(--mc-text);
+  font: inherit;
+  font-size: var(--mc-text-base);
+  transition:
+    border-color var(--mc-transition),
+    box-shadow var(--mc-transition);
+}
+
+.mc-textarea {
+  min-height: 88px;
+  resize: vertical;
+  line-height: var(--mc-leading);
+}
+
+.mc-input:focus,
+.mc-select:focus,
+.mc-textarea:focus {
+  outline: none;
+  border-color: var(--mc-primary);
+  box-shadow: 0 0 0 3px var(--mc-primary-soft);
+}
+
+.mc-input[aria-invalid='true'] {
+  border-color: var(--mc-danger);
+}
+
+.mc-hint {
+  font-size: var(--mc-text-xs);
+  color: var(--mc-text-muted);
+}
+
+.mc-error-text {
+  font-size: var(--mc-text-xs);
+  color: var(--mc-danger-fg);
+}
+
+/* 复选框外层 label：全体内联元素的高度至少 24px（WCAG 2.2 最小点击目标） */
+.mc-checkbox {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  gap: var(--mc-space-2);
+  font-size: var(--mc-text-sm);
+  cursor: pointer;
+}
+
+/* ---------- 表格 ---------- */
+.mc-table-wrap {
+  overflow-x: auto;
+}
+
+.mc-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--mc-text-sm);
+}
+
+.mc-table th,
+.mc-table td {
+  padding: var(--mc-space-3) var(--mc-space-4);
+  text-align: left;
+  border-bottom: 1px solid var(--mc-border);
+  vertical-align: middle;
+}
+
+.mc-table th {
+  background: var(--mc-bg-sunken);
+  color: var(--mc-text-secondary);
+  font-weight: 600;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.mc-table tbody tr:hover td {
+  background: var(--mc-bg-hover);
+}
+
+.mc-table--compact th,
+.mc-table--compact td {
+  padding: var(--mc-space-2) var(--mc-space-3);
+}
+
+/* ---------- 徽标 / 标签 ---------- */
+.mc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mc-space-1);
+  padding: 1px var(--mc-space-2);
+  border-radius: var(--mc-radius-sm);
+  font-size: var(--mc-text-xs);
+  font-weight: 500;
+  background: var(--mc-bg-sunken);
+  color: var(--mc-text-secondary);
+  border: 1px solid var(--mc-border);
+  white-space: nowrap;
+}
+
+.mc-badge--primary {
+  background: var(--mc-primary-soft);
+  color: var(--mc-primary-fg);
+  border-color: var(--mc-primary-border);
+}
+
+.mc-badge--success {
+  background: var(--mc-success-soft);
+  color: var(--mc-success-fg);
+  border-color: transparent;
+}
+
+.mc-badge--warning {
+  background: var(--mc-warning-soft);
+  color: var(--mc-warning-fg);
+  border-color: transparent;
+}
+
+.mc-badge--danger {
+  background: var(--mc-danger-soft);
+  color: var(--mc-danger-fg);
+  border-color: transparent;
+}
+
+/* ---------- 文本工具类 ---------- */
+.mc-muted {
+  color: var(--mc-text-muted);
+}
+
+.mc-secondary {
+  color: var(--mc-text-secondary);
+}
+
+.mc-mono {
+  font-family: var(--mc-font-mono);
+}
+
+.mc-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mc-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.mc-row {
+  display: flex;
+  align-items: center;
+  gap: var(--mc-space-3);
+}
+
+.mc-row--between {
+  justify-content: space-between;
+}
+
+.mc-row--wrap {
+  flex-wrap: wrap;
+}
+
+.mc-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mc-space-3);
+}
+
+.mc-spacer {
+  flex: 1;
+}
+
+/* ---------- 空状态 / 加载 ---------- */
+.mc-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--mc-space-2);
+  padding: var(--mc-space-10) var(--mc-space-4);
+  color: var(--mc-text-muted);
+  text-align: center;
+}
+
+.mc-empty__icon {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.mc-skeleton {
+  border-radius: var(--mc-radius);
+  background: linear-gradient(90deg, var(--mc-bg-sunken) 25%, var(--mc-bg-hover) 37%, var(--mc-bg-sunken) 63%);
+  background-size: 400% 100%;
+  animation: mc-skeleton 1.4s ease infinite;
+}
+
+@keyframes mc-skeleton {
+  0% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+/* ---------- 进度 ---------- */
+.mc-progress {
+  height: 6px;
+  border-radius: var(--mc-radius-pill);
+  background: var(--mc-bg-sunken);
+  overflow: hidden;
+}
+
+.mc-progress__bar {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--mc-primary);
+  transition: width var(--mc-transition);
+}
+
+.mc-progress__bar--success {
+  background: var(--mc-success);
+}
+
+/* ---------- 栅格 ---------- */
+.mc-grid {
+  display: grid;
+  gap: var(--mc-space-4);
+}
+
+.mc-grid--cards {
+  grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
+}
+
+.mc-grid--stats {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+/* 减少动画偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ================= 2.0 追加（组件层能力，不改既有类的行为） ================= */
+
+/* ---- 按钮：软色 / 图标 / 危险实心 ---- */
+/* 软色按钮：浅底 + 主色文字，用于"非首要动作"，避免一屏全是纯蓝主按钮 */
+.mc-btn--soft {
+  background: var(--mc-primary-soft);
+  border-color: transparent;
+  color: var(--mc-primary-fg);
+  font-weight: 600;
+}
+
+.mc-btn--soft:hover:not(:disabled) {
+  background: var(--mc-primary-100);
+  border-color: transparent;
+  color: var(--mc-primary-hover);
+}
+
+.mc-btn--danger-solid {
+  background: var(--mc-danger);
+  border-color: var(--mc-danger);
+  color: var(--mc-text-inverse);
+}
+
+.mc-btn--danger-solid:hover:not(:disabled) {
+  filter: brightness(0.94);
+  background: var(--mc-danger);
+  border-color: var(--mc-danger);
+}
+
+/* 图标按钮：固定方形命中区，保证可点面积 ≥ 32px */
+.mc-btn--icon {
+  width: var(--mc-control-h);
+  min-height: var(--mc-control-h);
+  padding: 0;
+}
+
+.mc-btn--icon.mc-btn--sm {
+  width: var(--mc-control-h-sm);
+  min-height: var(--mc-control-h-sm);
+}
+
+/* ---- 卡片：可交互态（悬停抬升） ---- */
+.mc-card--interactive {
+  transition:
+    box-shadow var(--mc-duration) var(--mc-ease),
+    border-color var(--mc-duration) var(--mc-ease),
+    transform var(--mc-duration) var(--mc-ease-out);
+}
+
+.mc-card--interactive:hover {
+  box-shadow: var(--mc-elev-hover);
+  border-color: var(--mc-primary-border);
+  transform: translateY(-2px);
+}
+
+/* ---- 工具条里的输入控件：统一高度与宽度语义 ---- */
+.mc-input--search {
+  min-width: 220px;
+}
+
+.mc-input,
+.mc-select {
+  min-height: var(--mc-control-h);
+}
+
+.mc-input--sm,
+.mc-select--sm {
+  min-height: var(--mc-control-h-sm);
+  font-size: var(--mc-text-xs);
+}
+
+/* ---- 表格：表头层次 + 行悬停 + 数字对齐 ---- */
+.mc-table thead th {
+  background: var(--mc-bg-sunken);
+  color: var(--mc-text-secondary);
+  font-weight: var(--mc-font-semibold);
+  font-size: var(--mc-text-xs);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.mc-table tbody tr {
+  transition: background var(--mc-duration-fast) var(--mc-ease);
+}
+
+.mc-table tbody tr:hover {
+  background: var(--mc-bg-hover);
+}
+
+.mc-table .mc-num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ---- 键盘可达性：可视焦点说明（配合全局 :focus-visible） ---- */
+.mc-focusable:focus-visible {
+  outline: 2px solid var(--mc-primary);
+  outline-offset: 2px;
+}
+
+/* ---- 长文本排版：题面/解析阅读宽度 ---- */
+.mc-prose {
+  max-width: 82ch;
+  line-height: var(--mc-leading-relaxed);
+}
+
+/* ============ 滚动条：系统默认（Windows）又粗又带箭头，改成细圆角、随主题 ============ */
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--mc-border-strong) transparent;
+}
+
+/* WebKit / Blink */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  /* 用 border + background-clip 做出"细条居中"的效果 */
+  border: 3px solid transparent;
+  border-radius: var(--mc-radius-pill);
+  background: var(--mc-border-strong);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--mc-text-muted);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ============ 全局异常提示条（main.ts 的渲染兜底使用） ============ */
+.mc-error-banner {
+  position: fixed;
+  left: 50%;
+  bottom: var(--mc-space-6);
+  z-index: 9999;
+  max-width: 90vw;
+  padding: var(--mc-space-2) var(--mc-space-4);
+  transform: translateX(-50%);
+  border: 1px solid var(--mc-warning-border, var(--mc-border));
+  border-radius: var(--mc-radius);
+  background: var(--mc-warning-soft, var(--mc-surface-2));
+  color: var(--mc-warning-fg, var(--mc-text));
+  box-shadow: var(--mc-shadow-md);
+  font-size: var(--mc-text-sm);
+}

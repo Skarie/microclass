@@ -1,0 +1,73 @@
+# 微课堂 V2 —— EVO4（fnOS）正式部署编排
+#
+# 用法（在 EVO4 上，工作目录为含 .env 的目录）：
+#   sudo docker compose -f compose.evo4.yml up -d         # 启动/更新
+#   sudo docker compose -f compose.evo4.yml ps            # 状态
+#   sudo docker compose -f compose.evo4.yml logs -f       # 日志
+#   sudo docker compose -f compose.evo4.yml down          # 停止（保留数据卷）
+#
+# 说明：
+# - 数据卷 microclass_data 由外部创建（external），内含既有数据，编排不会重建它；
+# - user 必须与媒体目录属主一致（EVO4 上是 1000:1000），否则视频会返回 403，详见 docs/deploy.md；
+# - 8091 为默认端口，8093 保留为历史入口，两个端口指向同一实例。
+name: microclass
+
+services:
+  api:
+    image: microclass:${MC_VERSION:-2.0.0}
+    container_name: microclass-api
+    restart: unless-stopped
+    user: '1000:1000'
+    environment:
+      MC_ENV: production
+      MC_HOST: 0.0.0.0
+      MC_PORT: '8091'
+      MC_SITE_NAME: ${MC_SITE_NAME:-微课堂}
+      MC_VERSION: ${MC_VERSION:-2.0.0}
+      MC_ADMIN_USER: ${MC_ADMIN_USER:-admin}
+      # 仅在首次初始化（库中没有 admin）时使用；已有账号不会被覆盖
+      MC_ADMIN_PASS: ${MC_ADMIN_PASS:?请在 .env 中设置 MC_ADMIN_PASS}
+      MC_ALLOW_REGISTER: ${MC_ALLOW_REGISTER:-true}
+      MC_MAX_UPLOAD_MB: ${MC_MAX_UPLOAD_MB:-200}
+      MC_LOG_LEVEL: ${MC_LOG_LEVEL:-info}
+      MC_TRUST_PROXY: ${MC_TRUST_PROXY:-1}
+      TZ: Asia/Shanghai
+    ports:
+      - '8091:8091'
+      - '8093:8091'
+    volumes:
+      - microclass_data:/app/data
+      # 媒体目录：按实际路径挂载（只读）；容器内路径需与库中 settings.media_roots 的 path 一致
+      - /vol1/1000/JAVA课:/media/java:ro
+      - /vol1/1000:/media/nas:ro
+      - /vol1:/vol1:ro
+      # 思酷睿课程（小学数学 / 初中数学 / 高中数学 / 初中物理·化学 / 高中物理）
+      - /vol2/1000/思酷睿课程:/media/sikuruike:ro
+      # 题库包导入目录（只读）：题库包直接在宿主机上解包，导入时不用 docker cp 进容器
+      #   docker exec microclass-api node /app/ops/scripts/import-bank-manifest.mjs /import/unpacked/<包名>
+      - /vol1/1000/microclass-bank-import:/import:ro
+    deploy:
+      resources:
+        limits:
+          # ffmpeg 抽帧/取时长会比较吃内存，1g 在批量导入时被 cgroup OOM 杀过一次，给足 2g
+          memory: 2g
+        reservations:
+          memory: 256m
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          node -e "fetch('http://127.0.0.1:8091/api/v1/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '5'
+
+volumes:
+  microclass_data:
+    external: true

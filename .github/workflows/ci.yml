@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22.20.0'
+
+jobs:
+  quality:
+    name: Lint · Typecheck · Test · Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build shared types
+        run: npm run build -w @microclass/shared
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit & integration tests
+        run: npm run test
+
+      - name: Coverage gate
+        run: npm run test:coverage
+
+      - name: Build all packages
+        run: npm run build
+
+      - name: 依赖漏洞门禁（生产依赖，high 及以上直接失败）
+        # 用公共 registry：镜像源通常不实现 /-/npm/v1/security/* 接口
+        run: npm audit --omit=dev --audit-level=high --registry=https://registry.npmjs.org
+
+  e2e:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build（E2E 面向生产构建产物）
+        run: npm run build
+
+      - name: 安装 Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: 运行端到端测试
+        run: npm run test:e2e
+
+      - name: 上传失败现场（trace / 截图）
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  docker:
+    name: Docker image build
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build API image
+        # 版本号从 package.json 注入，与 /api/v1/version 返回一致
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          docker build -f ops/docker/Dockerfile --build-arg MC_VERSION="$VERSION" -t "microclass:$VERSION" .
+          docker run -d --name mc-smoke -p 8091:8091 -e MC_ADMIN_PASS=ci-smoke-pass -v mcdata:/app/data "microclass:$VERSION"
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8091/api/v1/readyz >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          echo "--- version ---"; curl -fsS http://127.0.0.1:8091/api/v1/version
+          echo "--- SPA ---"; curl -fsS -o /dev/null -w "%{http_code} %{content_type}\n" http://127.0.0.1:8091/
+          echo "--- deep link ---"; curl -fsS -o /dev/null -w "%{http_code} %{content_type}\n" http://127.0.0.1:8091/admin/exams
+          docker logs --tail 20 mc-smoke
+          docker rm -f mc-smoke

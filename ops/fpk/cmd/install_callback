@@ -1,0 +1,8 @@
+#!/bin/bash
+# 安装完成：准备数据目录；数据库迁移由服务启动时自动执行（幂等）。
+set -u
+
+LOG_FILE="${TRIM_PKGVAR}/info.log"
+mkdir -p "${TRIM_PKGVAR}/data"
+echo "$(date '+%Y-%m-%d %H:%M:%S') - install_callback: data dir ready at ${TRIM_PKGVAR}/data" >> "${LOG_FILE}"
+exit 0
