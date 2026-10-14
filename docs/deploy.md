@@ -64,7 +64,8 @@ cd ops/docker && docker compose up -d
 ```
 
 - 编排文件：`ops/docker/docker-compose.yml`；容器名 `microclass-api`，数据卷 `mcdata:/app/data`。
-- 媒体目录：在 compose 里加只读挂载（例 `- /vol1/1000/JAVA课:/media/java:ro`），再用 `MC_MEDIA_ROOTS` 或后台登记（见 [video.md](video.md)）。
+- 媒体目录：在 compose 里加只读挂载（例 `- /vol1/1000/JAVA课:/media/java:ro`），再用 `MC_MEDIA_ROOTS` 或后台登记。
+  `path` 要填**容器内路径**；容器内 uid 10001 需要对该目录可读（否则播放 403）。详见 **[video.md](video.md) 第 2.1 节**。
 
 ### 1.3 用 docker run 启动（手动可控）
 
@@ -172,6 +173,9 @@ sudo systemctl status microclass
 journalctl -u microclass -f
 ```
 
+**视频媒体目录**（本地部署没有容器映射）：`MC_MEDIA_ROOTS` 直接填**宿主机绝对路径**，并确保 `User=` 指定的系统用户可读；
+若启用了 `ProtectSystem=strict`，记得加 `ReadOnlyPaths=/srv/media`。详见 **[video.md](video.md) 第 2.2 节**。
+
 ---
 
 ## 3. fnOS FPK（飞牛应用中心）
@@ -217,6 +221,7 @@ microclass/
 - 数据目录：`$TRIM_PKGVAR/data`（`/vol1/@appdata/microclass/data`），升级保留
 - 初始管理员密码：首次启动写入 `$TRIM_PKGVAR/adminpass`（权限 600），启动日志见 `info.log`
 - 端口：**8092**（`app/ui/config` 与 `cmd/main` 两处要同步改）
+- 视频媒体目录：FPK 是 native 应用，**直接填 NAS 真实路径**（如 `/vol1/1000/media/math7`），或在界面里添加；权限见 [video.md](video.md) 第 2.3 节
 - 升级前自动备份：`cmd/upgrade_init` 打包到 `$TRIM_PKGVAR/backup/pre-upgrade-<时间戳>.tar.gz`，保留最近 5 份
 
 ### 3.4 排障
@@ -405,6 +410,8 @@ docker compose -f compose.evo4.yml up -d           # 更新镜像后重建
 新增媒体目录：在 `compose.evo4.yml` 加一行 `- /宿主机路径:/容器内路径:ro` →
 `sudo docker compose -f compose.evo4.yml up -d`（重建容器，数据卷保留）→
 后台 **课程管理 → 媒体目录 → 添加媒体目录** 填**容器内路径**。
+
+> ⚠️ `MC_MEDIA_ROOTS` 只在「库里还没有媒体目录」时播种一次：一旦用界面加过目录，再改环境变量**不会生效**（继续用界面加即可）。
 
 反向代理补充：该实例通过反代对外提供 HTTPS，配置要点同第 4 节。
 

@@ -43,7 +43,8 @@
 
 也可以**网页直接上传**（无需宿主机权限，受 `MC_MAX_VIDEO_MB` 限制），或填**外链/嵌入**（B 站、自建 CDN，不占服务器磁盘）。
 
-- 完整指南（目录约定与命名、`chapterMode` 章节规则、扫描幂等性、媒体目录权限、时长与封面、播放机制、排错表、最小可用流程）：**[docs/video.md](docs/video.md)**
+- 完整指南（目录约定与命名、`chapterMode` 章节规则、扫描幂等性、权限、时长与封面、播放机制、排错表、最小可用流程）：**[docs/video.md](docs/video.md)**
+  —— **Docker / 本地+systemd / fnOS FPK 三种部署方式的媒体目录配置各不相同**（容器内路径 vs 宿主机绝对路径 vs NAS 真实路径），文档里都有对应步骤与验证命令
 - 容器挂载与权限：**[docs/deploy.md](docs/deploy.md)**
 
 ## 功能
