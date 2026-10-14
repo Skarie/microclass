@@ -134,7 +134,8 @@ CI 会在每次 PR 跑「质量 / E2E / Docker 镜像冒烟」三个 job，并�
 
 - 架构与依赖方向、可观测性：[docs/architecture.md](docs/architecture.md)
 - 接口说明（另有 OpenAPI 3.1）：[docs/api.md](docs/api.md)
-- 部署（本地 / Docker / fnOS FPK / 反向代理）：[docs/deploy.md](docs/deploy.md)
+- 部署（逐步：Docker / 本地+systemd / fnOS FPK / 反向代理 / 升级回滚 / 自检清单）：[docs/deploy.md](docs/deploy.md)
+- **视频挂载**（媒体目录扫描 / 网页上传 / 外链、章节划分、权限与排错）：[docs/video.md](docs/video.md)
 - 教师使用说明：[docs/usage.md](docs/usage.md)
 - 运维手册（巡检、日志、备份恢复、定时任务）：[docs/ops-runbook.md](docs/ops-runbook.md)
 - 安全设计与复核记录：[docs/security.md](docs/security.md)
