@@ -11,8 +11,16 @@ import { loginViaUi } from './helpers';
  *
  * 首次生成基线：`npx playwright test visual --update-snapshots`
  * 平时对比：`npx playwright test visual`（差异超过阈值即失败，并输出 diff 图）
+ *
+ * ⚠️ 基线**按平台维护**：Playwright 的截图快照名会带平台后缀（`*-chromium-win32.png` /
+ * `*-chromium-linux.png`）。仓库当前只有 Windows 基线，而不同系统的字体渲染/抗锯齿差异
+ * 会让像素比对必然失败（`maxDiffPixelRatio` 只有 1%），因此在没有对应基线平台上跳过，
+ * 而不是让它红着——需要 Linux 覆盖时，在 Linux 上跑一次
+ * `npx playwright test visual --update-snapshots` 并把生成的 `*-linux.png` 提交上来即可。
  */
 test.describe('视觉回归', () => {
+  test.skip(process.platform !== 'win32', '当前仅维护 Windows 视觉基线（见上方说明）');
+
   test('登录页（浅色 / 深色）', async ({ page }) => {
     await page.goto('/login');
     await expect(page.getByRole('button', { name: /^登录$/ })).toBeVisible();
