@@ -31,7 +31,13 @@ function makeReply(cap: Captured): FastifyReply {
 }
 
 function makeReq(range?: string): FastifyRequest {
-  return { headers: range === undefined ? {} : { range }, requestId: 'test-req' } as unknown as FastifyRequest;
+  return {
+    headers: range === undefined ? {} : { range },
+    requestId: 'test-req',
+    // 生产代码在 403 分支会调用 req.log.error(...)：桩必须提供 log，否则该分支一执行就
+    // TypeError（Windows 上 chmod 用例被跳过，过去只在 Linux/CI 暴露）。
+    log: { error: () => {}, warn: () => {}, info: () => {}, debug: () => {} },
+  } as unknown as FastifyRequest;
 }
 
 function capture(): Captured {
