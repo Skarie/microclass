@@ -67,6 +67,36 @@ afterAll(() => {
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
+/**
+ * 当前环境能否构造"存在但不可读"的文件？
+ *   - Windows：没有 POSIX 权限位 → 不能
+ *   - root / 特权容器（CAP_DAC_OVERRIDE）：会绕过权限位 → 不能
+ * 不能时直接跳过该用例，而不是让测试随运行环境（本地 Windows / CI 特权 runner）随机失败。
+ */
+const permissionsEnforced = (() => {
+  if (process.platform === 'win32') return false;
+  const probe = path.join(os.tmpdir(), `mc-perm-probe-${process.pid}`);
+  try {
+    fs.writeFileSync(probe, 'probe');
+    fs.chmodSync(probe, 0o000);
+    try {
+      fs.accessSync(probe, fs.constants.R_OK);
+      return false;
+    } catch {
+      return true;
+    }
+  } catch {
+    return false;
+  } finally {
+    try {
+      fs.chmodSync(probe, 0o600);
+      fs.rmSync(probe, { force: true });
+    } catch {
+      /* 清理失败不影响用例 */
+    }
+  }
+})();
+
 describe('HTTP Range 分片响应', () => {
   it('无 Range 时返回整文件并声明支持 Range', async () => {
     const cap = capture();
@@ -138,12 +168,14 @@ describe('HTTP Range 分片响应', () => {
     expect(cap.body).toMatchObject({ error: { code: 'NOT_FOUND' } });
   });
 
-  // Windows 上 chmod 语义不同（无 POSIX 权限位），该用例仅在 Linux/macOS 生效
-  it.skipIf(process.platform === 'win32')('文件存在但无读权限时返回 403 与可操作提示（而不是含糊的 500）', () => {
+  // Windows 上 chmod 语义不同（无 POSIX 权限位）；root/特权 runner 会绕过权限位（CAP_DAC_OVERRIDE），
+  // 两种情况都无法构造"存在但不可读"的文件，该用例此时没有意义 → 探测后跳过
+  it.skipIf(!permissionsEnforced)('文件存在但无读权限时返回 403 与可操作提示（而不是含糊的 500）', () => {
     const locked = path.join(dir, 'locked.mp4');
     fs.writeFileSync(locked, Buffer.from('0123456789'));
     fs.chmodSync(locked, 0o000);
     try {
+      expect(fs.accessSync.bind(null, locked, fs.constants.R_OK)).toThrow();
       const cap = capture();
       sendFileWithRange(makeReq('bytes=0-3'), makeReply(cap), locked);
       expect(cap.status).toBe(403);
