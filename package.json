@@ -4,7 +4,7 @@
   "version": "2.0.0",
   "type": "module",
   "description": "微课堂 — 企业级轻量学习平台（课程/章节/课时 · 题库/考试 · 学习进度）",
-  "license": "MIT",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "engines": {
     "node": ">=22.5.0"
   },

@@ -5,7 +5,7 @@
 
 [![CI](../../actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
 ![Node](https://img.shields.io/badge/node-%3E%3D22.5-339933)
-![License](https://img.shields.io/badge/license-MIT-blue)
+![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-red)
 ![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen)
 
 ---
@@ -178,4 +178,12 @@ CI 会在每次 PR 跑「质量 / E2E / Docker 镜像冒烟」三个 job，并�
 
 ## 许可
 
-[MIT](LICENSE)
+本项目采用 **[PolyForm Noncommercial License 1.0.0](LICENSE)**：
+
+- ✅ **允许**：个人学习、研究、实验、测试与个人非商业项目；慈善机构、教育机构、公共研究机构等**非商业组织**使用；修改与再分发（须保留版权与许可声明，并传递同样的许可）
+- ❌ **禁止**：任何**商业用途**（对外收费服务、经营性内部使用、有偿交付/集成等）；移除或修改版权、许可、免责声明；就本软件主张独占权利
+
+> 因此本项目属于 **source-available（源码可见）**，**不是** OSI 定义的开源软件。
+> 需要商用请先取得**书面商业授权**（见下）。
+
+- 授权范围、如何取得商业授权、以及**软件著作权（软著）与"被抢注"的应对**：**[docs/license-and-copyright.md](docs/license-and-copyright.md)**
