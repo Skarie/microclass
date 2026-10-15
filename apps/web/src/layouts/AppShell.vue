@@ -218,18 +218,7 @@ const levelProgress = computed(() => {
   transition: width var(--mc-transition);
 }
 
-/* 侧栏顶部的品牌渐隐：给导航区一层"被光照到"的质感 */
-.sidebar::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 220px;
-  background-image: var(--mc-gradient-brand-soft);
-  opacity: 0.55;
-  pointer-events: none;
-  mask-image: var(--mc-mask-fade-b);
-  -webkit-mask-image: var(--mc-mask-fade-b);
-}
+/* 墨卷：侧栏不加渐隐光晕，靠色块与细分隔线区分区域 */
 
 .shell--collapsed .sidebar {
   width: var(--mc-sidebar-collapsed);
@@ -248,12 +237,11 @@ const levelProgress = computed(() => {
   justify-content: center;
   width: 32px;
   height: 32px;
-  border-radius: var(--mc-radius-md);
-  background-image: var(--mc-gradient-brand);
+  border-radius: var(--mc-radius-sm);
+  background: var(--mc-primary);
   color: var(--mc-text-inverse);
   font-weight: 700;
   flex: none;
-  box-shadow: var(--mc-shadow-brand);
 }
 
 .brand__name {
@@ -298,13 +286,12 @@ const levelProgress = computed(() => {
   color: var(--mc-text);
 }
 
-/* 活动项：渐变胶囊 + 品牌光晕。文字用 --mc-text-inverse（浅色主题为白、暗色主题翻成深色），
-   两个主题下都满足对比度，且避免"渐变端点太亮导致白字看不清"。 */
+/* 活动项：浅底 + 左侧主色细条（比整块实心色更克制、更"编辑"，也避免模板感） */
 .nav__item--active {
-  background-image: var(--mc-gradient-primary);
-  color: var(--mc-text-inverse);
+  background: var(--mc-primary-soft);
+  color: var(--mc-primary-fg);
   font-weight: var(--mc-font-semibold);
-  box-shadow: var(--mc-shadow-brand);
+  box-shadow: inset 2px 0 0 var(--mc-primary);
 }
 
 .nav__icon {
@@ -398,11 +385,10 @@ const levelProgress = computed(() => {
   width: 32px;
   height: 32px;
   border-radius: var(--mc-radius-pill);
-  background-image: var(--mc-gradient-brand);
-  color: var(--mc-text-inverse);
+  background: var(--mc-primary-soft);
+  color: var(--mc-primary-fg);
   font-weight: var(--mc-font-semibold);
   flex: none;
-  box-shadow: var(--mc-shadow-xs);
 }
 
 .user__meta {

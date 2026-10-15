@@ -179,13 +179,9 @@ async function submit(): Promise<void> {
   position: relative;
   overflow: hidden;
   padding: var(--mc-space-12) var(--mc-space-10);
-  /* 深靛蓝 → 紫罗兰：保证白色文字始终 ≥4.5:1（青色端太亮，只用于装饰光斑） */
-  background-image: linear-gradient(
-    155deg,
-    var(--mc-primary-800) 0%,
-    var(--mc-primary-600) 46%,
-    var(--mc-accent-fg) 100%
-  );
+  /* 墨卷：纯色深松绿面板，不用多色渐变；白字对比充足 */
+  background-image: none;
+  background-color: var(--mc-primary-700);
   color: var(--mc-neutral-0);
   display: flex;
   flex-direction: column;
@@ -193,32 +189,7 @@ async function submit(): Promise<void> {
   justify-content: center;
 }
 
-/* 装饰光斑：右上青、左下靛，纯装饰不承载文字 */
-.login__aside::before {
-  content: '';
-  position: absolute;
-  inset: -20% -10% auto auto;
-  width: 60%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background-image: radial-gradient(circle, color-mix(in srgb, var(--mc-amber) 60%, transparent) 0%, transparent 68%);
-  opacity: 0.55;
-  pointer-events: none;
-}
-
-.login__aside::after {
-  content: '';
-  position: absolute;
-  inset: auto auto -25% -15%;
-  width: 55%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background-image: radial-gradient(circle, color-mix(in srgb, var(--mc-accent) 60%, transparent) 0%, transparent 70%);
-  opacity: 0.5;
-  pointer-events: none;
-}
-
-/* 面板内容压在光斑之上 */
+/* 墨卷：不加装饰光斑，保持平面 */
 .login__aside > * {
   position: relative;
   z-index: 1;

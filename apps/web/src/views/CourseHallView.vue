@@ -309,20 +309,9 @@ function resetFilters(): void {
   justify-content: center;
   aspect-ratio: 16 / 6;
   overflow: hidden;
-  background-image:
-    radial-gradient(120% 120% at 8% 0%, color-mix(in srgb, var(--mc-primary) 34%, transparent) 0%, transparent 62%),
-    radial-gradient(110% 130% at 100% 10%, color-mix(in srgb, var(--mc-accent) 30%, transparent) 0%, transparent 64%),
-    var(--mc-gradient-brand-soft);
-}
-
-/* 掠过式高光：静态也有质感，悬浮时更明显（配合 .mc-card--interactive） */
-.course-card__cover::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: var(--mc-gradient-sheen);
-  opacity: 0.4;
-  pointer-events: none;
+  /* 墨卷：封面用暖色平涂 + 一条细底边，不用渐变光晕 */
+  background: color-mix(in srgb, var(--mc-primary) 7%, var(--mc-bg-sunken));
+  border-bottom: 1px solid var(--mc-border);
 }
 
 .course-card__cover img {
@@ -344,13 +333,11 @@ function resetFilters(): void {
   justify-content: center;
   width: 56px;
   height: 56px;
-  border-radius: var(--mc-radius-lg);
-  background-image: var(--mc-gradient-brand);
-  border: 1px solid color-mix(in srgb, var(--mc-neutral-0) 28%, transparent);
-  /* 图标压在高饱和渐变上：固定用白色（--mc-text-inverse 会随主题翻成深色） */
+  border-radius: var(--mc-radius-md);
+  background: var(--mc-primary);
+  border: 1px solid transparent;
+  /* 图标压在实色块上：固定白色（--mc-text-inverse 会随主题翻成深色） */
   color: var(--mc-neutral-0);
-  box-shadow: var(--mc-shadow-md);
-  transition: var(--mc-transition-transform);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -360,27 +347,27 @@ function resetFilters(): void {
 }
 
 .course-card__cover-fallback--g0 {
-  background-image: linear-gradient(135deg, var(--mc-chart-1) 0%, var(--mc-chart-6) 100%);
+  background: var(--mc-chart-1);
 }
 
 .course-card__cover-fallback--g1 {
-  background-image: linear-gradient(135deg, var(--mc-chart-2) 0%, var(--mc-chart-1) 100%);
+  background: var(--mc-chart-2);
 }
 
 .course-card__cover-fallback--g2 {
-  background-image: linear-gradient(135deg, var(--mc-chart-3) 0%, var(--mc-chart-2) 100%);
+  background: var(--mc-chart-3);
 }
 
 .course-card__cover-fallback--g3 {
-  background-image: linear-gradient(135deg, var(--mc-chart-4) 0%, var(--mc-chart-8) 100%);
+  background: var(--mc-chart-4);
 }
 
 .course-card__cover-fallback--g4 {
-  background-image: linear-gradient(135deg, var(--mc-chart-5) 0%, var(--mc-chart-6) 100%);
+  background: var(--mc-chart-5);
 }
 
 .course-card__cover-fallback--g5 {
-  background-image: linear-gradient(135deg, var(--mc-chart-7) 0%, var(--mc-chart-1) 100%);
+  background: var(--mc-chart-6);
 }
 
 /* 封面左上角分类胶囊：让"这是什么课"第一眼就有信息 */

@@ -16,12 +16,8 @@ body,
 }
 
 body {
-  /* 品牌氛围：极淡的双色光晕铺底，让纯色页面不再"发平"（暗色下同样成立） */
+  /* 墨卷：不再用彩色氛围光晕（那正是"AI 味"的来源），改为纯暖纸底 */
   background-color: var(--mc-bg);
-  background-image:
-    radial-gradient(60rem 40rem at 12% -12%, color-mix(in srgb, var(--mc-primary) 9%, transparent), transparent 70%),
-    radial-gradient(50rem 34rem at 100% 0%, color-mix(in srgb, var(--mc-accent) 7%, transparent), transparent 72%);
-  background-attachment: fixed;
   color: var(--mc-text);
   font-family: var(--mc-font-sans);
   font-size: var(--mc-text-base);
@@ -99,7 +95,8 @@ a:hover {
 
 .mc-card__title {
   font-size: var(--mc-text-md);
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
+  letter-spacing: 0.01em;
 }
 
 .mc-card__body {
@@ -136,15 +133,12 @@ a:hover {
 @media (hover: hover) and (pointer: fine) {
   .mc-btn:hover:not(:disabled) {
     background: var(--mc-bg-hover);
-    border-color: var(--mc-primary-border);
-    transform: translateY(-1px);
-    box-shadow: var(--mc-shadow-sm);
+    border-color: var(--mc-border-strong);
   }
 }
 
 .mc-btn:active:not(:disabled) {
-  transform: translateY(0) scale(0.985);
-  transition-duration: var(--mc-duration-fast);
+  background: var(--mc-bg-sunken);
 }
 
 .mc-btn:disabled {
@@ -154,26 +148,21 @@ a:hover {
 
 .mc-btn--primary {
   background-color: var(--mc-primary);
-  background-image: var(--mc-gradient-primary);
-  border-color: transparent;
+  background-image: none;
+  border-color: var(--mc-primary);
   color: var(--mc-text-inverse);
-  box-shadow: var(--mc-shadow-brand);
 }
 
 @media (hover: hover) and (pointer: fine) {
   .mc-btn--primary:hover:not(:disabled) {
     background-color: var(--mc-primary-hover);
-    background-image: var(--mc-gradient-primary);
-    border-color: transparent;
-    box-shadow: var(--mc-shadow-brand-strong);
-    transform: translateY(-1px);
+    border-color: var(--mc-primary-hover);
   }
 }
 
 .mc-btn--primary:active:not(:disabled) {
   background-color: var(--mc-primary-active);
-  background-image: none;
-  box-shadow: var(--mc-shadow-xs);
+  border-color: var(--mc-primary-active);
 }
 
 .mc-btn--danger {
@@ -692,19 +681,13 @@ a:hover {
 @media (hover: hover) and (pointer: fine) {
   .mc-card--interactive:hover {
     transform: translateY(var(--mc-hover-lift));
-    box-shadow: var(--mc-shadow-lg);
-    border-color: var(--mc-primary-border);
-  }
-
-  .mc-card--interactive:hover::after {
-    opacity: 0.55;
-    transform: translateX(35%);
+    box-shadow: var(--mc-shadow-md);
+    border-color: var(--mc-border-strong);
   }
 }
 
 .mc-card--interactive:active {
-  transform: translateY(-1px) scale(0.995);
-  transition-duration: var(--mc-duration-fast);
+  background: var(--mc-bg-hover);
 }
 
 /* 卡片顶部渐变描边（"旗帜鲜明"的强调卡） */
@@ -724,10 +707,9 @@ a:hover {
 
 /* 渐变文字：用于大标题、数字看板 */
 .mc-gradient-text {
-  background-image: var(--mc-gradient-brand);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  /* 墨卷不用渐变字：改为深主色强调 */
+  color: var(--mc-primary-fg);
+  font-weight: var(--mc-font-semibold);
 }
 
 /* 渐变横幅：登录页/首页/课程封面缺图时的兜底 */

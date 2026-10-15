@@ -67,6 +67,18 @@ withDefaults(
 }
 
 /* 面包屑链接给足点击区（原来只有文字高度 19px，触屏点不准；WCAG 2.2 最小目标 24px） */
+.ph__title {
+  font-size: var(--mc-text-2xl);
+  font-weight: var(--mc-font-bold);
+  letter-spacing: var(--mc-tracking-tight);
+  line-height: var(--mc-leading-tight);
+}
+
+.ph__head {
+  padding-bottom: var(--mc-space-3);
+  border-bottom: 1px solid var(--mc-border);
+}
+
 .ph__crumb {
   display: inline-flex;
   align-items: center;
