@@ -180,7 +180,12 @@ async function submit(): Promise<void> {
   overflow: hidden;
   padding: var(--mc-space-12) var(--mc-space-10);
   /* 深靛蓝 → 紫罗兰：保证白色文字始终 ≥4.5:1（青色端太亮，只用于装饰光斑） */
-  background-image: linear-gradient(155deg, var(--mc-primary-700) 0%, var(--mc-primary-500) 46%, var(--mc-accent) 100%);
+  background-image: linear-gradient(
+    155deg,
+    var(--mc-primary-800) 0%,
+    var(--mc-primary-600) 46%,
+    var(--mc-accent-fg) 100%
+  );
   color: var(--mc-neutral-0);
   display: flex;
   flex-direction: column;
@@ -196,7 +201,7 @@ async function submit(): Promise<void> {
   width: 60%;
   aspect-ratio: 1;
   border-radius: 50%;
-  background-image: radial-gradient(circle, color-mix(in srgb, var(--mc-cyan) 55%, transparent) 0%, transparent 68%);
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--mc-amber) 60%, transparent) 0%, transparent 68%);
   opacity: 0.55;
   pointer-events: none;
 }

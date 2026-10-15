@@ -11,14 +11,14 @@
 **做法（tokens-first）**：本项目样式几乎全部走令牌（1866 处 `var(--mc-*)`，硬编码色值仅个位数），
 因此**换令牌即可整站换脸**，再逐个升级关键组件与"门面"页面。
 
-| 维度 | 之前 | 现在 |
-| --- | --- | --- |
-| 品牌色 | 通用蓝 `#1f6feb` | **靛蓝 `#4f46e5` × 紫罗兰 `#7c3aed` × 青 `#06b6d4`** 三色体系（旗帜鲜明、有辨识度） |
-| 圆角 | xs2 / sm4 / base8 / lg12 | xs4 / sm6 / base10 / md12 / lg14 / **xl20 / 2xl28** |
-| 阴影 | 单层 4 档 | **分层柔和 5 档（xs→xl）+ 品牌光晕**（brand / brand-strong / accent） |
-| 渐变 | 无统一体系 | brand / brand-soft / primary / accent / surface / **sheen（掠过高光）** |
-| 毛玻璃 | 顶栏局部 blur(8px) | 统一 `--mc-glass-bg / border / blur`（顶栏、侧栏） |
-| 动效 | 单曲线 160ms | 「先快后缓」`cubic-bezier(.32,.72,0,1)` + spring；新增 duration-slow、colors/transform/shadow/all 分组过渡、hover 抬升与缩放令牌 |
+| 维度   | 之前                     | 现在                                                                                                                             |
+| ------ | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| 品牌色 | 通用蓝 `#1f6feb`         | **靛蓝 `#4f46e5` × 紫罗兰 `#7c3aed` × 青 `#06b6d4`** 三色体系（旗帜鲜明、有辨识度）                                              |
+| 圆角   | xs2 / sm4 / base8 / lg12 | xs4 / sm6 / base10 / md12 / lg14 / **xl20 / 2xl28**                                                                              |
+| 阴影   | 单层 4 档                | **分层柔和 5 档（xs→xl）+ 品牌光晕**（brand / brand-strong / accent）                                                            |
+| 渐变   | 无统一体系               | brand / brand-soft / primary / accent / surface / **sheen（掠过高光）**                                                          |
+| 毛玻璃 | 顶栏局部 blur(8px)       | 统一 `--mc-glass-bg / border / blur`（顶栏、侧栏）                                                                               |
+| 动效   | 单曲线 160ms             | 「先快后缓」`cubic-bezier(.32,.72,0,1)` + spring；新增 duration-slow、colors/transform/shadow/all 分组过渡、hover 抬升与缩放令牌 |
 
 **组件与页面**：
 

@@ -3,40 +3,50 @@
  * 所有颜色、间距、圆角、阴影、字体只在此处定义，组件禁止硬编码色值。
  * 暗色模式通过 <html data-theme="dark"> 切换同一组语义变量。
  *
- * ============ 2.1 视觉体系（2026-10-15）============
- * 方向：**靛蓝 × 紫罗兰 × 青** 三色品牌体系 —— 比原先的"通用蓝"更有辨识度，
- * 用于渐变封面、按钮光晕、卡片描边与图表；圆角整体放大一档；阴影改分层柔和 + 品牌光晕；
- * 动效统一到「先快后缓」的顺滑曲线，并提供 hover 抬升 / 缩放令牌给"动态卡片"用。
+ * ============ 2.2 视觉体系（2026-10-15）============
+ * 方向：**紫霞 —— 紫罗兰 × 品红 + 琥珀点缀**。
+ * 第一版做成"靛蓝"被否（本质还是蓝），改为明确的紫系：主色 `#7c3aed`、强调 `#d946ef`、
+ * 暖点缀 `#f59e0b`。选它还有个工程原因：**不与语义色打架** ——
+ * 危险/错误仍靠红、成功/掌握仍靠绿，紫系不会让警示失去辨识度。
+ *
+ * 圆角整体放大一档；阴影分层柔和 + 品牌光晕；动效统一「先快后缓」曲线。
  *
  * 兼容性：**只加不改名** —— 既有令牌名全部保留（值可能调整），组件无需改动即可换脸。
  */
 
 :root {
   /* ================= 品牌色 ================= */
-  --mc-primary: #4f46e5;
-  --mc-primary-hover: #4338ca;
-  --mc-primary-active: #3730a3;
-  --mc-primary-soft: #eef0ff;
-  --mc-primary-border: #c7cbfb;
-  /* 压在浅色底上的主色文字（axe 扫描：填充色直接做文字对比度不足 4.5:1） */
-  --mc-primary-fg: #3730a3;
+  --mc-primary: #7c3aed;
+  --mc-primary-hover: #6d28d9;
+  --mc-primary-active: #5b21b6;
+  --mc-primary-soft: #f5f0ff;
+  --mc-primary-border: #ddd0fe;
+  /* 压在浅色底上的主色文字（填充色直接做文字对比度不足 4.5:1） */
+  --mc-primary-fg: #5b21b6;
 
-  /* 第二品牌色（紫罗兰）：用于渐变、强调标签、封面叠色 */
-  --mc-accent: #7c3aed;
-  --mc-accent-hover: #6d28d9;
-  --mc-accent-soft: #f5f0ff;
-  --mc-accent-border: #ddd0fe;
-  --mc-accent-fg: #6d28d9;
-  /* 第三品牌色（青）：用于数据高亮、进度、图表 */
-  --mc-cyan: #06b6d4;
+  /* 第二品牌色（品红）：渐变收尾、强调标签、封面叠色 */
+  --mc-accent: #d946ef;
+  --mc-accent-hover: #c026d3;
+  --mc-accent-soft: #fdf0ff;
+  --mc-accent-border: #f3c9fb;
+  --mc-accent-fg: #a21caf;
+
+  /* 暖点缀（琥珀）：与紫系互补，用于徽标、图表、装饰光斑 */
+  --mc-amber: #f59e0b;
+  --mc-amber-soft: #fff7e8;
+  --mc-amber-border: #f6d99a;
+  --mc-amber-fg: #8a5200;
+
+  /* 冷点缀（青）：留给图表与数据高亮，不参与品牌渐变 */
+  --mc-cyan: #0891b2;
   --mc-cyan-soft: #e6faff;
   --mc-cyan-border: #a5eef9;
   --mc-cyan-fg: #0e7490;
 
-  /* ================= 语义色 ================= */
+  /* ================= 语义色（与品牌色刻意分离） ================= */
   --mc-success: #0b8a4b;
   --mc-success-soft: #e8f8ef;
-  --mc-warning: #c2740a;
+  --mc-warning: #b45309;
   --mc-warning-soft: #fff6e8;
   --mc-warning-border: #f3dcb0;
   --mc-danger: #dc2626;
@@ -48,19 +58,19 @@
   --mc-danger-fg: #b91c1c;
   --mc-info-fg: #075985;
 
-  /* ================= 中性色（浅色主题） ================= */
-  --mc-bg: #f6f7fb;
+  /* ================= 中性色（浅色主题，带一点紫调） ================= */
+  --mc-bg: #f7f6fb;
   --mc-bg-elevated: #ffffff;
   /* 纸张底色（试卷预览 / 扫描页）：印刷品就是白的，浅深主题都不变 */
   --mc-paper-bg: #ffffff;
-  --mc-paper-fg: #141824;
-  --mc-bg-sunken: #eef0f7;
-  --mc-bg-hover: #f1f3fa;
-  --mc-border: #e3e6f0;
-  --mc-border-strong: #cbd0e0;
-  --mc-text: #141824;
-  --mc-text-secondary: #4a5266;
-  --mc-text-muted: #5f6779;
+  --mc-paper-fg: #171423;
+  --mc-bg-sunken: #f0eef7;
+  --mc-bg-hover: #f2f0fa;
+  --mc-border: #e6e3f0;
+  --mc-border-strong: #cfc9e0;
+  --mc-text: #171423;
+  --mc-text-secondary: #4c4658;
+  --mc-text-muted: #625c73;
   --mc-text-inverse: #ffffff;
 
   /* ================= 排版 ================= */
@@ -100,15 +110,15 @@
   --mc-radius-pill: 999px;
 
   /* ================= 阴影（分层柔和 + 品牌光晕） ================= */
-  --mc-shadow-xs: 0 1px 2px rgb(20 24 36 / 5%);
-  --mc-shadow-sm: 0 2px 4px -1px rgb(20 24 36 / 6%), 0 4px 12px -2px rgb(20 24 36 / 8%);
-  --mc-shadow-md: 0 4px 8px -2px rgb(20 24 36 / 8%), 0 12px 24px -4px rgb(20 24 36 / 12%);
-  --mc-shadow-lg: 0 8px 16px -4px rgb(20 24 36 / 10%), 0 24px 48px -8px rgb(20 24 36 / 16%);
-  --mc-shadow-xl: 0 16px 32px -8px rgb(20 24 36 / 12%), 0 40px 72px -12px rgb(20 24 36 / 20%);
-  /* 品牌光晕：主色按钮 / 前景卡片悬浮时用，制造"发光"质感 */
-  --mc-shadow-brand: 0 6px 20px -6px rgb(79 70 229 / 45%);
-  --mc-shadow-brand-strong: 0 10px 32px -8px rgb(79 70 229 / 55%);
-  --mc-shadow-accent: 0 6px 20px -6px rgb(124 58 237 / 45%);
+  --mc-shadow-xs: 0 1px 2px rgb(23 20 35 / 5%);
+  --mc-shadow-sm: 0 2px 4px -1px rgb(23 20 35 / 6%), 0 4px 12px -2px rgb(23 20 35 / 8%);
+  --mc-shadow-md: 0 4px 8px -2px rgb(23 20 35 / 8%), 0 12px 24px -4px rgb(23 20 35 / 12%);
+  --mc-shadow-lg: 0 8px 16px -4px rgb(23 20 35 / 10%), 0 24px 48px -8px rgb(23 20 35 / 16%);
+  --mc-shadow-xl: 0 16px 32px -8px rgb(23 20 35 / 12%), 0 40px 72px -12px rgb(23 20 35 / 20%);
+  /* 品牌光晕：主色按钮 / 活动导航 / 前景卡片悬浮时用，制造"发光"质感 */
+  --mc-shadow-brand: 0 6px 20px -6px rgb(124 58 237 / 45%);
+  --mc-shadow-brand-strong: 0 10px 32px -8px rgb(124 58 237 / 55%);
+  --mc-shadow-accent: 0 6px 20px -6px rgb(217 70 239 / 45%);
 
   /* ================= 布局尺寸 ================= */
   --mc-sidebar-width: 232px;
@@ -123,8 +133,8 @@
   --mc-z-toast: 600;
 
   /* ================= 遮罩与特殊底色 ================= */
-  --mc-overlay: rgb(15 19 25 / 45%);
-  --mc-overlay-strong: rgb(15 19 25 / 55%);
+  --mc-overlay: rgb(19 15 25 / 45%);
+  --mc-overlay-strong: rgb(19 15 25 / 55%);
   --mc-overlay-light: rgb(255 255 255 / 18%);
   --mc-surface-2: rgb(0 0 0 / 4%);
   --mc-surface-2-strong: rgb(0 0 0 / 8%);
@@ -136,12 +146,13 @@
   --mc-glass-border: rgb(255 255 255 / 65%);
   --mc-glass-blur: saturate(180%) blur(16px);
 
-  /* ================= 渐变（品牌三色体系） ================= */
-  --mc-gradient-brand: linear-gradient(135deg, #4f46e5 0%, #7c3aed 52%, #06b6d4 100%);
-  --mc-gradient-brand-soft: linear-gradient(135deg, #eef0ff 0%, #f5f0ff 52%, #e6faff 100%);
-  --mc-gradient-primary: linear-gradient(135deg, #5b52ea 0%, #4338ca 100%);
-  --mc-gradient-accent: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
-  --mc-gradient-surface: linear-gradient(180deg, #ffffff 0%, #fafbff 100%);
+  /* ================= 渐变（紫霞体系） ================= */
+  --mc-gradient-brand: linear-gradient(135deg, #7c3aed 0%, #a855f7 48%, #d946ef 100%);
+  --mc-gradient-brand-soft: linear-gradient(135deg, #f5f0ff 0%, #fbf0ff 55%, #fff7e8 100%);
+  /* 主按钮用：两端都足够深，白字 ≥4.5:1 */
+  --mc-gradient-primary: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+  --mc-gradient-accent: linear-gradient(135deg, #d946ef 0%, #a21caf 100%);
+  --mc-gradient-surface: linear-gradient(180deg, #ffffff 0%, #fbfaff 100%);
   --mc-gradient-sheen: linear-gradient(120deg, transparent 20%, rgb(255 255 255 / 55%) 50%, transparent 80%);
 
   /* 渐变遮罩：让装饰性渐隐（侧栏顶部光晕等）自然淡出。
@@ -153,37 +164,38 @@
   --mc-transition: 180ms cubic-bezier(0.32, 0.72, 0, 1);
 
   /* ================= 色阶 ================= */
-  /* 主色阶（靛蓝）：渐变封面、图表、标签底色，与主色同源 */
-  --mc-primary-50: #f2f2ff;
-  --mc-primary-100: #e6e7ff;
-  --mc-primary-200: #cfd1fe;
-  --mc-primary-300: #aeb2fc;
-  --mc-primary-400: #8289f7;
-  --mc-primary-500: #4f46e5;
-  --mc-primary-600: #4338ca;
-  --mc-primary-700: #3730a3;
-  --mc-primary-800: #2e2882;
-  --mc-primary-900: #262269;
+  /* 主色阶（紫罗兰）：渐变封面、图表、标签底色，与主色同源 */
+  --mc-primary-50: #f8f4ff;
+  --mc-primary-100: #f0e8ff;
+  --mc-primary-200: #e0d1fe;
+  --mc-primary-300: #c9adfd;
+  --mc-primary-400: #ad82fa;
+  --mc-primary-500: #7c3aed;
+  --mc-primary-600: #6d28d9;
+  --mc-primary-700: #5b21b6;
+  --mc-primary-800: #4c1d95;
+  --mc-primary-900: #3b1578;
 
-  /* 中性阶（冷调，带一丝靛蓝） */
+  /* 中性阶（紫调） */
   --mc-neutral-0: #ffffff;
-  --mc-neutral-50: #f8f9fc;
-  --mc-neutral-100: #f1f3fa;
-  --mc-neutral-200: #e3e6f0;
-  --mc-neutral-300: #cbd0e0;
-  --mc-neutral-400: #a2abc2;
-  --mc-neutral-500: #7a8399;
-  --mc-neutral-600: #5a6274;
-  --mc-neutral-700: #414857;
-  --mc-neutral-800: #2a2f3c;
-  --mc-neutral-900: #141824;
+  --mc-neutral-50: #faf9fd;
+  --mc-neutral-100: #f3f1f9;
+  --mc-neutral-200: #e6e3f0;
+  --mc-neutral-300: #cfc9e0;
+  --mc-neutral-400: #a79fbd;
+  --mc-neutral-500: #807894;
+  --mc-neutral-600: #5f5872;
+  --mc-neutral-700: #453f54;
+  --mc-neutral-800: #2c2838;
+  --mc-neutral-900: #171423;
 
-  --mc-chart-1: #4f46e5;
-  --mc-chart-2: #06b6d4;
-  --mc-chart-3: #10b981;
+  /* 图表色板：紫系打头，其余用可区分的冷暖色（不全是紫，保证可辨识） */
+  --mc-chart-1: #7c3aed;
+  --mc-chart-2: #d946ef;
+  --mc-chart-3: #0891b2;
   --mc-chart-4: #f59e0b;
-  --mc-chart-5: #ec4899;
-  --mc-chart-6: #8b5cf6;
+  --mc-chart-5: #10b981;
+  --mc-chart-6: #f43f5e;
   --mc-chart-7: #14b8a6;
   --mc-chart-8: #f97316;
 
@@ -237,18 +249,23 @@
 
 /* ================= 暗色主题 ================= */
 html[data-theme='dark'] {
-  --mc-primary: #7c8cff;
-  --mc-primary-hover: #93a0ff;
-  --mc-primary-active: #6a79f0;
-  --mc-primary-soft: #1a1f3d;
-  --mc-primary-border: #333b6b;
-  --mc-primary-fg: #b9c2ff;
+  --mc-primary: #a78bfa;
+  --mc-primary-hover: #b9a1fb;
+  --mc-primary-active: #8b5cf6;
+  --mc-primary-soft: #241a3d;
+  --mc-primary-border: #453273;
+  --mc-primary-fg: #d6c4ff;
 
-  --mc-accent: #a78bfa;
-  --mc-accent-hover: #bda5fc;
-  --mc-accent-soft: #241a3d;
-  --mc-accent-border: #453273;
-  --mc-accent-fg: #c9b4ff;
+  --mc-accent: #e879f9;
+  --mc-accent-hover: #f0a6fb;
+  --mc-accent-soft: #2e1a33;
+  --mc-accent-border: #5c2c66;
+  --mc-accent-fg: #f0abfc;
+
+  --mc-amber: #fbbf24;
+  --mc-amber-soft: #2b2312;
+  --mc-amber-border: #4d3f1a;
+  --mc-amber-fg: #fcd34d;
 
   --mc-cyan: #22d3ee;
   --mc-cyan-soft: #10262e;
@@ -269,49 +286,49 @@ html[data-theme='dark'] {
   --mc-danger-fg: #fca5a5;
   --mc-info-fg: #7dd3fc;
 
-  --mc-bg: #0b0d14;
-  --mc-bg-elevated: #151824;
+  --mc-bg: #0d0b14;
+  --mc-bg-elevated: #171423;
   --mc-paper-bg: #ffffff;
-  --mc-paper-fg: #141824;
-  --mc-bg-sunken: #080a10;
-  --mc-bg-hover: #1c2030;
-  --mc-border: #262b3d;
-  --mc-border-strong: #39405a;
-  --mc-text: #e8ebf5;
-  --mc-text-secondary: #aab3c7;
-  --mc-text-muted: #8f99b0;
-  --mc-text-inverse: #0b0d14;
+  --mc-paper-fg: #171423;
+  --mc-bg-sunken: #0a0810;
+  --mc-bg-hover: #201c2c;
+  --mc-border: #2a2538;
+  --mc-border-strong: #3f3953;
+  --mc-text: #ece9f5;
+  --mc-text-secondary: #b0aac4;
+  --mc-text-muted: #948dab;
+  --mc-text-inverse: #0d0b14;
 
   --mc-shadow-xs: 0 1px 2px rgb(0 0 0 / 45%);
   --mc-shadow-sm: 0 2px 4px -1px rgb(0 0 0 / 45%), 0 4px 12px -2px rgb(0 0 0 / 40%);
   --mc-shadow-md: 0 4px 10px -2px rgb(0 0 0 / 50%), 0 14px 28px -6px rgb(0 0 0 / 45%);
   --mc-shadow-lg: 0 8px 20px -6px rgb(0 0 0 / 55%), 0 28px 56px -12px rgb(0 0 0 / 50%);
   --mc-shadow-xl: 0 16px 36px -10px rgb(0 0 0 / 60%), 0 44px 80px -16px rgb(0 0 0 / 55%);
-  --mc-shadow-brand: 0 6px 22px -6px rgb(124 140 255 / 40%);
-  --mc-shadow-brand-strong: 0 10px 34px -8px rgb(124 140 255 / 50%);
-  --mc-shadow-accent: 0 6px 22px -6px rgb(167 139 250 / 40%);
+  --mc-shadow-brand: 0 6px 22px -6px rgb(167 139 250 / 40%);
+  --mc-shadow-brand-strong: 0 10px 34px -8px rgb(167 139 250 / 50%);
+  --mc-shadow-accent: 0 6px 22px -6px rgb(232 121 249 / 40%);
 
   --mc-surface-2: rgb(255 255 255 / 6%);
   --mc-surface-2-strong: rgb(255 255 255 / 10%);
   --mc-player-bg: #000;
-  --mc-overlay: rgb(4 6 12 / 62%);
-  --mc-overlay-strong: rgb(4 6 12 / 72%);
-  --mc-glass-bg: rgb(21 24 36 / 72%);
+  --mc-overlay: rgb(6 4 12 / 62%);
+  --mc-overlay-strong: rgb(6 4 12 / 72%);
+  --mc-glass-bg: rgb(23 20 35 / 72%);
   --mc-glass-border: rgb(255 255 255 / 8%);
 
-  --mc-gradient-brand: linear-gradient(135deg, #6d7bff 0%, #a78bfa 52%, #22d3ee 100%);
-  --mc-gradient-brand-soft: linear-gradient(135deg, #1a1f3d 0%, #241a3d 52%, #10262e 100%);
-  --mc-gradient-primary: linear-gradient(135deg, #8b97ff 0%, #6a79f0 100%);
-  --mc-gradient-accent: linear-gradient(135deg, #bda5fc 0%, #8b5cf6 100%);
-  --mc-gradient-surface: linear-gradient(180deg, #151824 0%, #12151f 100%);
+  --mc-gradient-brand: linear-gradient(135deg, #a78bfa 0%, #c084fc 48%, #e879f9 100%);
+  --mc-gradient-brand-soft: linear-gradient(135deg, #241a3d 0%, #2b1a33 55%, #2b2312 100%);
+  --mc-gradient-primary: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);
+  --mc-gradient-accent: linear-gradient(135deg, #f0abfc 0%, #a21caf 100%);
+  --mc-gradient-surface: linear-gradient(180deg, #171423 0%, #14111f 100%);
   --mc-gradient-sheen: linear-gradient(120deg, transparent 20%, rgb(255 255 255 / 12%) 50%, transparent 80%);
 
-  --mc-chart-1: #7c8cff;
-  --mc-chart-2: #22d3ee;
-  --mc-chart-3: #34d399;
+  --mc-chart-1: #a78bfa;
+  --mc-chart-2: #e879f9;
+  --mc-chart-3: #22d3ee;
   --mc-chart-4: #fbbf24;
-  --mc-chart-5: #f472b6;
-  --mc-chart-6: #a78bfa;
+  --mc-chart-5: #34d399;
+  --mc-chart-6: #fb7185;
   --mc-chart-7: #2dd4bf;
   --mc-chart-8: #fb923c;
 
