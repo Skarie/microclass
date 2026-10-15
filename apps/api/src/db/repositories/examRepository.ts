@@ -32,6 +32,14 @@ export interface PoolQuestion {
   difficulty?: string;
 }
 
+/** pool() 专用窄类型：随机增补/按配额组卷只关心这三列 */
+export interface PoolBudgetQuestion {
+  id: number;
+  type: string;
+  /** 难度：easy / medium / hard（空串 = 未标注） */
+  difficulty?: string;
+}
+
 export interface ExamInput {
   courseId: number;
   title: string;
@@ -398,7 +406,9 @@ export class ExamRepository {
         : options.orderBy === 'difficulty_desc'
           ? 'q.difficulty_score DESC, q.id'
           : 'q.id';
-    const limit = Math.min(200, Math.max(1, options.limit ?? 20));
+    // 上限 400：平行组卷按题型批量取候选时需要 min(400, …) 的窗口；
+    // 这里若顶在 200 会把它静默砍半（曾导致匹配质量下降）。对外接口的 limit 由路由 schema 约束。
+    const limit = Math.min(400, Math.max(1, options.limit ?? 20));
     const offset = Math.max(0, options.offset ?? 0);
     return this.db.all(
       `SELECT q.id, q.stem, q.type, q.bank_id, q.lesson_id, q.difficulty, q.subject, q.book, q.point,
@@ -639,15 +649,18 @@ export class ExamRepository {
   }
 
   /** 课程范围内的候选题目（课时直属题目或课时所属题库的题目） */
-  pool(courseId: number): PoolQuestion[] {
-    return this.db.all<PoolQuestion>(
-      `SELECT q.id, q.stem, q.type, q.bank_id, q.lesson_id, q.difficulty
+  pool(courseId: number): PoolBudgetQuestion[] {
+    // 只给「随机增补 / 按配额组卷」用：它们只需要 id/type/difficulty，题干等大字段白读。
+    // 课程范围与 pick() 对齐：题目归属课程 / 题库课时所属课程 / 题目课时所属课程
+    //（前两项用迁移 0022 的冗余列走索引）。
+    return this.db.all<PoolBudgetQuestion>(
+      `SELECT q.id, q.type, q.difficulty
        FROM questions q
-       LEFT JOIN banks b ON b.id = q.bank_id
-       WHERE q.lesson_id IN (SELECT id FROM lessons WHERE course_id = ?)
-          OR b.lesson_id IN (SELECT id FROM lessons WHERE course_id = ?)
+       WHERE q.course_id = ?
+          OR q.bank_lesson_course_id = ?
+          OR q.lesson_id IN (SELECT id FROM lessons WHERE course_id = ?)
        ORDER BY q.id`,
-      [courseId, courseId],
+      [courseId, courseId, courseId],
     );
   }
 

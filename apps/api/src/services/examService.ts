@@ -190,17 +190,9 @@ export class ExamService {
   paper(examId: number): {
     exam: Exam;
     questions: QuestionForViewer[];
-    pool: { id: number; stem: string; type: string; inExam: boolean }[];
   } {
     const exam = this.findById(examId);
     const selected = this.exams.listQuestions(examId);
-    const inExam = new Set(selected.map((q) => q.id));
-    const pool = this.exams.pool(exam.course_id).map((q) => ({
-      id: q.id,
-      stem: q.stem,
-      type: q.type,
-      inExam: inExam.has(q.id),
-    }));
     return {
       exam,
       questions: selected.map((q) => ({
@@ -229,7 +221,6 @@ export class ExamService {
         score: Number(q.score ?? 0),
         section: String(q.section ?? ''),
       })),
-      pool,
     };
   }
 

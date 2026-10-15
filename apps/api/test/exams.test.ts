@@ -171,10 +171,10 @@ describe('考试：组卷与作答', () => {
       url: `/api/v1/exams/${examId}/paper`,
       headers: { cookie: adminCookie },
     });
-    const body = json<{ questions: { id: number }[]; pool: { id: number; inExam: boolean }[] }>(paper);
+    const body = json<{ questions: { id: number }[]; pool?: unknown }>(paper);
     expect(body.questions.length).toBe(3);
-    expect(body.pool.length).toBe(5);
-    expect(body.pool.filter((p) => p.inExam).length).toBe(3);
+    // /paper 不再附送整门课的题池（性能）：题池请用 GET /exams/:id/pool 或挑题接口
+    expect(body.pool).toBeUndefined();
   });
 
   it('按题型配额组卷：题型齐全且不超配额', async () => {
