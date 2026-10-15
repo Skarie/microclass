@@ -172,17 +172,51 @@ async function submit(): Promise<void> {
   min-height: 100%;
   display: grid;
   grid-template-columns: 1.1fr 1fr;
-  background: var(--mc-bg);
+  background: transparent;
 }
 
 .login__aside {
+  position: relative;
+  overflow: hidden;
   padding: var(--mc-space-12) var(--mc-space-10);
-  background: linear-gradient(160deg, var(--mc-primary) 0%, var(--mc-primary-active) 100%);
-  color: var(--mc-text-inverse);
+  /* 深靛蓝 → 紫罗兰：保证白色文字始终 ≥4.5:1（青色端太亮，只用于装饰光斑） */
+  background-image: linear-gradient(155deg, var(--mc-primary-700) 0%, var(--mc-primary-500) 46%, var(--mc-accent) 100%);
+  color: var(--mc-neutral-0);
   display: flex;
   flex-direction: column;
   gap: var(--mc-space-4);
   justify-content: center;
+}
+
+/* 装饰光斑：右上青、左下靛，纯装饰不承载文字 */
+.login__aside::before {
+  content: '';
+  position: absolute;
+  inset: -20% -10% auto auto;
+  width: 60%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--mc-cyan) 55%, transparent) 0%, transparent 68%);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.login__aside::after {
+  content: '';
+  position: absolute;
+  inset: auto auto -25% -15%;
+  width: 55%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--mc-accent) 60%, transparent) 0%, transparent 70%);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* 面板内容压在光斑之上 */
+.login__aside > * {
+  position: relative;
+  z-index: 1;
 }
 
 .login__brand {
@@ -197,17 +231,20 @@ async function submit(): Promise<void> {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--mc-radius);
+  width: 38px;
+  height: 38px;
+  border-radius: var(--mc-radius-md);
   background: var(--mc-overlay-light);
+  border: 1px solid color-mix(in srgb, var(--mc-neutral-0) 30%, transparent);
   font-weight: 700;
 }
 
 .login__slogan {
-  font-size: var(--mc-text-2xl);
-  color: var(--mc-text-inverse);
-  max-width: 420px;
+  font-size: var(--mc-text-3xl);
+  font-weight: var(--mc-font-bold);
+  letter-spacing: var(--mc-tracking-tight);
+  line-height: var(--mc-leading-tight);
+  max-width: 460px;
 }
 
 .login__desc {

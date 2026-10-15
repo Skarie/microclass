@@ -195,7 +195,8 @@ const levelProgress = computed(() => {
 .shell {
   display: flex;
   min-height: 100%;
-  background: var(--mc-bg);
+  /* 保留透明：让 body 的品牌氛围光晕透出来（写 --mc-bg 会把它盖掉） */
+  background: transparent;
 }
 
 .sidebar {
@@ -205,13 +206,29 @@ const levelProgress = computed(() => {
   flex-direction: column;
   gap: var(--mc-space-4);
   padding: var(--mc-space-4) var(--mc-space-3);
-  background: var(--mc-bg-elevated);
+  background: var(--mc-glass-bg);
+  -webkit-backdrop-filter: var(--mc-glass-blur);
+  backdrop-filter: var(--mc-glass-blur);
   border-right: 1px solid var(--mc-border);
   position: sticky;
   top: 0;
   height: 100vh;
   overflow-y: auto;
+  overflow-x: hidden;
   transition: width var(--mc-transition);
+}
+
+/* 侧栏顶部的品牌渐隐：给导航区一层"被光照到"的质感 */
+.sidebar::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 220px;
+  background-image: var(--mc-gradient-brand-soft);
+  opacity: 0.55;
+  pointer-events: none;
+  mask-image: var(--mc-mask-fade-b);
+  -webkit-mask-image: var(--mc-mask-fade-b);
 }
 
 .shell--collapsed .sidebar {
@@ -229,13 +246,14 @@ const levelProgress = computed(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: var(--mc-radius);
-  background: var(--mc-primary);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--mc-radius-md);
+  background-image: var(--mc-gradient-brand);
   color: var(--mc-text-inverse);
   font-weight: 700;
   flex: none;
+  box-shadow: var(--mc-shadow-brand);
 }
 
 .brand__name {
@@ -269,12 +287,10 @@ const levelProgress = computed(() => {
   align-items: center;
   gap: var(--mc-space-3);
   padding: var(--mc-space-2) var(--mc-space-3);
-  border-radius: var(--mc-radius);
+  border-radius: var(--mc-radius-md);
   color: var(--mc-text-secondary);
   font-size: var(--mc-text-sm);
-  transition:
-    background var(--mc-transition),
-    color var(--mc-transition);
+  transition: var(--mc-transition-all);
 }
 
 .nav__item:hover {
@@ -282,22 +298,13 @@ const levelProgress = computed(() => {
   color: var(--mc-text);
 }
 
+/* 活动项：渐变胶囊 + 品牌光晕。文字用 --mc-text-inverse（浅色主题为白、暗色主题翻成深色），
+   两个主题下都满足对比度，且避免"渐变端点太亮导致白字看不清"。 */
 .nav__item--active {
-  background: var(--mc-primary-soft);
-  color: var(--mc-primary-fg);
+  background-image: var(--mc-gradient-primary);
+  color: var(--mc-text-inverse);
   font-weight: var(--mc-font-semibold);
-}
-
-/* 左侧竖条：让"当前在哪"一眼可见（纯色块对比度不够） */
-.nav__item--active::before {
-  content: '';
-  position: absolute;
-  left: -6px;
-  top: 20%;
-  bottom: 20%;
-  width: 3px;
-  border-radius: var(--mc-radius-pill);
-  background: var(--mc-primary);
+  box-shadow: var(--mc-shadow-brand);
 }
 
 .nav__icon {
@@ -314,8 +321,9 @@ const levelProgress = computed(() => {
   margin-top: auto;
   padding: var(--mc-space-3);
   border: 1px solid var(--mc-border);
-  border-radius: var(--mc-radius-lg);
-  background: linear-gradient(140deg, var(--mc-primary-soft) 0%, var(--mc-bg-sunken) 62%);
+  border-radius: var(--mc-radius-xl);
+  box-shadow: var(--mc-shadow-sm);
+  background-image: linear-gradient(140deg, var(--mc-primary-soft) 0%, var(--mc-bg-sunken) 62%);
   display: flex;
   flex-direction: column;
   gap: var(--mc-space-2);
@@ -361,8 +369,9 @@ const levelProgress = computed(() => {
   align-items: center;
   gap: var(--mc-space-3);
   padding: 0 var(--mc-space-5);
-  background: color-mix(in srgb, var(--mc-bg-elevated) 88%, transparent);
-  backdrop-filter: blur(8px);
+  background: var(--mc-glass-bg);
+  -webkit-backdrop-filter: var(--mc-glass-blur);
+  backdrop-filter: var(--mc-glass-blur);
   border-bottom: 1px solid var(--mc-border);
 }
 
@@ -386,13 +395,14 @@ const levelProgress = computed(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--mc-radius-pill);
-  background: var(--mc-primary-soft);
-  color: var(--mc-primary-fg);
+  background-image: var(--mc-gradient-brand);
+  color: var(--mc-text-inverse);
   font-weight: var(--mc-font-semibold);
   flex: none;
+  box-shadow: var(--mc-shadow-xs);
 }
 
 .user__meta {

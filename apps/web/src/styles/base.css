@@ -16,13 +16,25 @@ body,
 }
 
 body {
-  background: var(--mc-bg);
+  /* 品牌氛围：极淡的双色光晕铺底，让纯色页面不再"发平"（暗色下同样成立） */
+  background-color: var(--mc-bg);
+  background-image:
+    radial-gradient(60rem 40rem at 12% -12%, color-mix(in srgb, var(--mc-primary) 9%, transparent), transparent 70%),
+    radial-gradient(50rem 34rem at 100% 0%, color-mix(in srgb, var(--mc-accent) 7%, transparent), transparent 72%);
+  background-attachment: fixed;
   color: var(--mc-text);
   font-family: var(--mc-font-sans);
   font-size: var(--mc-text-base);
   line-height: var(--mc-leading);
+  letter-spacing: 0.005em;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--mc-primary) 26%, transparent);
+  color: var(--mc-text);
 }
 
 h1,
@@ -71,8 +83,9 @@ a:hover {
 .mc-card {
   background: var(--mc-bg-elevated);
   border: 1px solid var(--mc-border);
-  border-radius: var(--mc-radius-lg);
-  box-shadow: var(--mc-shadow-xs);
+  border-radius: var(--mc-radius-xl);
+  box-shadow: var(--mc-shadow-sm);
+  transition: var(--mc-transition-all);
 }
 
 .mc-card__header {
@@ -97,7 +110,7 @@ a:hover {
   padding: var(--mc-space-3) var(--mc-space-5);
   border-top: 1px solid var(--mc-border);
   background: var(--mc-bg-sunken);
-  border-radius: 0 0 var(--mc-radius-lg) var(--mc-radius-lg);
+  border-radius: 0 0 var(--mc-radius-xl) var(--mc-radius-xl);
 }
 
 /* ---------- 按钮 ---------- */
@@ -109,24 +122,29 @@ a:hover {
   min-height: 34px;
   padding: 0 var(--mc-space-4);
   border: 1px solid var(--mc-border-strong);
-  border-radius: var(--mc-radius);
+  border-radius: var(--mc-radius-md);
   background: var(--mc-bg-elevated);
   color: var(--mc-text);
   font: inherit;
   font-size: var(--mc-text-sm);
   font-weight: 500;
   cursor: pointer;
-  transition:
-    background var(--mc-transition),
-    border-color var(--mc-transition),
-    color var(--mc-transition),
-    box-shadow var(--mc-transition);
+  transition: var(--mc-transition-all);
   white-space: nowrap;
 }
 
-.mc-btn:hover:not(:disabled) {
-  background: var(--mc-bg-hover);
-  border-color: var(--mc-primary-border);
+@media (hover: hover) and (pointer: fine) {
+  .mc-btn:hover:not(:disabled) {
+    background: var(--mc-bg-hover);
+    border-color: var(--mc-primary-border);
+    transform: translateY(-1px);
+    box-shadow: var(--mc-shadow-sm);
+  }
+}
+
+.mc-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.985);
+  transition-duration: var(--mc-duration-fast);
 }
 
 .mc-btn:disabled {
@@ -135,24 +153,34 @@ a:hover {
 }
 
 .mc-btn--primary {
-  background: var(--mc-primary);
-  border-color: var(--mc-primary);
+  background-color: var(--mc-primary);
+  background-image: var(--mc-gradient-primary);
+  border-color: transparent;
   color: var(--mc-text-inverse);
+  box-shadow: var(--mc-shadow-brand);
 }
 
-.mc-btn--primary:hover:not(:disabled) {
-  background: var(--mc-primary-hover);
-  border-color: var(--mc-primary-hover);
+@media (hover: hover) and (pointer: fine) {
+  .mc-btn--primary:hover:not(:disabled) {
+    background-color: var(--mc-primary-hover);
+    background-image: var(--mc-gradient-primary);
+    border-color: transparent;
+    box-shadow: var(--mc-shadow-brand-strong);
+    transform: translateY(-1px);
+  }
 }
 
 .mc-btn--primary:active:not(:disabled) {
-  background: var(--mc-primary-active);
+  background-color: var(--mc-primary-active);
+  background-image: none;
+  box-shadow: var(--mc-shadow-xs);
 }
 
 .mc-btn--danger {
   color: var(--mc-danger-fg);
   border-color: var(--mc-danger);
   background: transparent;
+  transition: var(--mc-transition-all);
 }
 
 .mc-btn--danger:hover:not(:disabled) {
@@ -219,8 +247,17 @@ a:hover {
   font: inherit;
   font-size: var(--mc-text-base);
   transition:
-    border-color var(--mc-transition),
-    box-shadow var(--mc-transition);
+    border-color var(--mc-duration-fast) var(--mc-ease),
+    box-shadow var(--mc-duration) var(--mc-ease-out),
+    background-color var(--mc-duration-fast) var(--mc-ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mc-input:hover:not(:focus),
+  .mc-select:hover:not(:focus),
+  .mc-textarea:hover:not(:focus) {
+    border-color: var(--mc-primary-border);
+  }
 }
 
 .mc-textarea {
@@ -234,7 +271,7 @@ a:hover {
 .mc-textarea:focus {
   outline: none;
   border-color: var(--mc-primary);
-  box-shadow: 0 0 0 3px var(--mc-primary-soft);
+  box-shadow: var(--mc-focus-ring);
 }
 
 .mc-input[aria-invalid='true'] {
@@ -291,8 +328,12 @@ a:hover {
   z-index: 1;
 }
 
+.mc-table tbody tr td {
+  transition: background-color var(--mc-duration-fast) var(--mc-ease);
+}
+
 .mc-table tbody tr:hover td {
-  background: var(--mc-bg-hover);
+  background: color-mix(in srgb, var(--mc-primary) 6%, var(--mc-bg-hover));
 }
 
 .mc-table--compact th,
@@ -305,7 +346,7 @@ a:hover {
   display: inline-flex;
   align-items: center;
   gap: var(--mc-space-1);
-  padding: 1px var(--mc-space-2);
+  padding: 2px var(--mc-space-2);
   border-radius: var(--mc-radius-sm);
   font-size: var(--mc-text-xs);
   font-weight: 500;
@@ -621,4 +662,153 @@ a:hover {
   color: var(--mc-warning-fg, var(--mc-text));
   box-shadow: var(--mc-shadow-md);
   font-size: var(--mc-text-sm);
+}
+
+/* ================= 2.1 现代视觉工具层 ================= */
+
+/**
+ * 动态卡片：悬浮抬升 + 阴影加深 + 描边微染 + 掠过式高光。
+ * 只在支持 hover 的设备上生效（触屏不产生"卡住的高亮"）。
+ */
+.mc-card--interactive {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.mc-card--interactive::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--mc-gradient-sheen);
+  opacity: 0;
+  transform: translateX(-35%);
+  transition:
+    opacity var(--mc-duration) var(--mc-ease),
+    transform var(--mc-duration-slow) var(--mc-ease-out);
+  pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mc-card--interactive:hover {
+    transform: translateY(var(--mc-hover-lift));
+    box-shadow: var(--mc-shadow-lg);
+    border-color: var(--mc-primary-border);
+  }
+
+  .mc-card--interactive:hover::after {
+    opacity: 0.55;
+    transform: translateX(35%);
+  }
+}
+
+.mc-card--interactive:active {
+  transform: translateY(-1px) scale(0.995);
+  transition-duration: var(--mc-duration-fast);
+}
+
+/* 卡片顶部渐变描边（"旗帜鲜明"的强调卡） */
+.mc-card--brand {
+  position: relative;
+}
+
+.mc-card--brand::before {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 3px;
+  background-image: var(--mc-gradient-brand);
+  border-radius: var(--mc-radius-xl) var(--mc-radius-xl) 0 0;
+}
+
+/* 渐变文字：用于大标题、数字看板 */
+.mc-gradient-text {
+  background-image: var(--mc-gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* 渐变横幅：登录页/首页/课程封面缺图时的兜底 */
+.mc-gradient-surface {
+  background-image: var(--mc-gradient-brand);
+}
+
+.mc-gradient-soft {
+  background-image: var(--mc-gradient-brand-soft);
+}
+
+/* 毛玻璃：顶栏、悬浮面板、模态遮罩之上 */
+.mc-glass {
+  background: var(--mc-glass-bg);
+  border-color: var(--mc-glass-border);
+  -webkit-backdrop-filter: var(--mc-glass-blur);
+  backdrop-filter: var(--mc-glass-blur);
+}
+
+/* 骨架屏：加载中的微光扫过 */
+.mc-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--mc-surface-2);
+  border-radius: var(--mc-radius-sm);
+}
+
+.mc-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(90deg, transparent, var(--mc-surface-2-strong), transparent);
+  transform: translateX(-100%);
+  animation: mc-shimmer 1.4s var(--mc-ease) infinite;
+}
+
+@keyframes mc-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* 入场动效：列表项/面板依次浮现 */
+.mc-rise {
+  animation: mc-rise var(--mc-duration-slow) var(--mc-ease-out) both;
+}
+
+@keyframes mc-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.mc-fade-in {
+  animation: mc-fade-in var(--mc-duration) var(--mc-ease-out) both;
+}
+
+@keyframes mc-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* 按下回弹：给任意自定义控件加个"手感" */
+.mc-press {
+  transition: var(--mc-transition-transform);
+}
+
+.mc-press:active {
+  transform: scale(0.97);
+}
+
+/* 尊重系统"减弱动效"设置：关掉动画与过渡，只保留即时状态变化 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

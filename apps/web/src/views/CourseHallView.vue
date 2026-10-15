@@ -309,9 +309,20 @@ function resetFilters(): void {
   justify-content: center;
   aspect-ratio: 16 / 6;
   overflow: hidden;
-  background:
-    radial-gradient(120% 120% at 12% 0%, var(--mc-primary-soft) 0%, transparent 58%),
-    linear-gradient(135deg, var(--mc-neutral-100) 0%, var(--mc-bg-sunken) 100%);
+  background-image:
+    radial-gradient(120% 120% at 8% 0%, color-mix(in srgb, var(--mc-primary) 34%, transparent) 0%, transparent 62%),
+    radial-gradient(110% 130% at 100% 10%, color-mix(in srgb, var(--mc-accent) 30%, transparent) 0%, transparent 64%),
+    var(--mc-gradient-brand-soft);
+}
+
+/* 掠过式高光：静态也有质感，悬浮时更明显（配合 .mc-card--interactive） */
+.course-card__cover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--mc-gradient-sheen);
+  opacity: 0.4;
+  pointer-events: none;
 }
 
 .course-card__cover img {
@@ -327,70 +338,49 @@ function resetFilters(): void {
 
 /* 没有封面的课程：按 id 稳定分配一组配色，避免整屏都是同一块灰渐变 */
 .course-card__cover-fallback {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 52px;
-  height: 52px;
+  width: 56px;
+  height: 56px;
   border-radius: var(--mc-radius-lg);
-  background: color-mix(in srgb, var(--mc-bg-elevated) 82%, transparent);
-  border: 1px solid color-mix(in srgb, currentcolor 22%, transparent);
-  color: var(--mc-primary-fg);
-  box-shadow: var(--mc-elev-card);
+  background-image: var(--mc-gradient-brand);
+  border: 1px solid color-mix(in srgb, var(--mc-neutral-0) 28%, transparent);
+  /* 图标压在高饱和渐变上：固定用白色（--mc-text-inverse 会随主题翻成深色） */
+  color: var(--mc-neutral-0);
+  box-shadow: var(--mc-shadow-md);
+  transition: var(--mc-transition-transform);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .course-card:hover .course-card__cover-fallback {
+    transform: scale(1.06) rotate(-2deg);
+  }
 }
 
 .course-card__cover-fallback--g0 {
-  color: var(--mc-chart-1);
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--mc-chart-1) 16%, var(--mc-bg-elevated)) 0%,
-    var(--mc-bg-elevated) 78%
-  );
+  background-image: linear-gradient(135deg, var(--mc-chart-1) 0%, var(--mc-chart-6) 100%);
 }
 
 .course-card__cover-fallback--g1 {
-  color: var(--mc-chart-2);
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--mc-chart-2) 16%, var(--mc-bg-elevated)) 0%,
-    var(--mc-bg-elevated) 78%
-  );
+  background-image: linear-gradient(135deg, var(--mc-chart-2) 0%, var(--mc-chart-1) 100%);
 }
 
 .course-card__cover-fallback--g2 {
-  color: var(--mc-chart-3);
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--mc-chart-3) 16%, var(--mc-bg-elevated)) 0%,
-    var(--mc-bg-elevated) 78%
-  );
+  background-image: linear-gradient(135deg, var(--mc-chart-3) 0%, var(--mc-chart-2) 100%);
 }
 
 .course-card__cover-fallback--g3 {
-  color: var(--mc-chart-4);
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--mc-chart-4) 16%, var(--mc-bg-elevated)) 0%,
-    var(--mc-bg-elevated) 78%
-  );
+  background-image: linear-gradient(135deg, var(--mc-chart-4) 0%, var(--mc-chart-8) 100%);
 }
 
 .course-card__cover-fallback--g4 {
-  color: var(--mc-chart-5);
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--mc-chart-5) 16%, var(--mc-bg-elevated)) 0%,
-    var(--mc-bg-elevated) 78%
-  );
+  background-image: linear-gradient(135deg, var(--mc-chart-5) 0%, var(--mc-chart-6) 100%);
 }
 
 .course-card__cover-fallback--g5 {
-  color: var(--mc-chart-6);
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--mc-chart-6) 16%, var(--mc-bg-elevated)) 0%,
-    var(--mc-bg-elevated) 78%
-  );
+  background-image: linear-gradient(135deg, var(--mc-chart-7) 0%, var(--mc-chart-1) 100%);
 }
 
 /* 封面左上角分类胶囊：让"这是什么课"第一眼就有信息 */
