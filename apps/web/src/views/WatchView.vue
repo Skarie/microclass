@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { RouterLink, useRoute } from 'vue-router';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import { errorMessage, useAsync } from '@/composables/useAsync';
 import { useToastStore } from '@/stores/toast';
@@ -25,6 +25,112 @@ const saving = ref(false);
 const savedAt = ref<string>('');
 const currentTime = ref(0);
 const duration = ref(0);
+
+/* ---------------- 播放器增强（对标主流学习平台） ---------------- */
+const router = useRouter();
+const RATE_KEY = 'mc.watch.rate';
+const RATES = [0.75, 1, 1.25, 1.5, 2] as const;
+type Rate = (typeof RATES)[number];
+
+/** 播放速度：记住上次选择（主流播放器都有，且学生长期用 1.5x） */
+const rate = ref<number>(readRate());
+function readRate(): number {
+  try {
+    const v = Number(window.localStorage.getItem(RATE_KEY));
+    return (RATES as readonly number[]).includes(v) ? v : 1;
+  } catch {
+    return 1;
+  }
+}
+function setRate(v: number): void {
+  rate.value = v;
+  const el = videoRef.value;
+  if (el) el.playbackRate = v;
+  try {
+    window.localStorage.setItem(RATE_KEY, String(v));
+  } catch {
+    /* 隐私模式下忽略 */
+  }
+}
+function stepRate(dir: 1 | -1): void {
+  const idx = RATES.indexOf(rate.value as Rate);
+  const next = RATES[Math.max(0, Math.min(RATES.length - 1, idx + dir))] ?? 1;
+  setRate(next);
+}
+
+/** 键盘快捷键：只在播放器进入视口、且没有在输入时才接管，避免抢走页面滚动 */
+const playerInView = ref(true);
+let observer: IntersectionObserver | null = null;
+function onPlayerHotkey(e: KeyboardEvent): void {
+  const el = videoRef.value;
+  if (!el || isEmbed.value || !playerInView.value) return;
+  const target = e.target as HTMLElement | null;
+  if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+  if (document.querySelector('.mc-modal')) return;
+  switch (e.key) {
+    case ' ':
+    case 'k':
+      e.preventDefault();
+      if (el.paused) void el.play();
+      else el.pause();
+      break;
+    case 'ArrowLeft':
+      e.preventDefault();
+      el.currentTime = Math.max(0, el.currentTime - 5);
+      break;
+    case 'ArrowRight':
+      e.preventDefault();
+      el.currentTime = Math.min(el.duration || 0, el.currentTime + 5);
+      break;
+    case 'f':
+      e.preventDefault();
+      if (document.fullscreenElement) void document.exitFullscreen();
+      else void el.requestFullscreen();
+      break;
+    case 'm':
+      e.preventDefault();
+      el.muted = !el.muted;
+      break;
+    case '>':
+    case '.':
+      e.preventDefault();
+      stepRate(1);
+      break;
+    case '<':
+    case ',':
+      e.preventDefault();
+      stepRate(-1);
+      break;
+    default:
+      break;
+  }
+}
+
+/** 播完自动下一节：5 秒倒计时，可取消（主流学习平台都这么做） */
+const autoNextIn = ref(0);
+let autoNextTimer: number | null = null;
+function startAutoNext(): void {
+  const next = nextLesson.value;
+  if (!next) return;
+  autoNextIn.value = 5;
+  autoNextTimer = window.setInterval(() => {
+    autoNextIn.value -= 1;
+    if (autoNextIn.value <= 0) {
+      cancelAutoNext();
+      void router.push({ name: 'watch', params: { id: next.id } });
+    }
+  }, 1000);
+}
+function cancelAutoNext(): void {
+  if (autoNextTimer) window.clearInterval(autoNextTimer);
+  autoNextTimer = null;
+  autoNextIn.value = 0;
+}
+function goNextNow(): void {
+  const next = nextLesson.value;
+  cancelAutoNext();
+  if (next) void router.push({ name: 'watch', params: { id: next.id } });
+}
 
 const { data, loading, run } = useAsync<LessonDetailResponse>(() =>
   api.get<LessonDetailResponse>(`/lessons/${lessonId.value}`),
@@ -156,6 +262,17 @@ function onLoadedMetadata(): void {
   const video = videoRef.value;
   const l = lesson.value;
   if (!video) return;
+  // 恢复上次选择的倍速（主流播放器的"记住速度"）
+  video.playbackRate = rate.value;
+  if (!observer && typeof IntersectionObserver !== 'undefined') {
+    observer = new IntersectionObserver(
+      (entries) => {
+        playerInView.value = entries.some((e) => e.isIntersecting);
+      },
+      { threshold: 0.3 },
+    );
+    observer.observe(video);
+  }
   duration.value = video.duration || 0;
   const resume = l?.progress?.position ?? 0;
   // 断点续播：距上次位置超过 5 秒且未看完时跳转
@@ -176,6 +293,7 @@ function onEnded(): void {
   void flushIntervals(true);
   toast.success('本课时已学完');
   void run(true);
+  startAutoNext();
 }
 
 function onPlayEvent(): void {
@@ -259,10 +377,14 @@ onMounted(async () => {
   await run();
   await Promise.all([loadNotes(), loadSiblings()]);
   startAutoSave();
+  window.addEventListener('keydown', onPlayerHotkey);
 });
 
 onBeforeUnmount(() => {
   stopAutoSave();
+  window.removeEventListener('keydown', onPlayerHotkey);
+  cancelAutoNext();
+  observer?.disconnect();
   const video = videoRef.value;
   if (video && video.currentTime > 0) {
     void flushIntervals();
@@ -358,6 +480,33 @@ watch(lessonId, async () => {
           allowfullscreen
           title="嵌入视频"
         />
+
+        <div v-if="!isEmbed" class="player__tools">
+          <div class="player__rates" role="group" aria-label="播放速度">
+            <button
+              v-for="r in RATES"
+              :key="r"
+              class="mc-btn mc-btn--sm"
+              :class="rate === r ? 'mc-btn--primary' : 'mc-btn--ghost'"
+              type="button"
+              :aria-pressed="rate === r"
+              @click="setRate(r)"
+            >
+              {{ r }}×
+            </button>
+          </div>
+          <span class="player__hint mc-muted">
+            空格 播放/暂停 · ← → 快退/快进 5 秒 · f 全屏 · m 静音 · &lt; &gt; 调速
+          </span>
+        </div>
+
+        <div v-if="autoNextIn > 0 && nextLesson" class="player__next">
+          <span>
+            <strong class="mc-num">{{ autoNextIn }}</strong> 秒后播放下一节：{{ nextLesson.title }}
+          </span>
+          <button class="mc-btn mc-btn--sm mc-btn--primary" type="button" @click="goNextNow">立即播放</button>
+          <button class="mc-btn mc-btn--sm mc-btn--ghost" type="button" @click="cancelAutoNext">取消</button>
+        </div>
       </div>
 
       <div v-if="!quizUnlocked" class="notice mc-card">
@@ -587,6 +736,37 @@ a.watch__crumb:hover {
   overflow: hidden;
   background: var(--mc-player-bg);
   box-shadow: var(--mc-elev-raised);
+}
+
+/* 播放器工具条：倍速 + 快捷键提示（对标主流学习平台） */
+.player__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mc-space-3);
+  padding: var(--mc-space-2) var(--mc-space-3);
+  background: var(--mc-bg-elevated);
+}
+
+.player__rates {
+  display: flex;
+  gap: var(--mc-space-1);
+}
+
+.player__hint {
+  font-size: var(--mc-text-xs);
+}
+
+/* 播完自动下一节的横幅（5 秒倒计时，可取消） */
+.player__next {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mc-space-3);
+  padding: var(--mc-space-3) var(--mc-space-4);
+  background: var(--mc-primary-soft);
+  border-top: 1px solid var(--mc-primary-border);
+  font-size: var(--mc-text-sm);
 }
 
 .player__video,
