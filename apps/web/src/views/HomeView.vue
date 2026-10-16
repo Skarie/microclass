@@ -61,10 +61,11 @@ function progressOf(course: Course): number {
   return Math.min(100, Math.round(((course.finished ?? 0) / total) * 100));
 }
 
-const lessonTotal = computed(() => courses.value.reduce((s, c) => s + (c.total ?? 0), 0));
-const finishedTotal = computed(() => courses.value.reduce((s, c) => s + (c.finished ?? 0), 0));
-const overallPercent = computed(() =>
-  lessonTotal.value > 0 ? Math.round((finishedTotal.value / lessonTotal.value) * 100) : 0,
+/** 只看"在学"课程的进度：全站总进度对个人没有行动意义 */
+const learningTotal = computed(() => learning.value.reduce((s, c) => s + (c.total ?? 0), 0));
+const learningDone = computed(() => learning.value.reduce((s, c) => s + (c.finished ?? 0), 0));
+const learningPercent = computed(() =>
+  learningTotal.value > 0 ? Math.round((learningDone.value / learningTotal.value) * 100) : 0,
 );
 
 const learning = computed(() =>
@@ -164,9 +165,12 @@ const manageJumps: Jump[] = [
           <span class="mc-muted board__level-hint">{{ levelHint }}</span>
         </div>
         <p class="board__overall mc-muted">
-          全部课程总进度 <strong class="mc-num">{{ finishedTotal }}/{{ lessonTotal }}</strong> 课时
+          在学课程进度
+          <strong class="mc-num">{{ learningDone }}/{{ learningTotal }}</strong>
+          课时
+          <template v-if="learning.length === 0">（暂无在学课程）</template>
         </p>
-        <ProgressBar :value="overallPercent" tone="primary" :label="`${overallPercent}%`" />
+        <ProgressBar :value="learningPercent" tone="primary" :label="`${learningPercent}%`" />
       </div>
     </section>
 

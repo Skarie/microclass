@@ -17,6 +17,8 @@ const toast = useToastStore();
 const route = useRoute();
 const router = useRouter();
 const collapsed = ref(localStorage.getItem('microclass:sidebar') === '1');
+/* 教学管理在平板/手机上默认收起：移动端抽屉里 8 项太长，先给一级导航让位 */
+const manageOpen = ref(typeof window === 'undefined' ? true : window.innerWidth > 900);
 const summary = ref<Summary | null>(null);
 const mobileNavOpen = ref(false);
 
@@ -108,9 +110,19 @@ const levelProgress = computed(() => {
         </template>
 
         <div v-if="auth.isTeacher" class="nav__group">
-          <span v-if="!collapsed" class="nav__group-title">教学管理</span>
+          <button
+            v-if="!collapsed"
+            class="nav__group-toggle"
+            type="button"
+            :aria-expanded="manageOpen"
+            @click="manageOpen = !manageOpen"
+          >
+            <span class="nav__group-title">教学管理</span>
+            <Icon :name="manageOpen ? 'minus' : 'plus'" :size="14" />
+          </button>
           <RouterLink
             v-for="item in visibleManageNav"
+            v-show="collapsed || manageOpen"
             :key="item.to"
             class="nav__item"
             :class="{ 'nav__item--active': isActive(item.to) }"
@@ -197,15 +209,6 @@ const levelProgress = computed(() => {
               自托管轻量学习平台：课程视频、章节归类、课后练习与错题本一体，学习数据保存在你自己的机器上。
             </p>
           </section>
-          <nav class="footer__col" aria-label="常用入口">
-            <h2 class="footer__title">常用入口</h2>
-            <RouterLink class="footer__link" :to="{ name: 'home' }">首页</RouterLink>
-            <RouterLink class="footer__link" :to="{ name: 'hall' }">课程大厅</RouterLink>
-            <RouterLink class="footer__link" :to="{ name: 'my-courses' }">我的课程</RouterLink>
-            <RouterLink class="footer__link" :to="{ name: 'wrong-book' }">错题本</RouterLink>
-            <RouterLink class="footer__link" :to="{ name: 'me' }">个人中心</RouterLink>
-            <RouterLink v-if="auth.isAdmin" class="footer__link" :to="{ name: 'admin-overview' }">教学管理</RouterLink>
-          </nav>
           <nav class="footer__col" aria-label="帮助与文档">
             <h2 class="footer__title">帮助</h2>
             <span class="footer__text">部署维护：docs/deploy.md</span>
@@ -225,6 +228,23 @@ const levelProgress = computed(() => {
 </template>
 
 <style scoped>
+.nav__group-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--mc-space-2) var(--mc-space-3);
+  border: 0;
+  border-radius: var(--mc-radius-sm);
+  background: transparent;
+  color: var(--mc-text-muted);
+  cursor: pointer;
+}
+
+.nav__group-toggle:hover {
+  background: var(--mc-bg-hover);
+}
+
 .footer {
   padding: var(--mc-space-8) var(--mc-space-6) var(--mc-space-6);
   border-top: 1px solid var(--mc-border);
@@ -233,7 +253,7 @@ const levelProgress = computed(() => {
 
 .footer__cols {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1.4fr);
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr);
   gap: var(--mc-space-8);
   max-width: 1080px;
 }

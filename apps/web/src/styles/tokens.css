@@ -15,19 +15,19 @@
 
 :root {
   /* ================= 品牌色（哑光紫） ================= */
-  --mc-primary: #c2410c;
-  --mc-primary-hover: #9a3412;
-  --mc-primary-active: #7c2d12;
-  --mc-primary-soft: #fff2ea;
-  --mc-primary-border: #fbd0b4;
-  --mc-primary-fg: #c2410c;
+  --mc-primary: #00805f;
+  --mc-primary-hover: #006b4f;
+  --mc-primary-active: #00573f;
+  --mc-primary-soft: #e5f4ef;
+  --mc-primary-border: #b0dcd0;
+  --mc-primary-fg: #00694e;
 
   /* 第二品牌色（哑光赭）：只做数据高亮与图表 */
-  --mc-accent: #0d9488;
-  --mc-accent-hover: #0b8378;
-  --mc-accent-soft: #e3f6f4;
-  --mc-accent-border: #b3e6e1;
-  --mc-accent-fg: #0f766e;
+  --mc-accent: #ea580c;
+  --mc-accent-hover: #c2410c;
+  --mc-accent-soft: #fff2ea;
+  --mc-accent-border: #fbd0b4;
+  --mc-accent-fg: #c2410c;
 
   /* 暖点缀 */
   --mc-amber: #a16207;
@@ -42,13 +42,13 @@
   --mc-cyan-fg: #0e7490;
 
   /* 砖红（徽记/点睛） */
-  --mc-seal: #d97757;
-  --mc-seal-soft: #fdeee8;
-  --mc-seal-fg: #b45309;
+  --mc-seal: #7c3aed;
+  --mc-seal-soft: #f3edfe;
+  --mc-seal-fg: #6d28d9;
 
   /* ================= 语义色（同样降饱和，避免"荧光"） ================= */
-  --mc-success: #12a150;
-  --mc-success-soft: #e6f7ee;
+  --mc-success: #15803d;
+  --mc-success-soft: #e8f6ec;
   --mc-warning: #a16207;
   --mc-warning-soft: #fdf6e3;
   --mc-warning-border: #ecd9a8;
@@ -129,9 +129,9 @@
   --mc-shadow-lg: 0 8px 20px -6px rgb(38 32 84 / 12%), 0 24px 48px -12px rgb(38 32 84 / 14%);
   --mc-shadow-xl: 0 16px 36px -10px rgb(38 32 84 / 14%), 0 40px 72px -16px rgb(38 32 84 / 18%);
   /* 品牌色投影：主按钮/选中态用，克制不发光 */
-  --mc-shadow-brand: 0 4px 12px -4px rgb(194 65 12 / 35%);
-  --mc-shadow-brand-strong: 0 8px 22px -6px rgb(194 65 12 / 45%);
-  --mc-shadow-accent: 0 4px 12px -4px rgb(13 148 136 / 35%);
+  --mc-shadow-brand: 0 4px 12px -4px rgb(0 128 95 / 35%);
+  --mc-shadow-brand-strong: 0 8px 22px -6px rgb(0 128 95 / 45%);
+  --mc-shadow-accent: 0 4px 12px -4px rgb(234 88 12 / 35%);
 
   /* ================= 布局尺寸 ================= */
   --mc-sidebar-width: 232px;
@@ -160,10 +160,10 @@
   --mc-glass-blur: saturate(105%) blur(3px);
 
   /* ================= 渐变（全部收敛为「平涂」） ================= */
-  --mc-gradient-brand: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
-  --mc-gradient-brand-soft: linear-gradient(135deg, #fff2ea 0%, #e9f8f6 100%);
-  --mc-gradient-primary: linear-gradient(180deg, #c2410c 0%, #a8380a 100%);
-  --mc-gradient-accent: linear-gradient(180deg, #14a99c 0%, #0d9488 100%);
+  --mc-gradient-brand: linear-gradient(135deg, #00a67d 0%, #00805f 100%);
+  --mc-gradient-brand-soft: linear-gradient(135deg, #e8f6f1 0%, #eef4ff 100%);
+  --mc-gradient-primary: linear-gradient(180deg, #00855f 0%, #006b4f 100%);
+  --mc-gradient-accent: linear-gradient(180deg, #f97316 0%, #ea580c 100%);
   --mc-gradient-surface: linear-gradient(180deg, #ffffff 0%, #fbfbfe 100%);
   /* 背景元素（第 12/26 条）：极淡的品牌氛围 + 一层细网格线，替代"纯色单调" */
   --mc-bg-art:
@@ -205,16 +205,16 @@
 
   /* ================= 色阶 ================= */
   /* 主色阶（哑光紫） */
-  --mc-primary-50: #fff4ed;
-  --mc-primary-100: #ffe4d3;
-  --mc-primary-200: #fdc9a8;
-  --mc-primary-300: #f9a877;
-  --mc-primary-400: #f27f42;
-  --mc-primary-500: #ea580c;
-  --mc-primary-600: #c2410c;
-  --mc-primary-700: #9a3412;
-  --mc-primary-800: #7c2d12;
-  --mc-primary-900: #64260f;
+  --mc-primary-50: #e8f6f1;
+  --mc-primary-100: #d3ede5;
+  --mc-primary-200: #a9dccd;
+  --mc-primary-300: #7cc9b3;
+  --mc-primary-400: #43b394;
+  --mc-primary-500: #00a67d;
+  --mc-primary-600: #00805f;
+  --mc-primary-700: #00694e;
+  --mc-primary-800: #005740;
+  --mc-primary-900: #004734;
 
   /* 中性阶（真灰） */
   --mc-neutral-0: #ffffff;
@@ -230,14 +230,14 @@
   --mc-neutral-900: #1b1b1a;
 
   /* 图表色板（哑光）：紫 / 赭 / 青 / 竹 / 砖 / 浅紫 / 墨绿 / 陶 */
-  --mc-chart-1: #c2410c;
-  --mc-chart-2: #0d9488;
+  --mc-chart-1: #00805f;
+  --mc-chart-2: #ea580c;
   --mc-chart-3: #2563eb;
   --mc-chart-4: #a16207;
   --mc-chart-5: #be123c;
   --mc-chart-6: #7c3aed;
-  --mc-chart-7: #059669;
-  --mc-chart-8: #ea580c;
+  --mc-chart-7: #0891b2;
+  --mc-chart-8: #00a67d;
 
   /* 清单 #2：不再保留 32/40 两档，展示级统一 28（层级越少越清晰） */
   --mc-text-3xl: 28px;
@@ -289,18 +289,18 @@
 
 /* ================= 暗色主题 ================= */
 html[data-theme='dark'] {
-  --mc-primary: #fb923c;
-  --mc-primary-hover: #fdae63;
-  --mc-primary-active: #f2802a;
-  --mc-primary-soft: #3a1f10;
-  --mc-primary-border: #6b3a1a;
-  --mc-primary-fg: #fdba74;
+  --mc-primary: #2fbf94;
+  --mc-primary-hover: #45d0a6;
+  --mc-primary-active: #29a882;
+  --mc-primary-soft: #10281f;
+  --mc-primary-border: #1d4b3c;
+  --mc-primary-fg: #7fe0bd;
 
-  --mc-accent: #2dd4bf;
-  --mc-accent-hover: #5ee0cf;
-  --mc-accent-soft: #0d2b28;
-  --mc-accent-border: #1b4a45;
-  --mc-accent-fg: #7fe6d8;
+  --mc-accent: #fb923c;
+  --mc-accent-hover: #fdae63;
+  --mc-accent-soft: #3a1f10;
+  --mc-accent-border: #6b3a1a;
+  --mc-accent-fg: #fdba74;
 
   --mc-amber: #c2a263;
   --mc-amber-soft: #2a2418;
@@ -317,7 +317,7 @@ html[data-theme='dark'] {
   --mc-seal-fg: #e0a49d;
 
   --mc-success: #4ade80;
-  --mc-success-soft: #10261a;
+  --mc-success-soft: #10281a;
   --mc-warning: #d8b45a;
   --mc-warning-soft: #2a2416;
   --mc-warning-border: #4a4020;
@@ -360,21 +360,21 @@ html[data-theme='dark'] {
   --mc-glass-bg: rgb(18 18 19 / 92%);
   --mc-glass-border: rgb(255 255 255 / 8%);
 
-  --mc-gradient-brand: linear-gradient(135deg, #fb923c 0%, #ea580c 100%);
-  --mc-gradient-brand-soft: linear-gradient(135deg, #3a1f10 0%, #17251f 100%);
-  --mc-gradient-primary: linear-gradient(180deg, #fb923c 0%, #f2802a 100%);
-  --mc-gradient-accent: linear-gradient(180deg, #2dd4bf 0%, #14b8a6 100%);
+  --mc-gradient-brand: linear-gradient(135deg, #2fbf94 0%, #00805f 100%);
+  --mc-gradient-brand-soft: linear-gradient(135deg, #10281f 0%, #16213a 100%);
+  --mc-gradient-primary: linear-gradient(180deg, #2fbf94 0%, #29a882 100%);
+  --mc-gradient-accent: linear-gradient(180deg, #fb923c 0%, #ea580c 100%);
   --mc-gradient-surface: linear-gradient(180deg, #1a1a1c 0%, #171719 100%);
   --mc-gradient-sheen: none;
 
-  --mc-chart-1: #fb923c;
-  --mc-chart-2: #2dd4bf;
+  --mc-chart-1: #2fbf94;
+  --mc-chart-2: #fb923c;
   --mc-chart-3: #60a5fa;
   --mc-chart-4: #d8b45a;
   --mc-chart-5: #fb7185;
   --mc-chart-6: #c084fc;
-  --mc-chart-7: #4ade80;
-  --mc-chart-8: #f97316;
+  --mc-chart-7: #38bdf8;
+  --mc-chart-8: #00a67d;
 
   /* 暗色下控件略矮一档（原行为保留） */
   --mc-control-h-sm: 24px;
