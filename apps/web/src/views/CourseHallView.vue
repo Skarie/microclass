@@ -393,7 +393,7 @@ function resetFilters(): void {
 
 /* 分组 */
 .hall__group + .hall__group {
-  margin-top: var(--mc-space-8);
+  margin-top: var(--mc-space-6);
 }
 
 .hall__group-head {
@@ -419,7 +419,7 @@ function resetFilters(): void {
 .hall__cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
-  gap: var(--mc-space-4);
+  gap: var(--mc-space-3);
 }
 
 .course-card--tile {
@@ -499,7 +499,7 @@ function resetFilters(): void {
   display: flex;
   flex-direction: column;
   gap: var(--mc-space-2);
-  padding: var(--mc-space-4);
+  padding: var(--mc-space-3);
   min-width: 0;
 }
 

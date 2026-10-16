@@ -281,7 +281,7 @@ const manageJumps: Jump[] = [
 .home {
   display: flex;
   flex-direction: column;
-  gap: var(--mc-space-6);
+  gap: var(--mc-space-4);
 }
 
 /* ① 问候 */
@@ -324,8 +324,8 @@ const manageJumps: Jump[] = [
 .board {
   display: grid;
   grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
-  gap: var(--mc-space-6);
-  padding: var(--mc-space-6);
+  gap: var(--mc-space-5);
+  padding: var(--mc-space-5);
   border: 1px solid var(--mc-border);
   border-radius: var(--mc-radius-xl);
   background: var(--mc-bg-elevated);
@@ -427,7 +427,7 @@ const manageJumps: Jump[] = [
   display: flex;
   flex-direction: column;
   gap: var(--mc-space-1);
-  padding: var(--mc-space-4);
+  padding: var(--mc-space-3);
   border: 1px solid var(--mc-border);
   border-radius: var(--mc-radius-lg);
   background: var(--mc-bg-elevated);
