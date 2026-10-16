@@ -202,13 +202,17 @@ function resetFilters(): void {
         @click="pickCategory(cat.id)"
       >
         <span class="hall__cat-icon"><Icon name="book-open" :size="18" /></span>
-        <span class="hall__cat-name">{{ cat.name }}</span>
-        <span class="hall__cat-meta mc-num">{{ cat.count }} 门 · {{ cat.percent }}%</span>
+        <span class="hall__cat-text">
+          <span class="hall__cat-name">{{ cat.name }}</span>
+          <span class="hall__cat-meta mc-num">{{ cat.count }} 门 · {{ cat.percent }}%</span>
+        </span>
       </button>
       <div v-if="uncategorizedCount > 0" class="hall__cat hall__cat--muted">
         <span class="hall__cat-icon"><Icon name="folder" :size="18" /></span>
-        <span class="hall__cat-name">未分类</span>
-        <span class="hall__cat-meta mc-num">{{ uncategorizedCount }} 门</span>
+        <span class="hall__cat-text">
+          <span class="hall__cat-name">未分类</span>
+          <span class="hall__cat-meta mc-num">{{ uncategorizedCount }} 门</span>
+        </span>
       </div>
     </nav>
 
@@ -579,7 +583,7 @@ function resetFilters(): void {
 /* ---------- ③ 分类金刚区 ---------- */
 .hall__cats {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: var(--mc-space-3);
   margin-bottom: var(--mc-space-6);
 }
@@ -626,6 +630,13 @@ function resetFilters(): void {
   flex: none;
 }
 
+.hall__cat-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mc-space-1);
+  min-width: 0;
+}
+
 .hall__cat-name {
   font-size: var(--mc-text-base);
   font-weight: var(--mc-font-medium);
@@ -636,7 +647,6 @@ function resetFilters(): void {
 }
 
 .hall__cat-meta {
-  margin-left: auto;
   font-size: var(--mc-text-xs);
   color: var(--mc-text-muted);
   white-space: nowrap;
