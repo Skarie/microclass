@@ -33,6 +33,25 @@ interface CoursesResponse {
 const toast = useToastStore();
 const { data, loading, run } = useAsync<CoursesResponse>(() => api.get<CoursesResponse>('/courses'));
 
+/* 呈现方式：卡片（对标中国大学 MOOC 首页主体）或列表（一屏看更多） */
+const VIEW_KEY = 'mc.hall.view';
+const viewMode = ref<'cards' | 'list'>(readViewMode());
+function readViewMode(): 'cards' | 'list' {
+  try {
+    return window.localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'cards';
+  } catch {
+    return 'cards';
+  }
+}
+function setViewMode(next: 'cards' | 'list'): void {
+  viewMode.value = next;
+  try {
+    window.localStorage.setItem(VIEW_KEY, next);
+  } catch {
+    /* 隐私模式下忽略 */
+  }
+}
+
 const keyword = ref('');
 const categoryId = ref<number | ''>('');
 const onlyFav = ref(false);
@@ -245,6 +264,30 @@ function resetFilters(): void {
         <span v-if="keyword || categoryId !== '' || onlyFav || onlyUnfinished" class="mc-muted hall__count">
           筛选出 {{ filtered.length }} / {{ courses.length }} 门
         </span>
+        <div class="hall__views" role="group" aria-label="呈现方式">
+          <button
+            class="mc-btn mc-btn--sm mc-btn--icon"
+            :class="viewMode === 'cards' ? 'mc-btn--soft' : 'mc-btn--ghost'"
+            type="button"
+            :aria-pressed="viewMode === 'cards'"
+            aria-label="卡片展示"
+            title="卡片展示"
+            @click="setViewMode('cards')"
+          >
+            <Icon name="grid" :size="15" />
+          </button>
+          <button
+            class="mc-btn mc-btn--sm mc-btn--icon"
+            :class="viewMode === 'list' ? 'mc-btn--soft' : 'mc-btn--ghost'"
+            type="button"
+            :aria-pressed="viewMode === 'list'"
+            aria-label="列表展示"
+            title="列表展示"
+            @click="setViewMode('list')"
+          >
+            <Icon name="list" :size="15" />
+          </button>
+        </div>
         <button class="mc-btn mc-btn--sm mc-btn--ghost" type="button" @click="resetFilters">
           <Icon name="reset" :size="15" />
           重置
@@ -339,7 +382,75 @@ function resetFilters(): void {
           <span class="hall__group-count mc-num">{{ group.list.length }}</span>
         </header>
 
-        <ul class="hall__list">
+        <!-- 卡片网格：对标 MOOC 首页主体（封面 + 名称 + 元信息 + 进度 + 动作） -->
+        <div v-if="viewMode === 'cards'" class="hall__cards">
+          <article
+            v-for="course in group.list"
+            :key="course.id"
+            class="course-card course-card--tile mc-card mc-card--interactive"
+            :class="`course-card--g${Math.abs(course.id) % 6}`"
+          >
+            <RouterLink
+              class="course-card__cover"
+              :to="{ name: 'course', params: { id: course.id } }"
+              tabindex="-1"
+              :aria-label="`进入课程 ${course.name}`"
+            >
+              <img v-if="course.cover" :src="`/api/v1/course-cover/${course.id}`" :alt="course.name" loading="lazy" />
+              <span v-else class="course-card__cover-fallback" aria-hidden="true">
+                <Icon name="graduation" :size="30" />
+              </span>
+              <span v-if="course.category_name" class="course-card__cover-chip">{{ course.category_name }}</span>
+              <span v-if="progressOf(course) >= 100" class="course-card__cover-done">
+                <Icon name="check" :size="13" />
+                已学完
+              </span>
+            </RouterLink>
+
+            <div class="course-card__tile-body">
+              <RouterLink class="course-card__name" :to="{ name: 'course', params: { id: course.id } }">
+                {{ course.name }}
+              </RouterLink>
+              <div class="course-card__meta">
+                <span class="course-card__stat">
+                  <Icon name="video" :size="13" />
+                  {{ course.total ?? 0 }} 课时
+                </span>
+                <span class="course-card__stat">
+                  <Icon name="check-circle" :size="13" />
+                  已完成 {{ course.finished ?? 0 }}
+                </span>
+                <Tag v-if="course.published !== 1" tone="warning" size="sm">草稿</Tag>
+              </div>
+              <ProgressBar
+                :value="progressOf(course)"
+                :tone="progressOf(course) >= 100 ? 'success' : 'primary'"
+                :label="`${course.finished ?? 0}/${course.total ?? 0}`"
+              />
+              <div class="course-card__tile-actions">
+                <RouterLink
+                  class="mc-btn mc-btn--sm"
+                  :class="progressOf(course) > 0 ? 'mc-btn--soft' : 'mc-btn--ghost'"
+                  :to="{ name: 'course', params: { id: course.id } }"
+                >
+                  {{ progressOf(course) > 0 ? '继续学习' : '开始学习' }}
+                </RouterLink>
+                <button
+                  class="mc-btn mc-btn--ghost mc-btn--sm mc-btn--icon"
+                  :class="{ 'course-card__fav--on': course.fav }"
+                  type="button"
+                  :aria-label="course.fav ? '取消收藏' : '收藏课程'"
+                  :title="course.fav ? '取消收藏' : '收藏课程'"
+                  @click="toggleFav(course)"
+                >
+                  <Icon name="star" :size="16" :filled="course.fav" />
+                </button>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <ul v-else class="hall__list">
           <li
             v-for="course in group.list"
             :key="course.id"
@@ -915,6 +1026,117 @@ function resetFilters(): void {
 
 .course-card__fav--on {
   color: var(--mc-warning-fg);
+}
+
+/* ---------- 卡片网格（MOOC 式）---------- */
+.hall__views {
+  display: flex;
+  gap: var(--mc-space-1);
+}
+
+.hall__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  gap: var(--mc-space-4);
+}
+
+.course-card--tile {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+.course-card__cover {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background-image: var(--mc-gradient-brand-soft);
+  color: var(--mc-primary-fg);
+}
+
+.course-card__cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.course-card--g1 .course-card__cover {
+  color: var(--mc-accent-fg);
+}
+.course-card--g2 .course-card__cover {
+  color: var(--mc-success-fg);
+}
+.course-card--g3 .course-card__cover {
+  color: var(--mc-warning-fg);
+}
+.course-card--g5 .course-card__cover {
+  color: var(--mc-seal-fg);
+}
+
+.course-card__cover-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  border-radius: var(--mc-radius-lg);
+  background: var(--mc-bg-elevated);
+  box-shadow: var(--mc-shadow-sm);
+}
+
+.course-card__cover-chip {
+  position: absolute;
+  top: var(--mc-space-2);
+  left: var(--mc-space-2);
+  padding: var(--mc-space-1) var(--mc-space-2);
+  border-radius: var(--mc-radius-pill);
+  background: var(--mc-bg-elevated);
+  font-size: var(--mc-text-xs);
+  color: var(--mc-text-secondary);
+}
+
+.course-card__cover-done {
+  position: absolute;
+  right: var(--mc-space-2);
+  bottom: var(--mc-space-2);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mc-space-1);
+  padding: var(--mc-space-1) var(--mc-space-2);
+  border-radius: var(--mc-radius-pill);
+  background: var(--mc-success-soft);
+  font-size: var(--mc-text-xs);
+  color: var(--mc-success-fg);
+}
+
+.course-card__tile-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mc-space-2);
+  padding: var(--mc-space-4);
+  min-width: 0;
+}
+
+.course-card__tile-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--mc-space-1);
+  margin-top: var(--mc-space-1);
+}
+
+/* 卡片里的课名允许两行（MOOC 的课名通常较长） */
+.course-card--tile .course-card__name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+  min-height: calc(var(--mc-text-base) * 1.5 * 2);
 }
 
 /* ---------- 加载骨架 ---------- */
