@@ -61,7 +61,6 @@ const manageNav: NavItem[] = [
 ];
 
 const visibleManageNav = computed(() => manageNav.filter((i) => !i.adminOnly || auth.isAdmin));
-const roleLabel = computed(() => (auth.isAdmin ? '管理员' : auth.isTeacher ? '教师' : '学员'));
 const userName = computed(() => auth.user?.display_name || auth.user?.username || '我');
 /** 顶栏"教学管理"下拉：key = 路由路径 */
 const manageMenuItems = computed(() =>
@@ -172,7 +171,6 @@ onMounted(async () => {
         :align="'right'"
         @select="onUserSelect"
       />
-      <span class="topbar__role mc-badge">{{ roleLabel }}</span>
 
       <button
         class="mc-btn mc-btn--ghost mc-btn--sm mc-btn--icon topbar__menu"
@@ -262,6 +260,24 @@ onMounted(async () => {
   background: transparent;
 }
 
+/* 跳转链接：平时视觉隐藏，键盘聚焦时才出现（无障碍要求） */
+.skip-link {
+  position: absolute;
+  top: var(--mc-space-2);
+  left: var(--mc-space-2);
+  z-index: var(--mc-z-toast);
+  padding: var(--mc-space-2) var(--mc-space-3);
+  border-radius: var(--mc-radius);
+  background: var(--mc-bg-elevated);
+  color: var(--mc-text);
+  box-shadow: var(--mc-shadow-md);
+  transform: translateY(-200%);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
 /* ---------- 顶栏 ---------- */
 .topbar {
   position: sticky;
@@ -341,10 +357,6 @@ onMounted(async () => {
   color: var(--mc-primary-fg);
   font-size: var(--mc-text-xs);
   white-space: nowrap;
-}
-
-.topbar__role {
-  flex: none;
 }
 
 .topbar__menu {
@@ -482,8 +494,7 @@ onMounted(async () => {
 
   .nav,
   .topbar__level,
-  .topbar__manage,
-  .topbar__role {
+  .topbar__manage {
     display: none;
   }
 
@@ -503,8 +514,7 @@ onMounted(async () => {
 
 /* 平板：仍然用顶栏导航，但把次要项收起 */
 @media (min-width: 901px) and (max-width: 1080px) {
-  .topbar__level,
-  .topbar__role {
+  .topbar__level {
     display: none;
   }
 
