@@ -52,6 +52,13 @@ function setRate(v: number): void {
     /* 隐私模式下忽略 */
   }
 }
+/** 一键后退（不用精准拖进度条）——MOOC 用户反馈里反复提到的诉求 */
+function rewind(seconds = 15): void {
+  const el = videoRef.value;
+  if (!el) return;
+  el.currentTime = Math.max(0, el.currentTime - seconds);
+}
+
 function stepRate(dir: 1 | -1): void {
   const idx = RATES.indexOf(rate.value as Rate);
   const next = RATES[Math.max(0, Math.min(RATES.length - 1, idx + dir))] ?? 1;
@@ -482,6 +489,10 @@ watch(lessonId, async () => {
         />
 
         <div v-if="!isEmbed" class="player__tools">
+          <button class="mc-btn mc-btn--sm mc-btn--ghost" type="button" @click="rewind(15)">
+            <Icon name="reset" :size="14" />
+            后退 15 秒
+          </button>
           <div class="player__rates" role="group" aria-label="播放速度">
             <button
               v-for="r in RATES"

@@ -29,6 +29,8 @@ interface NavItem {
 
 const studentNav: NavItem[] = [
   { to: '/', label: '课程大厅', icon: 'hall' },
+  // 对标中国大学 MOOC：把"上课"提到最外层（在学 / 收藏 / 已学完一站聚合）
+  { to: '/my-courses', label: '我的课程', icon: 'courses' },
   { to: '/wrong-book', label: '错题本', icon: 'wrong' },
   { to: '/me', label: '个人中心', icon: 'user' },
 ];
@@ -197,6 +199,7 @@ const levelProgress = computed(() => {
           <nav class="footer__col" aria-label="常用入口">
             <h2 class="footer__title">常用入口</h2>
             <RouterLink class="footer__link" :to="{ name: 'hall' }">课程大厅</RouterLink>
+            <RouterLink class="footer__link" :to="{ name: 'my-courses' }">我的课程</RouterLink>
             <RouterLink class="footer__link" :to="{ name: 'wrong-book' }">错题本</RouterLink>
             <RouterLink class="footer__link" :to="{ name: 'me' }">个人中心</RouterLink>
             <RouterLink v-if="auth.isAdmin" class="footer__link" :to="{ name: 'admin-overview' }">教学管理</RouterLink>

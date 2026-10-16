@@ -49,6 +49,12 @@ const router = createRouter({
           meta: { title: '课程大厅' },
         },
         {
+          path: 'my-courses',
+          name: 'my-courses',
+          component: lazyView(() => import('@/views/MyCoursesView.vue')),
+          meta: { title: '我的课程' },
+        },
+        {
           path: 'courses/:id',
           name: 'course',
           component: lazyView(() => import('@/views/CourseDetailView.vue')),
