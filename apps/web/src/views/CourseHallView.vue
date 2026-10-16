@@ -1,13 +1,16 @@
 <script setup lang="ts">
 /**
- * 课程大厅（结构重做版）
+ * 课程大厅（首页 · 机构门面版）
  *
- * 为什么改：原版是一整片"同构卡片网格"（反模式 #21），顶部还有 4 张同构指标卡（反模式 #20），
- * 两者共同造成"模板感"。按规范改为：
- *   ① 指标压缩成**一行文字**（不再占四张卡片的位置）；
- *   ② **一个主推块**（继续学习）承接最重要的动作；
- *   ③ 其余课程用**紧凑列表**（按分类分组），一屏能看到更多、层级更清楚。
- * 测试钩子：每个课程项仍保留 `course-card` 类名（E2E 依赖它定位）。
+ * 结构（对标大机构/主流教育平台首页）：
+ *   ① 主视觉 Hero：品牌主张 + 大搜索框 + 主 CTA（浏览全部课程 / 刷新）
+ *   ② 实力数据带：真实数据（课程/课时/分类/已学完/在学）—— 首页需要可信度
+ *   ③ 分类金刚区：按分类快速进入（点击即筛选）
+ *   ④ 继续学习：主推块（优先"学到一半"的课程）
+ *   ⑤ 全部课程：按分类分组的紧凑列表
+ *
+ * 数据全部取自真实接口，不造数、不夸大。
+ * 测试钩子：课程项仍带 `course-card` 类名，CTA 文案保持「开始学习 / 继续学习」。
  */
 import { computed, ref } from 'vue';
 import { RouterLink } from 'vue-router';
@@ -16,7 +19,6 @@ import { useAsync, errorMessage } from '@/composables/useAsync';
 import { useToastStore } from '@/stores/toast';
 import EmptyState from '@/components/EmptyState.vue';
 import Icon from '@/components/Icon.vue';
-import PageHeader from '@/components/PageHeader.vue';
 import Tag from '@/components/Tag.vue';
 import Toolbar from '@/components/Toolbar.vue';
 import ProgressBar from '@/components/ProgressBar.vue';
@@ -37,6 +39,7 @@ const onlyFav = ref(false);
 const onlyUnfinished = ref(false);
 
 const courses = computed(() => data.value?.courses ?? []);
+const categories = computed(() => data.value?.categories ?? []);
 
 const filtered = computed(() =>
   courses.value.filter((c) => {
@@ -55,7 +58,44 @@ function progressOf(course: Course): number {
   return Math.min(100, Math.round(((course.finished ?? 0) / total) * 100));
 }
 
-/** 主推块：优先"学到一半"的课程，其次最近创建的（列表已按 id 倒序） */
+/* ---- 首页实力数据带：全部是真实统计 ---- */
+const lessonTotal = computed(() => courses.value.reduce((sum, c) => sum + (c.total ?? 0), 0));
+const finishedTotal = computed(() => courses.value.reduce((sum, c) => sum + (c.finished ?? 0), 0));
+const learningCount = computed(() => courses.value.filter((c) => progressOf(c) > 0 && progressOf(c) < 100).length);
+
+const overviewStats = computed(() => [
+  { label: '门课程', value: courses.value.length },
+  { label: '个课时', value: lessonTotal.value },
+  { label: '个分类', value: categories.value.length },
+  { label: '个课时已学完', value: finishedTotal.value },
+]);
+
+/* ---- 分类金刚区：每类课程数与该类整体进度 ---- */
+const categoryTiles = computed(() =>
+  categories.value
+    .map((cat) => {
+      const list = courses.value.filter((c) => c.category_id === cat.id);
+      const total = list.reduce((s, c) => s + (c.total ?? 0), 0);
+      const done = list.reduce((s, c) => s + (c.finished ?? 0), 0);
+      return {
+        id: cat.id,
+        name: cat.name,
+        count: list.length,
+        percent: total > 0 ? Math.round((done / total) * 100) : 0,
+      };
+    })
+    .filter((c) => c.count > 0)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8),
+);
+
+const uncategorizedCount = computed(() => courses.value.filter((c) => !c.category_id).length);
+
+function pickCategory(id: number): void {
+  categoryId.value = categoryId.value === id ? '' : id;
+}
+
+/** 主推块：优先"学到一半"的课程 */
 const featured = computed<Course | null>(() => {
   const list = filtered.value;
   const first = list[0];
@@ -98,41 +138,79 @@ function resetFilters(): void {
 
 <template>
   <section class="hall">
-    <PageHeader
-      title="课程大厅"
-      description="按章节组织的课程视频、配套知识点与课后练习；支持按分类、关键词与学习状态筛选。"
-      icon="hall"
-      :breadcrumb="[{ label: '首页' }, { label: '课程大厅' }]"
-    >
-      <template #actions>
-        <button class="mc-btn mc-btn--sm" type="button" :disabled="loading" @click="run()">
-          <Icon name="refresh" :size="15" />
-          刷新
-        </button>
-      </template>
+    <!-- ① 主视觉：品牌主张 + 搜索 + 主 CTA -->
+    <header class="hall__hero">
+      <div class="hall__hero-main">
+        <p class="hall__eyebrow">
+          <Icon name="graduation" :size="15" />
+          微课堂 · 一站式轻量学习平台
+        </p>
+        <h1 class="hall__claim">看的每一分钟，都算数</h1>
+        <p class="hall__sub">课程视频、章节归类、课后练习与错题本一体；本地视频断点续播，练习按知识点自动归档。</p>
 
-      <template #meta>
-        <!-- 反模式 #20：不再用 4 张"大数字+小标签"的指标卡，改为一行可扫读的事实 -->
-        <dl class="hall__metrics">
-          <div class="hall__metric">
-            <dt>课程</dt>
-            <dd class="mc-num">{{ courses.length }}</dd>
+        <div class="hall__hero-search">
+          <label class="hall__search hall__search--hero">
+            <Icon name="search" :size="16" />
+            <input
+              v-model.trim="keyword"
+              class="mc-input mc-input--search hall__search-input"
+              type="search"
+              placeholder="搜索课程名称或简介"
+              aria-label="搜索课程"
+            />
+          </label>
+          <button class="mc-btn mc-btn--primary hall__hero-cta" type="button" @click="resetFilters">
+            <Icon name="grid" :size="15" />
+            浏览全部课程
+          </button>
+          <button class="mc-btn hall__hero-cta" type="button" :disabled="loading" title="刷新课程数据" @click="run()">
+            <Icon name="refresh" :size="15" />
+            刷新
+          </button>
+        </div>
+
+        <!-- ② 实力数据带（真实数据） -->
+        <dl class="hall__stats">
+          <div v-for="s in overviewStats" :key="s.label" class="hall__stat">
+            <dt class="mc-num hall__stat-num">{{ s.value }}</dt>
+            <dd class="hall__stat-label">{{ s.label }}</dd>
           </div>
-          <div class="hall__metric">
-            <dt>已学完课时</dt>
-            <dd class="mc-num">{{ data?.orphans.finished ?? 0 }}</dd>
-          </div>
-          <div class="hall__metric">
-            <dt>已完成练习</dt>
-            <dd class="mc-num">{{ data?.orphans.quiz ?? 0 }}</dd>
-          </div>
-          <div class="hall__metric" :class="{ 'hall__metric--warn': (data?.orphans.total ?? 0) > 0 }">
-            <dt>待归类课时</dt>
-            <dd class="mc-num">{{ data?.orphans.total ?? 0 }}</dd>
+          <div v-if="learningCount > 0" class="hall__stat hall__stat--accent">
+            <dt class="mc-num hall__stat-num">{{ learningCount }}</dt>
+            <dd class="hall__stat-label">门在学</dd>
           </div>
         </dl>
-      </template>
-    </PageHeader>
+      </div>
+
+      <div class="hall__hero-art" aria-hidden="true">
+        <span class="hall__art-ring" />
+        <span class="hall__art-card hall__art-card--a"><Icon name="play" :size="22" /></span>
+        <span class="hall__art-card hall__art-card--b"><Icon name="check-circle" :size="20" /></span>
+        <span class="hall__art-card hall__art-card--c"><Icon name="chartBar" :size="20" /></span>
+      </div>
+    </header>
+
+    <!-- ③ 分类金刚区 -->
+    <nav v-if="categoryTiles.length > 0 || uncategorizedCount > 0" class="hall__cats" aria-label="按分类浏览">
+      <button
+        v-for="cat in categoryTiles"
+        :key="cat.id"
+        class="hall__cat"
+        :class="{ 'hall__cat--on': categoryId === cat.id }"
+        type="button"
+        :aria-pressed="categoryId === cat.id"
+        @click="pickCategory(cat.id)"
+      >
+        <span class="hall__cat-icon"><Icon name="book-open" :size="18" /></span>
+        <span class="hall__cat-name">{{ cat.name }}</span>
+        <span class="hall__cat-meta mc-num">{{ cat.count }} 门 · {{ cat.percent }}%</span>
+      </button>
+      <div v-if="uncategorizedCount > 0" class="hall__cat hall__cat--muted">
+        <span class="hall__cat-icon"><Icon name="folder" :size="18" /></span>
+        <span class="hall__cat-name">未分类</span>
+        <span class="hall__cat-meta mc-num">{{ uncategorizedCount }} 门</span>
+      </div>
+    </nav>
 
     <Toolbar>
       <template #left>
@@ -143,12 +221,12 @@ function resetFilters(): void {
             class="mc-input mc-input--search hall__search-input"
             type="search"
             placeholder="搜索课程名称或简介"
-            aria-label="搜索课程"
+            aria-label="搜索课程（工具条）"
           />
         </label>
         <select v-model="categoryId" class="mc-select hall__select" aria-label="按分类筛选">
           <option value="">全部分类</option>
-          <option v-for="c in data?.categories ?? []" :key="c.id" :value="c.id">{{ c.name }}</option>
+          <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
         <label class="mc-checkbox">
           <input v-model="onlyFav" type="checkbox" />
@@ -170,7 +248,6 @@ function resetFilters(): void {
       </template>
     </Toolbar>
 
-    <!-- 加载骨架：与真实列表同形（行式） -->
     <div v-if="loading && courses.length === 0" class="hall__list" aria-hidden="true">
       <div v-for="i in 6" :key="i" class="hall__row-skeleton">
         <div class="mc-skeleton hall__skeleton-thumb" />
@@ -189,7 +266,7 @@ function resetFilters(): void {
     />
 
     <template v-else>
-      <!-- ① 主推块：把最重要的动作放在最显眼处 -->
+      <!-- ④ 继续学习：主推块 -->
       <article
         v-if="featured"
         class="course-card course-card--featured mc-card"
@@ -251,7 +328,7 @@ function resetFilters(): void {
         </div>
       </article>
 
-      <!-- ② 其余课程：按分类分组的紧凑列表（一屏看更多，层级靠分组与留白） -->
+      <!-- ⑤ 全部课程：按分类分组的紧凑列表 -->
       <section v-for="group in groups" :key="group.name" class="hall__group">
         <header class="hall__group-head">
           <h2 class="hall__group-title">{{ group.name }}</h2>
@@ -335,37 +412,237 @@ function resetFilters(): void {
   flex-direction: column;
 }
 
-/* ---- 指标：一行文字，不占卡片位置（反模式 #20） ---- */
-.hall__metrics {
+/* ---------- ① 主视觉 ---------- */
+.hall__hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--mc-space-6);
+  padding: var(--mc-space-8);
+  margin-bottom: var(--mc-space-6);
+  overflow: hidden;
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius-xl);
+  background-image: var(--mc-gradient-brand-soft);
+  box-shadow: var(--mc-shadow-sm);
+}
+
+.hall__hero-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mc-space-3);
+  min-width: 0;
+}
+
+.hall__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mc-space-2);
+  margin: 0;
+  font-size: var(--mc-text-xs);
+  font-weight: var(--mc-font-medium);
+  letter-spacing: 0.06em;
+  color: var(--mc-primary-fg);
+}
+
+.hall__claim {
+  margin: 0;
+  font-size: var(--mc-text-2xl);
+  font-weight: var(--mc-font-bold);
+  line-height: var(--mc-leading-display);
+  letter-spacing: var(--mc-tracking-tight);
+  color: var(--mc-text);
+}
+
+.hall__sub {
+  max-width: 62ch;
+  margin: 0;
+  font-size: var(--mc-text-sm);
+  color: var(--mc-text-secondary);
+}
+
+.hall__hero-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mc-space-2);
+  margin-top: var(--mc-space-2);
+}
+
+.hall__search--hero {
+  min-width: 320px;
+  flex: 1 1 320px;
+}
+
+.hall__hero-cta {
+  flex: none;
+}
+
+/* 实力数据带 */
+.hall__stats {
   display: flex;
   flex-wrap: wrap;
   gap: var(--mc-space-6);
-  margin: 0;
+  margin: var(--mc-space-4) 0 0;
 }
 
-.hall__metric {
+.hall__stat {
   display: flex;
-  align-items: baseline;
-  gap: var(--mc-space-2);
+  flex-direction: column;
+  gap: var(--mc-space-1);
+  padding-left: var(--mc-space-4);
+  border-left: 1px solid var(--mc-border);
 }
 
-.hall__metric dt {
+.hall__stat:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.hall__stat-num {
+  font-size: var(--mc-text-xl);
+  font-weight: var(--mc-font-bold);
+  line-height: var(--mc-leading-display);
+  color: var(--mc-text);
+}
+
+.hall__stat-label {
+  margin: 0;
   font-size: var(--mc-text-xs);
   color: var(--mc-text-muted);
 }
 
-.hall__metric dd {
-  margin: 0;
-  font-size: var(--mc-text-md);
-  font-weight: var(--mc-font-semibold);
+.hall__stat--accent .hall__stat-num {
+  color: var(--mc-primary-fg);
+}
+
+/* 主视觉装饰（纯装饰，aria-hidden） */
+.hall__hero-art {
+  display: none;
+}
+
+@media (min-width: 1080px) {
+  .hall__hero {
+    grid-template-columns: minmax(0, 1fr) 240px;
+  }
+
+  .hall__hero-art {
+    position: relative;
+    display: block;
+  }
+
+  .hall__art-ring {
+    position: absolute;
+    top: 34px;
+    left: 60px;
+    width: 96px;
+    height: 96px;
+    border-radius: var(--mc-radius-pill);
+    border: 2px dashed var(--mc-primary-border);
+  }
+
+  .hall__art-card {
+    position: absolute;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--mc-radius-lg);
+    background: var(--mc-bg-elevated);
+    box-shadow: var(--mc-shadow-md);
+  }
+
+  .hall__art-card--a {
+    top: 0;
+    left: 0;
+    width: 64px;
+    height: 64px;
+    color: var(--mc-primary-fg);
+  }
+
+  .hall__art-card--b {
+    top: 78px;
+    right: 6px;
+    width: 48px;
+    height: 48px;
+    color: var(--mc-success-fg);
+  }
+
+  .hall__art-card--c {
+    bottom: 4px;
+    left: 12px;
+    width: 52px;
+    height: 52px;
+    color: var(--mc-accent-fg);
+  }
+}
+
+/* ---------- ③ 分类金刚区 ---------- */
+.hall__cats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--mc-space-3);
+  margin-bottom: var(--mc-space-6);
+}
+
+.hall__cat {
+  display: flex;
+  align-items: center;
+  gap: var(--mc-space-3);
+  padding: var(--mc-space-3) var(--mc-space-4);
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius-lg);
+  background: var(--mc-bg-elevated);
+  text-align: left;
+  cursor: pointer;
+  transition: var(--mc-transition-all);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hall__cat:hover {
+    border-color: var(--mc-primary-border);
+    box-shadow: var(--mc-shadow-sm);
+  }
+}
+
+.hall__cat--on {
+  border-color: var(--mc-primary);
+  background: var(--mc-primary-soft);
+}
+
+.hall__cat--muted {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.hall__cat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--mc-radius-md);
+  background: var(--mc-primary-soft);
+  color: var(--mc-primary-fg);
+  flex: none;
+}
+
+.hall__cat-name {
+  font-size: var(--mc-text-base);
+  font-weight: var(--mc-font-medium);
   color: var(--mc-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.hall__metric--warn dd {
-  color: var(--mc-warning-fg);
+.hall__cat-meta {
+  margin-left: auto;
+  font-size: var(--mc-text-xs);
+  color: var(--mc-text-muted);
+  white-space: nowrap;
 }
 
-/* ---- 工具条里的搜索框：图标 + 输入框一体 ---- */
+/* ---------- 工具条搜索框 ---------- */
 .hall__search {
   display: inline-flex;
   align-items: center;
@@ -399,7 +676,7 @@ function resetFilters(): void {
   font-size: var(--mc-text-xs);
 }
 
-/* ---- 主推块 ---- */
+/* ---------- ④ 主推块 ---------- */
 .course-card--featured {
   display: grid;
   grid-template-columns: 240px 1fr;
@@ -489,7 +766,7 @@ function resetFilters(): void {
   margin-top: var(--mc-space-1);
 }
 
-/* ---- 分组 ---- */
+/* ---------- ⑤ 分组与列表 ---------- */
 .hall__group + .hall__group {
   margin-top: var(--mc-space-8);
 }
@@ -513,7 +790,6 @@ function resetFilters(): void {
   color: var(--mc-text-muted);
 }
 
-/* ---- 紧凑列表（不再是一整片同构卡片） ---- */
 .hall__list {
   display: flex;
   flex-direction: column;
@@ -557,7 +833,6 @@ function resetFilters(): void {
   object-fit: cover;
 }
 
-/* 按 id 稳定分配缩略图配色，避免整列同色 */
 .course-card--g0 .course-card__thumb {
   background-image: var(--mc-gradient-thumb-1);
   color: var(--mc-primary-fg);
@@ -632,7 +907,7 @@ function resetFilters(): void {
   color: var(--mc-warning-fg);
 }
 
-/* ---- 加载骨架 ---- */
+/* ---------- 加载骨架 ---------- */
 .hall__row-skeleton {
   display: grid;
   grid-template-columns: 64px minmax(0, 1fr) 180px;
@@ -654,8 +929,12 @@ function resetFilters(): void {
   width: 45%;
 }
 
-/* ---- 窄屏：主推块改为上下、列表让出进度列 ---- */
+/* ---------- 窄屏 ---------- */
 @media (max-width: 900px) {
+  .hall__hero {
+    padding: var(--mc-space-6) var(--mc-space-5);
+  }
+
   .course-card--featured {
     grid-template-columns: 1fr;
   }

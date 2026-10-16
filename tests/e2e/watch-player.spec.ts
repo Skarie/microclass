@@ -21,7 +21,7 @@ test.describe('观看页播放器', () => {
 
     // 1.5× 是第 4 个按钮：点击后播放器真的变速
     await page.locator('.player__rates button').nth(3).click();
-    expect(await page.locator('video').evaluate((v) => v.playbackRate)).toBeCloseTo(1.5, 2);
+    expect(await page.locator('video').evaluate((el: HTMLVideoElement) => el.playbackRate)).toBe(1.5);
 
     // 刷新后记住选择（主流播放器的"记住速度"）
     await page.reload();
@@ -30,7 +30,7 @@ test.describe('观看页播放器', () => {
 
     // 快捷键：逗号降一档
     await page.keyboard.press('Comma');
-    expect(await page.locator('video').evaluate((v) => v.playbackRate)).toBeCloseTo(1.25, 2);
+    expect(await page.locator('video').evaluate((el: HTMLVideoElement) => el.playbackRate)).toBe(1.25);
 
     // 快捷键提示常驻（学生不需要去猜）
     await expect(page.locator('.player__hint')).toContainText('空格');
@@ -42,10 +42,10 @@ test.describe('观看页播放器', () => {
     await page.goto(`/lessons/${seeded.lessonId}/watch`);
     await page.locator('.note-form textarea, textarea').first().waitFor();
 
-    const before = await page.locator('video').evaluate((v) => v.paused);
+    const before = await page.locator('video').evaluate((el: HTMLVideoElement) => el.paused);
     await page.locator('textarea').first().click();
     await page.keyboard.type('a b');
-    const after = await page.locator('video').evaluate((v) => v.paused);
+    const after = await page.locator('video').evaluate((el: HTMLVideoElement) => el.paused);
     expect(after).toBe(before);
   });
 });
