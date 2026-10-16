@@ -14,6 +14,9 @@ import { loginViaUi } from './helpers';
  * 干扰其它用例（真机踩过：主流程用例因为多了 N 个「E2E 课程」而失败）。
  */
 const SCAN_PAGES: { path: string; name: string }[] = [
+  { path: '/', name: '首页（数据看板）' },
+  { path: '/hall', name: '课程大厅' },
+  { path: '/my-courses', name: '我的课程' },
   { path: '/wrong-book', name: '错题本' },
   { path: '/me', name: '个人中心' },
   { path: '/admin/overview', name: '总览' },
@@ -66,7 +69,7 @@ test.describe('无障碍扫描（明色主题）', () => {
 test('深色主题：课程大厅与题库管理无 serious/critical 无障碍问题', async ({ page }) => {
   await loginViaUi(page);
   await page.emulateMedia({ colorScheme: 'dark' });
-  for (const pagePath of ['/', '/admin/banks']) {
+  for (const pagePath of ['/', '/hall', '/admin/banks']) {
     await page.goto(pagePath);
     await page.locator('#mc-main').waitFor({ state: 'visible', timeout: 30000 });
     await page.waitForTimeout(700);

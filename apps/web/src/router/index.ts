@@ -44,6 +44,13 @@ const router = createRouter({
       children: [
         {
           path: '',
+          name: 'home',
+          component: lazyView(() => import('@/views/HomeView.vue')),
+          meta: { title: '首页' },
+        },
+        {
+          // 课程从首页拆出来独立成页（首页只放数据看板与快捷跳转）
+          path: 'hall',
           name: 'hall',
           component: lazyView(() => import('@/views/CourseHallView.vue')),
           meta: { title: '课程大厅' },
@@ -202,7 +209,7 @@ router.beforeEach(async (to) => {
   }
   if (to.meta.requiresAdmin && !auth.isAdmin) {
     toast.error('没有权限访问该页面');
-    return { name: 'hall' };
+    return { name: 'home' };
   }
   if (to.meta.requiresTeacher && !auth.isTeacher) {
     toast.error('需要教师或管理员权限');

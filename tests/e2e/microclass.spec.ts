@@ -21,6 +21,9 @@ test.describe('微课堂端到端', () => {
     await loginViaUi(page);
 
     // 2. 课程大厅能看到刚建的课程，并能进入详情
+    // 注意：首页（/）现在是数据看板，课程在独立的 /hall
+    await page.goto('/hall');
+    await page.locator('#mc-main').waitFor({ state: 'visible' });
     // 用**课程 id 的链接**精确锁定自己造的课程：E2E 共用一个库，
     // 别的用例造的「E2E 课程 xxx」也会被 hasText 子串命中（真机表现：resolved to 3 elements）。
     const card = page.locator('.course-card').filter({ has: page.locator(`a[href$="/courses/${seeded.courseId}"]`) });
