@@ -83,12 +83,13 @@
   /* 拉丁字母与数字用拉丁字体族：中文字体的数字偏松、字重不均（第 23 条） */
   --mc-font-num: 'SF Pro Text', Roboto, 'Helvetica Neue', Arial, var(--mc-font-sans);
   --mc-font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  /* 自查清单 #2：文字层级控制在 4~5 级（12 辅助 / 14 正文 / 16 小标题 / 20 标题 / 28 展示） */
   --mc-text-xs: 12px;
-  --mc-text-sm: 13px;
+  --mc-text-sm: 14px;
   --mc-text-base: 14px;
-  --mc-text-md: 15px;
-  --mc-text-lg: 18px;
-  --mc-text-xl: 22px;
+  --mc-text-md: 16px;
+  --mc-text-lg: 16px;
+  --mc-text-xl: 20px;
   --mc-text-2xl: 28px;
   /* 行高规则（第 29 条）：字越小行高越大 */
   --mc-leading-display: 1.2;
@@ -230,8 +231,9 @@
   --mc-chart-7: #5f7a6a;
   --mc-chart-8: #a1552c;
 
-  --mc-text-3xl: 32px;
-  --mc-text-4xl: 40px;
+  /* 清单 #2：不再保留 32/40 两档，展示级统一 28（层级越少越清晰） */
+  --mc-text-3xl: 28px;
+  --mc-text-4xl: 28px;
   --mc-font-normal: 400;
   --mc-font-medium: 500;
   --mc-font-semibold: 600;

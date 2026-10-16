@@ -36,13 +36,32 @@ body {
   color: var(--mc-text);
 }
 
+/* 自查清单 #3：禁止浏览器自动行高 —— 所有承载文本的元素显式给定行高 */
+p,
+li,
+dd,
+dt,
+figcaption,
+blockquote,
+label,
+legend,
+td,
+th,
+input,
+select,
+textarea,
+button,
+a {
+  line-height: var(--mc-leading);
+}
+
 h1,
 h2,
 h3,
 h4 {
   margin: 0;
   font-weight: var(--mc-font-semibold);
-  line-height: var(--mc-leading-tight);
+  line-height: var(--mc-leading-snug);
   color: var(--mc-text);
 }
 
@@ -387,6 +406,13 @@ a:hover {
 /* ---------- 文本工具类 ---------- */
 .mc-muted {
   color: var(--mc-text-muted);
+}
+
+/* 清单 #3：字号越小，行高比例越大 */
+.mc-text-xs,
+.mc-hint,
+.mc-error-text {
+  line-height: var(--mc-leading-loose);
 }
 
 .mc-secondary {

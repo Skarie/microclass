@@ -90,3 +90,35 @@ describe('设计规范：取值必须收敛', () => {
     expect(bad, `组件内渐变：\n${bad.join('\n')}`).toEqual([]);
   });
 });
+
+/**
+ * 追加：《UI设计自查清单 30 条》中可自动判定的项
+ *   #1 不用超细字重  #2 字号层级 ≤5 档  #6 负字距仅限大标题
+ */
+describe('设计规范：自查清单 30 条（可判定项）', () => {
+  it('#1 正文不使用超细字重（<400）', () => {
+    const bad = findViolations(/font-weight:\s*(100|200|300)\b/g, () => false);
+    expect(bad, `超细字重：\n${bad.join('\n')}`).toEqual([]);
+  });
+
+  it('#2 字号层级不超过 5 档', () => {
+    const tokens = fs.readFileSync(path.join(SRC, 'styles', 'tokens.css'), 'utf8');
+    const px = [...new Set([...tokens.matchAll(/--mc-text-[a-z0-9]+:\s*(\d+)px/g)].map((m) => Number(m[1])))];
+    expect(px.length, `字号档位过多：${px.sort((a, b) => a - b).join('/')}px`).toBeLessThanOrEqual(5);
+  });
+
+  it('#6 负字距只用于 ≥20px 的标题', () => {
+    const bad: string[] = [];
+    for (const { file, text } of entries) {
+      for (const block of text.matchAll(/\{([^{}]*)\}/g)) {
+        const b = block[1] ?? '';
+        if (!/letter-spacing:\s*(-[\d.]+em|var\(--mc-tracking-tight\))/.test(b)) continue;
+        const size = /font-size:\s*(\d+)px/.exec(b);
+        const token = /font-size:\s*var\(--mc-text-(4xl|3xl|2xl|xl|lg|md)\)/.exec(b);
+        if (size && Number(size[1]) < 20) bad.push(`${file} 负字距 + ${size[1]}px`);
+        if (!size && !token) bad.push(`${file} 负字距但未声明字号（可能是正文）`);
+      }
+    }
+    expect(bad, `正文压缩字距：\n${bad.join('\n')}`).toEqual([]);
+  });
+});
