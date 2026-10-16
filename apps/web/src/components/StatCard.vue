@@ -127,6 +127,7 @@ withDefaults(
 }
 
 .stat__value {
+  font-family: var(--mc-font-num);
   font-size: var(--mc-text-2xl);
   font-weight: var(--mc-font-bold);
   line-height: var(--mc-leading-tight);

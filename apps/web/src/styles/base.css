@@ -16,10 +16,13 @@ body,
 }
 
 body {
-  /* 墨卷：不再用彩色氛围光晕（那正是"AI 味"的来源），改为纯暖纸底 */
+  /* 第 12/26 条：纯色背景单调 → 极淡的品牌氛围渐变 + 细网格线（克制，不抢内容） */
   background-color: var(--mc-bg);
+  background-image: var(--mc-bg-art);
+  background-attachment: fixed;
   color: var(--mc-text);
-  font-family: var(--mc-font-sans);
+  /* 第 23 条：英文与数字用拉丁字体，中文回退到中文字体（数字不再偏松） */
+  font-family: var(--mc-font-num);
   font-size: var(--mc-text-base);
   line-height: var(--mc-leading);
   letter-spacing: 0.005em;
@@ -90,7 +93,8 @@ a:hover {
   justify-content: space-between;
   gap: var(--mc-space-3);
   padding: var(--mc-space-4) var(--mc-space-5);
-  border-bottom: 1px solid var(--mc-border);
+  /* 第 24 条：分隔"线"改成分隔"面"，版面更干净 */
+  background: var(--mc-bg-sunken);
 }
 
 .mc-card__title {
@@ -100,7 +104,8 @@ a:hover {
 }
 
 .mc-card__body {
-  padding: var(--mc-space-5);
+  /* 第 17 条：文案多时靠留白分组，主次分明 */
+  padding: var(--mc-space-6);
 }
 
 .mc-card__footer {
@@ -147,16 +152,20 @@ a:hover {
 }
 
 .mc-btn--primary {
+  /* 第 15 条：主按钮要一眼看出优先级；第 26 条：极弱同色渐变提升质感 */
   background-color: var(--mc-primary);
-  background-image: none;
-  border-color: var(--mc-primary);
+  background-image: var(--mc-gradient-primary);
+  border-color: transparent;
   color: var(--mc-text-inverse);
+  box-shadow: var(--mc-shadow-brand);
 }
 
 @media (hover: hover) and (pointer: fine) {
   .mc-btn--primary:hover:not(:disabled) {
     background-color: var(--mc-primary-hover);
-    border-color: var(--mc-primary-hover);
+    background-image: var(--mc-gradient-primary);
+    border-color: transparent;
+    box-shadow: var(--mc-shadow-brand-strong);
   }
 }
 
@@ -303,12 +312,18 @@ a:hover {
 .mc-table td {
   padding: var(--mc-space-3) var(--mc-space-4);
   text-align: left;
-  border-bottom: 1px solid var(--mc-border);
+  border-bottom: 0;
   vertical-align: middle;
+}
+
+/* 第 22 条：少用线，用"面"与留白分隔；斑马纹提升横向扫读 */
+.mc-table tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--mc-bg-sunken) 55%, transparent);
 }
 
 .mc-table th {
   background: var(--mc-bg-sunken);
+  border-bottom: 1px solid var(--mc-border);
   color: var(--mc-text-secondary);
   font-weight: var(--mc-font-semibold);
   white-space: nowrap;
@@ -413,6 +428,20 @@ a:hover {
   display: flex;
   flex-direction: column;
   gap: var(--mc-space-3);
+}
+
+/* 第 31 条：堆叠列表的末元素给双倍间距，视觉更平衡 */
+.mc-stack > * + * {
+  margin-top: var(--mc-space-3);
+}
+
+.mc-stack > *:last-child {
+  margin-bottom: var(--mc-space-6);
+}
+
+.mc-num {
+  font-family: var(--mc-font-num);
+  font-variant-numeric: tabular-nums;
 }
 
 .mc-spacer {
@@ -719,6 +748,15 @@ a:hover {
 
 .mc-gradient-soft {
   background-image: var(--mc-gradient-brand-soft);
+}
+
+/* 第 30 条：图片上压文字时加渐变蒙版，保证可读性 */
+.mc-veil::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--mc-gradient-veil);
+  pointer-events: none;
 }
 
 /* 毛玻璃：顶栏、悬浮面板、模态遮罩之上 */

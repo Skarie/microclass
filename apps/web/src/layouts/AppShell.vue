@@ -385,8 +385,11 @@ const levelProgress = computed(() => {
   width: 32px;
   height: 32px;
   border-radius: var(--mc-radius-pill);
+  /* 第 33 条：复杂背景上给头像加描边，避免融入背景 */
   background: var(--mc-primary-soft);
+  box-shadow: 0 0 0 2px var(--mc-bg-elevated);
   color: var(--mc-primary-fg);
+  font-family: var(--mc-font-num);
   font-weight: var(--mc-font-semibold);
   flex: none;
 }
