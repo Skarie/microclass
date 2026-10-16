@@ -77,9 +77,10 @@ const roots = ref<MediaRoot[]>([]);
 
 function readView(): ViewMode {
   try {
-    return window.localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'grid';
+    // 列表优先（结构规范：列表先于卡片网格，一屏能看到更多课程）
+    return window.localStorage.getItem(VIEW_KEY) === 'grid' ? 'grid' : 'list';
   } catch {
-    return 'grid';
+    return 'list';
   }
 }
 

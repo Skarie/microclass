@@ -211,9 +211,10 @@ test.describe('微课堂端到端', () => {
 
     // 新建的课程出现在课程管理里，点进去能看到刚上传的课时与章节
     await page.getByRole('tab', { name: /^课程/ }).click();
-    const card = page.locator('.grid .card', { hasText: 'E2E 上传新建课程' });
-    await expect(card).toBeVisible();
-    await card.click();
+    // 课程管理默认列表视图：用课程链接定位（不再依赖"平铺卡片"这种展示细节）
+    const link = page.getByRole('link', { name: 'E2E 上传新建课程' });
+    await expect(link).toBeVisible();
+    await link.click();
     await expect(page.getByText('e2e 上传测试')).toBeVisible();
     await expect(page.getByText('第一章 上传测试').first()).toBeVisible();
   });
@@ -441,14 +442,15 @@ test.describe('微课堂端到端', () => {
       await loginViaUi(page);
       await page.goto('/admin/courses');
 
-      // 1. 默认平铺视图：课程卡片可见，且卡片上提示「未绑定视频文件夹」
-      const card = page.locator('.grid .card', { hasText: 'E2E 文件夹课程' });
-      await expect(card).toBeVisible();
-      await expect(card.locator('.card__folder')).toContainText('未绑定视频文件夹');
+      // 1. 默认**列表**视图（结构规范：列表先于卡片网格）：表里能看到课程与文件夹状态
+      await expect(page.locator('table.mc-table')).toBeVisible();
+      const row = page.getByRole('row', { name: /E2E 文件夹课程/ });
+      // 表格视图里的文件夹列是简写（未绑定 / 目录名）
+      await expect(row).toContainText('未绑定');
 
       // 2. 点课程名链接 → 进入该课程的课时管理
       // （卡片整体不再可点：整卡 role="button" 里嵌链接和按钮会命中 axe nested-interactive）
-      await card.locator('.card__name').click();
+      await row.getByRole('link', { name: 'E2E 文件夹课程' }).click();
       await expect(page).toHaveURL(new RegExp(`/admin/courses/${courseId}$`));
       await expect(page.getByRole('heading', { name: 'E2E 文件夹课程' })).toBeVisible();
 
@@ -486,17 +488,15 @@ test.describe('微课堂端到端', () => {
       const ordered = ((await detail.json()) as { lessons: { title: string }[] }).lessons.map((l) => l.title);
       expect(ordered[2]).toBe('01 a');
 
-      // 7. 回课程管理：绑定状态显示在卡片上；列表视图可切换且被记住
+      // 7. 回课程管理：列表视图显示绑定状态；切平铺后刷新仍记住（localStorage 持久化）
       await page.goto('/admin/courses');
-      await expect(page.locator('.grid .card', { hasText: 'E2E 文件夹课程' }).locator('.card__folder')).toContainText(
-        'E2E 视频库',
-      );
-      await page.getByRole('button', { name: '列表展示' }).click();
-      await expect(page.locator('table.mc-table')).toBeVisible();
-      await page.reload();
-      await expect(page.locator('table.mc-table')).toBeVisible();
+      await expect(page.getByRole('row', { name: /E2E 文件夹课程/ })).toContainText('E2E 视频库');
       await page.getByRole('button', { name: '平铺展示' }).click();
       await expect(page.locator('.grid .card', { hasText: 'E2E 文件夹课程' })).toBeVisible();
+      await page.reload();
+      await expect(page.locator('.grid .card', { hasText: 'E2E 文件夹课程' })).toBeVisible();
+      await page.getByRole('button', { name: '列表展示' }).click();
+      await expect(page.locator('table.mc-table')).toBeVisible();
     } finally {
       try {
         fs.rmSync(workDir, { recursive: true, force: true });

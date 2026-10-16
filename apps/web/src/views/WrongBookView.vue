@@ -9,7 +9,7 @@ import { api } from '@/api/client';
 import { errorMessage, useAsync } from '@/composables/useAsync';
 import { useToastStore } from '@/stores/toast';
 import PageHeader from '@/components/PageHeader.vue';
-import StatCard from '@/components/StatCard.vue';
+import MetricBar from '@/components/MetricBar.vue';
 import Icon from '@/components/Icon.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import AnswerText from '@/components/AnswerText.vue';
@@ -150,10 +150,14 @@ function practice(item: WrongItem): void {
       </template>
 
       <template #meta>
-        <StatCard label="收录总题数" :value="totalCount" unit="题" icon="wrong" tone="primary" />
-        <StatCard label="未掌握" :value="pendingCount" unit="题" icon="alert" tone="warning" />
-        <StatCard label="已掌握" :value="masteredCount" unit="题" icon="check-circle" tone="success" />
-        <StatCard label="当前筛选命中" :value="filtered.length" unit="题" icon="search" tone="neutral" />
+        <MetricBar
+          :items="[
+            { label: '收录总题数', value: totalCount, unit: '题', tone: 'primary' },
+            { label: '未掌握', value: pendingCount, unit: '题', tone: 'warning' },
+            { label: '已掌握', value: masteredCount, unit: '题', tone: 'success' },
+            { label: '当前筛选命中', value: filtered.length, unit: '题' },
+          ]"
+        />
       </template>
     </PageHeader>
 

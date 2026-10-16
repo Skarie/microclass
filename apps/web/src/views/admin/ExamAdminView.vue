@@ -9,7 +9,7 @@ import Toolbar from '@/components/Toolbar.vue';
 import Icon from '@/components/Icon.vue';
 import AppModal from '@/components/AppModal.vue';
 import EmptyState from '@/components/EmptyState.vue';
-import StatCard from '@/components/StatCard.vue';
+import MetricBar from '@/components/MetricBar.vue';
 import type { Course, Exam } from '@/api/types';
 
 interface CourseListResponse {
@@ -590,21 +590,23 @@ onMounted(async () => {
         <div v-if="scoresLoading && !scores" class="mc-skeleton loading__row" />
 
         <template v-else-if="scores">
-          <!-- 用共享 StatCard（原来自己拼 .stat 结构，标签与数字会挤在一起显示成"0参考人数"） -->
-          <div class="mc-grid mc-grid--stats">
-            <StatCard label="参考人数" :value="scores.summary.attempts" unit="人" icon="users" tone="primary" />
-            <StatCard label="及格人数" :value="scores.summary.passed" unit="人" icon="check" tone="success" />
-            <StatCard
-              label="及格率"
-              :value="`${scores.summary.pass_rate}%`"
-              icon="award"
-              :tone="scores.summary.pass_rate >= 60 ? 'success' : 'warning'"
-            />
-            <StatCard label="平均分" :value="scores.summary.avg" icon="stats" />
-            <StatCard label="最高分" :value="scores.summary.best" icon="trendingUp" />
-            <StatCard label="最低分" :value="scores.summary.worst" icon="trending-down" />
-            <StatCard label="平均用时" :value="formatSeconds(scores.summary.avg_seconds)" icon="clock" />
-          </div>
+          <!-- 七个数字压成一条：把版面留给成绩表本身 -->
+          <MetricBar
+            :items="[
+              { label: '参考人数', value: scores.summary.attempts, unit: '人', tone: 'primary' },
+              { label: '及格人数', value: scores.summary.passed, unit: '人', tone: 'success' },
+              {
+                label: '及格率',
+                value: `${scores.summary.pass_rate}%`,
+                tone: scores.summary.pass_rate >= 60 ? 'success' : 'warning',
+                progress: scores.summary.pass_rate,
+              },
+              { label: '平均分', value: scores.summary.avg },
+              { label: '最高分', value: scores.summary.best },
+              { label: '最低分', value: scores.summary.worst },
+              { label: '平均用时', value: formatSeconds(scores.summary.avg_seconds) },
+            ]"
+          />
 
           <div class="mc-row">
             <button class="mc-btn mc-btn--sm" type="button" :disabled="scoresLoading" @click="loadScores">刷新</button>
