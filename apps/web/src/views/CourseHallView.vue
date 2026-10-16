@@ -1,4 +1,14 @@
 <script setup lang="ts">
+/**
+ * 课程大厅（结构重做版）
+ *
+ * 为什么改：原版是一整片"同构卡片网格"（反模式 #21），顶部还有 4 张同构指标卡（反模式 #20），
+ * 两者共同造成"模板感"。按规范改为：
+ *   ① 指标压缩成**一行文字**（不再占四张卡片的位置）；
+ *   ② **一个主推块**（继续学习）承接最重要的动作；
+ *   ③ 其余课程用**紧凑列表**（按分类分组），一屏能看到更多、层级更清楚。
+ * 测试钩子：每个课程项仍保留 `course-card` 类名（E2E 依赖它定位）。
+ */
 import { computed, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import { api } from '@/api/client';
@@ -7,7 +17,6 @@ import { useToastStore } from '@/stores/toast';
 import EmptyState from '@/components/EmptyState.vue';
 import Icon from '@/components/Icon.vue';
 import PageHeader from '@/components/PageHeader.vue';
-import StatCard from '@/components/StatCard.vue';
 import Tag from '@/components/Tag.vue';
 import Toolbar from '@/components/Toolbar.vue';
 import ProgressBar from '@/components/ProgressBar.vue';
@@ -46,6 +55,29 @@ function progressOf(course: Course): number {
   return Math.min(100, Math.round(((course.finished ?? 0) / total) * 100));
 }
 
+/** 主推块：优先"学到一半"的课程，其次最近创建的（列表已按 id 倒序） */
+const featured = computed<Course | null>(() => {
+  const list = filtered.value;
+  const first = list[0];
+  if (!first) return null;
+  const inProgress = list.filter((c) => progressOf(c) > 0 && progressOf(c) < 100);
+  const pool = inProgress.length > 0 ? inProgress : list;
+  return pool.reduce((best, c) => (progressOf(c) > progressOf(best) ? c : best), first);
+});
+
+/** 其余课程：按分类分组（无分类归入"未分类"） */
+const groups = computed(() => {
+  const rest = filtered.value.filter((c) => c.id !== featured.value?.id);
+  const map = new Map<string, Course[]>();
+  for (const c of rest) {
+    const key = c.category_name || '未分类';
+    const arr = map.get(key);
+    if (arr) arr.push(c);
+    else map.set(key, [c]);
+  }
+  return [...map.entries()].map(([name, list]) => ({ name, list }));
+});
+
 async function toggleFav(course: Course): Promise<void> {
   try {
     const res = await api.post<{ fav: boolean }>(`/courses/${course.id}/fav`);
@@ -80,23 +112,25 @@ function resetFilters(): void {
       </template>
 
       <template #meta>
-        <StatCard label="课程总数" :value="courses.length" unit="门" icon="courses" tone="primary" />
-        <StatCard
-          label="已学完课时"
-          :value="data?.orphans.finished ?? 0"
-          unit="个"
-          icon="check-circle"
-          tone="success"
-        />
-        <StatCard label="已完成练习" :value="data?.orphans.quiz ?? 0" unit="次" icon="exam" tone="info" />
-        <StatCard
-          label="待归类课时"
-          :value="data?.orphans.total ?? 0"
-          unit="个"
-          icon="alert"
-          :tone="(data?.orphans.total ?? 0) > 0 ? 'warning' : 'neutral'"
-          hint="未挂到任何课程"
-        />
+        <!-- 反模式 #20：不再用 4 张"大数字+小标签"的指标卡，改为一行可扫读的事实 -->
+        <dl class="hall__metrics">
+          <div class="hall__metric">
+            <dt>课程</dt>
+            <dd class="mc-num">{{ courses.length }}</dd>
+          </div>
+          <div class="hall__metric">
+            <dt>已学完课时</dt>
+            <dd class="mc-num">{{ data?.orphans.finished ?? 0 }}</dd>
+          </div>
+          <div class="hall__metric">
+            <dt>已完成练习</dt>
+            <dd class="mc-num">{{ data?.orphans.quiz ?? 0 }}</dd>
+          </div>
+          <div class="hall__metric" :class="{ 'hall__metric--warn': (data?.orphans.total ?? 0) > 0 }">
+            <dt>待归类课时</dt>
+            <dd class="mc-num">{{ data?.orphans.total ?? 0 }}</dd>
+          </div>
+        </dl>
       </template>
     </PageHeader>
 
@@ -136,9 +170,10 @@ function resetFilters(): void {
       </template>
     </Toolbar>
 
-    <div v-if="loading && courses.length === 0" class="mc-grid mc-grid--cards">
-      <div v-for="i in 8" :key="i" class="hall__skeleton">
-        <div class="mc-skeleton hall__skeleton-cover" />
+    <!-- 加载骨架：与真实列表同形（行式） -->
+    <div v-if="loading && courses.length === 0" class="hall__list" aria-hidden="true">
+      <div v-for="i in 6" :key="i" class="hall__row-skeleton">
+        <div class="mc-skeleton hall__skeleton-thumb" />
         <div class="mc-skeleton hall__skeleton-line" />
         <div class="mc-skeleton hall__skeleton-line hall__skeleton-line--short" />
       </div>
@@ -153,79 +188,144 @@ function resetFilters(): void {
       @action="resetFilters"
     />
 
-    <div v-else class="mc-grid mc-grid--cards">
-      <article v-for="course in filtered" :key="course.id" class="course-card mc-card mc-card--interactive">
+    <template v-else>
+      <!-- ① 主推块：把最重要的动作放在最显眼处 -->
+      <article
+        v-if="featured"
+        class="course-card course-card--featured mc-card"
+        :class="`course-card--g${Math.abs(featured.id) % 6}`"
+      >
         <RouterLink
-          class="course-card__cover"
-          :to="{ name: 'course', params: { id: course.id } }"
+          class="course-card__hero"
+          :to="{ name: 'course', params: { id: featured.id } }"
           tabindex="-1"
-          :aria-label="`进入课程 ${course.name}`"
+          :aria-label="`进入课程 ${featured.name}`"
         >
-          <img v-if="course.cover" :src="`/api/v1/course-cover/${course.id}`" :alt="course.name" loading="lazy" />
-          <span
-            v-else
-            class="course-card__cover-fallback"
-            :class="`course-card__cover-fallback--g${Math.abs(course.id) % 6}`"
-            aria-hidden="true"
-          >
-            <Icon name="graduation" :size="28" />
-          </span>
-          <span v-if="course.category_name" class="course-card__cover-chip">{{ course.category_name }}</span>
-          <span v-if="course.published !== 1" class="course-card__draft">草稿</span>
-          <span v-if="progressOf(course) >= 100" class="course-card__done">
-            <Icon name="check" :size="13" />
-            已学完
+          <img v-if="featured.cover" :src="`/api/v1/course-cover/${featured.id}`" :alt="featured.name" loading="lazy" />
+          <span v-else class="course-card__hero-fallback" aria-hidden="true">
+            <Icon name="graduation" :size="40" />
           </span>
         </RouterLink>
 
-        <div class="course-card__body">
-          <div class="course-card__head">
-            <RouterLink class="course-card__name" :to="{ name: 'course', params: { id: course.id } }">
-              {{ course.name }}
+        <div class="course-card__hero-body">
+          <div class="course-card__chips">
+            <Tag v-if="featured.category_name" tone="primary" size="sm">{{ featured.category_name }}</Tag>
+            <Tag v-if="featured.published !== 1" tone="warning" size="sm">草稿</Tag>
+            <Tag v-if="progressOf(featured) >= 100" tone="success" size="sm" icon="check">已学完</Tag>
+            <Tag v-else-if="progressOf(featured) > 0" tone="info" size="sm" icon="play">学习中</Tag>
+            <Tag v-else tone="neutral" size="sm">未开始</Tag>
+          </div>
+
+          <RouterLink class="course-card__hero-name" :to="{ name: 'course', params: { id: featured.id } }">
+            {{ featured.name }}
+          </RouterLink>
+          <p v-if="featured.description" class="course-card__hero-desc mc-clamp-2">{{ featured.description }}</p>
+
+          <div class="course-card__hero-progress">
+            <ProgressBar
+              :value="progressOf(featured)"
+              :tone="progressOf(featured) >= 100 ? 'success' : 'primary'"
+              :label="`${featured.finished ?? 0}/${featured.total ?? 0}`"
+            />
+            <span class="course-card__hero-stat mc-muted">
+              {{ featured.total ?? 0 }} 课时 · 已完成 {{ featured.finished ?? 0 }}
+            </span>
+          </div>
+
+          <div class="course-card__hero-actions">
+            <RouterLink class="mc-btn mc-btn--primary" :to="{ name: 'course', params: { id: featured.id } }">
+              <Icon :name="progressOf(featured) > 0 ? 'play' : 'book-open'" :size="15" />
+              {{ progressOf(featured) > 0 ? '继续学习' : '开始学习' }}
             </RouterLink>
             <button
-              class="mc-btn mc-btn--ghost mc-btn--sm mc-btn--icon course-card__fav"
-              :class="{ 'course-card__fav--on': course.fav }"
+              class="mc-btn mc-btn--ghost mc-btn--icon"
+              :class="{ 'course-card__fav--on': featured.fav }"
               type="button"
-              :aria-label="course.fav ? '取消收藏' : '收藏课程'"
-              :title="course.fav ? '取消收藏' : '收藏课程'"
-              @click="toggleFav(course)"
+              :aria-label="featured.fav ? '取消收藏' : '收藏课程'"
+              :title="featured.fav ? '取消收藏' : '收藏课程'"
+              @click="toggleFav(featured)"
             >
-              <Icon name="star" :size="16" :filled="course.fav" />
+              <Icon name="star" :size="16" :filled="featured.fav" />
             </button>
           </div>
-
-          <p v-if="course.description" class="course-card__desc mc-clamp-2">{{ course.description }}</p>
-
-          <div class="course-card__meta">
-            <span class="course-card__stat">
-              <Icon name="video" :size="14" />
-              {{ course.total ?? 0 }} 课时
-            </span>
-            <span class="course-card__stat">
-              <Icon name="check-circle" :size="14" />
-              已完成 {{ course.finished ?? 0 }}
-            </span>
-            <Tag v-if="(course.quiz ?? 0) > 0" tone="success" size="sm" icon="pen-line"> 已练习 {{ course.quiz }} </Tag>
-          </div>
-
-          <ProgressBar
-            :value="progressOf(course)"
-            :tone="progressOf(course) >= 100 ? 'success' : 'primary'"
-            :label="`${course.finished ?? 0}/${course.total ?? 0}`"
-          />
-
-          <RouterLink
-            class="mc-btn mc-btn--block course-card__cta"
-            :class="progressOf(course) > 0 ? 'mc-btn--primary' : 'mc-btn--soft'"
-            :to="{ name: 'course', params: { id: course.id } }"
-          >
-            <Icon :name="progressOf(course) > 0 ? 'play' : 'book-open'" :size="15" />
-            {{ progressOf(course) > 0 ? '继续学习' : '开始学习' }}
-          </RouterLink>
         </div>
       </article>
-    </div>
+
+      <!-- ② 其余课程：按分类分组的紧凑列表（一屏看更多，层级靠分组与留白） -->
+      <section v-for="group in groups" :key="group.name" class="hall__group">
+        <header class="hall__group-head">
+          <h2 class="hall__group-title">{{ group.name }}</h2>
+          <span class="hall__group-count mc-num">{{ group.list.length }}</span>
+        </header>
+
+        <ul class="hall__list">
+          <li
+            v-for="course in group.list"
+            :key="course.id"
+            class="course-card course-card--row"
+            :class="`course-card--g${Math.abs(course.id) % 6}`"
+          >
+            <RouterLink
+              class="course-card__thumb"
+              :to="{ name: 'course', params: { id: course.id } }"
+              tabindex="-1"
+              :aria-label="`进入课程 ${course.name}`"
+            >
+              <img v-if="course.cover" :src="`/api/v1/course-cover/${course.id}`" :alt="course.name" loading="lazy" />
+              <Icon v-else name="graduation" :size="20" />
+            </RouterLink>
+
+            <div class="course-card__row-main">
+              <RouterLink class="course-card__name" :to="{ name: 'course', params: { id: course.id } }">
+                {{ course.name }}
+              </RouterLink>
+              <div class="course-card__meta">
+                <span class="course-card__stat">
+                  <Icon name="video" :size="13" />
+                  {{ course.total ?? 0 }} 课时
+                </span>
+                <span class="course-card__stat">
+                  <Icon name="check-circle" :size="13" />
+                  已完成 {{ course.finished ?? 0 }}
+                </span>
+                <Tag v-if="(course.quiz ?? 0) > 0" tone="success" size="sm" icon="pen-line">
+                  已练习 {{ course.quiz }}
+                </Tag>
+                <Tag v-if="course.published !== 1" tone="warning" size="sm">草稿</Tag>
+              </div>
+            </div>
+
+            <div class="course-card__row-progress">
+              <ProgressBar
+                :value="progressOf(course)"
+                :tone="progressOf(course) >= 100 ? 'success' : 'primary'"
+                :label="`${course.finished ?? 0}/${course.total ?? 0}`"
+              />
+            </div>
+
+            <div class="course-card__row-actions">
+              <button
+                class="mc-btn mc-btn--ghost mc-btn--sm mc-btn--icon"
+                :class="{ 'course-card__fav--on': course.fav }"
+                type="button"
+                :aria-label="course.fav ? '取消收藏' : '收藏课程'"
+                :title="course.fav ? '取消收藏' : '收藏课程'"
+                @click="toggleFav(course)"
+              >
+                <Icon name="star" :size="16" :filled="course.fav" />
+              </button>
+              <RouterLink
+                class="mc-btn mc-btn--sm course-card__row-cta"
+                :class="progressOf(course) > 0 ? 'mc-btn--soft' : 'mc-btn--ghost'"
+                :to="{ name: 'course', params: { id: course.id } }"
+              >
+                {{ progressOf(course) > 0 ? '继续学习' : '开始学习' }}
+              </RouterLink>
+            </div>
+          </li>
+        </ul>
+      </section>
+    </template>
   </section>
 </template>
 
@@ -233,6 +333,36 @@ function resetFilters(): void {
 .hall {
   display: flex;
   flex-direction: column;
+}
+
+/* ---- 指标：一行文字，不占卡片位置（反模式 #20） ---- */
+.hall__metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mc-space-6);
+  margin: 0;
+}
+
+.hall__metric {
+  display: flex;
+  align-items: baseline;
+  gap: var(--mc-space-2);
+}
+
+.hall__metric dt {
+  font-size: var(--mc-text-xs);
+  color: var(--mc-text-muted);
+}
+
+.hall__metric dd {
+  margin: 0;
+  font-size: var(--mc-text-md);
+  font-weight: var(--mc-font-semibold);
+  color: var(--mc-text);
+}
+
+.hall__metric--warn dd {
+  color: var(--mc-warning-fg);
 }
 
 /* ---- 工具条里的搜索框：图标 + 输入框一体 ---- */
@@ -245,9 +375,7 @@ function resetFilters(): void {
   border-radius: var(--mc-radius);
   background: var(--mc-bg-elevated);
   color: var(--mc-text-muted);
-  transition:
-    border-color var(--mc-duration) var(--mc-ease),
-    box-shadow var(--mc-duration) var(--mc-ease);
+  transition: var(--mc-transition-all);
 }
 
 .hall__search:focus-within {
@@ -271,202 +399,214 @@ function resetFilters(): void {
   font-size: var(--mc-text-xs);
 }
 
-/* ---- 加载骨架：与真实卡片同形 ---- */
-.hall__skeleton {
-  display: flex;
-  flex-direction: column;
-  gap: var(--mc-space-3);
-  padding: var(--mc-space-4);
-  border: 1px solid var(--mc-border);
-  border-radius: var(--mc-radius-lg);
-  background: var(--mc-bg-elevated);
-}
-
-.hall__skeleton-cover {
-  height: 116px;
-  border-radius: var(--mc-radius);
-}
-
-.hall__skeleton-line {
-  height: 14px;
-}
-
-.hall__skeleton-line--short {
-  width: 55%;
-}
-
-/* ---- 课程卡片 ---- */
-.course-card {
-  display: flex;
-  flex-direction: column;
+/* ---- 主推块 ---- */
+.course-card--featured {
+  display: grid;
+  grid-template-columns: 240px 1fr;
   overflow: hidden;
+  margin-bottom: var(--mc-space-8);
 }
 
-.course-card__cover {
+.course-card__hero {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  aspect-ratio: 16 / 6;
-  overflow: hidden;
-  /* 墨卷：封面用暖色平涂 + 一条细底边，不用渐变光晕 */
-  background: color-mix(in srgb, var(--mc-primary) 7%, var(--mc-bg-sunken));
-  border-bottom: 1px solid var(--mc-border);
+  min-height: 180px;
+  background-image: var(--mc-gradient-brand-soft);
 }
 
-.course-card__cover img {
+.course-card__hero img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform var(--mc-duration) var(--mc-ease-out);
 }
 
-.course-card:hover .course-card__cover img {
-  transform: scale(1.03);
-}
-
-/* 没有封面的课程：按 id 稳定分配一组配色，避免整屏都是同一块灰渐变 */
-.course-card__cover-fallback {
-  position: relative;
+.course-card__hero-fallback {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 56px;
-  height: 56px;
-  border-radius: var(--mc-radius-md);
-  background: var(--mc-primary);
-  border: 1px solid transparent;
-  /* 图标压在实色块上：固定白色（--mc-text-inverse 会随主题翻成深色） */
+  width: 76px;
+  height: 76px;
+  border-radius: var(--mc-radius-xl);
+  background-image: var(--mc-gradient-brand);
   color: var(--mc-neutral-0);
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .course-card:hover .course-card__cover-fallback {
-    transform: scale(1.06) rotate(-2deg);
-  }
-}
-
-.course-card__cover-fallback--g0 {
-  background: var(--mc-chart-1);
-}
-
-.course-card__cover-fallback--g1 {
-  background: var(--mc-chart-2);
-}
-
-.course-card__cover-fallback--g2 {
-  background: var(--mc-chart-3);
-}
-
-.course-card__cover-fallback--g3 {
-  background: var(--mc-chart-4);
-}
-
-.course-card__cover-fallback--g4 {
-  background: var(--mc-chart-5);
-}
-
-.course-card__cover-fallback--g5 {
-  background: var(--mc-chart-6);
-}
-
-/* 封面左上角分类胶囊：让"这是什么课"第一眼就有信息 */
-.course-card__cover-chip {
-  position: absolute;
-  left: var(--mc-space-2);
-  bottom: var(--mc-space-2);
-  padding: var(--mc-space-1) var(--mc-space-2);
-  border-radius: var(--mc-radius-pill);
-  background: color-mix(in srgb, var(--mc-bg-elevated) 86%, transparent);
-  color: var(--mc-text-secondary);
-  font-size: var(--mc-text-xs);
-  font-weight: var(--mc-font-medium);
-  backdrop-filter: blur(6px);
-  border: 1px solid var(--mc-border);
-}
-
-.course-card__draft,
-.course-card__done {
-  position: absolute;
-  top: var(--mc-space-2);
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border-radius: var(--mc-radius-pill);
-  font-size: var(--mc-text-xs);
-  font-weight: var(--mc-font-semibold);
-  backdrop-filter: blur(4px);
-}
-
-.course-card__draft {
-  left: var(--mc-space-2);
-  background: color-mix(in srgb, var(--mc-warning) 90%, transparent);
-  color: var(--mc-text-inverse);
-}
-
-.course-card__done {
-  right: var(--mc-space-2);
-  background: color-mix(in srgb, var(--mc-success) 92%, transparent);
-  color: var(--mc-text-inverse);
-}
-
-.course-card__body {
+.course-card__hero-body {
   display: flex;
   flex-direction: column;
   gap: var(--mc-space-3);
-  padding: var(--mc-card-pad);
-  flex: 1;
+  padding: var(--mc-space-6);
+  min-width: 0;
 }
 
-.course-card__head {
+.course-card__chips {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  flex-wrap: wrap;
   gap: var(--mc-space-2);
 }
 
-/* 课程名本身就是入口链接，给足点击高度（整卡不可点时它就是唯一目标） */
-.course-card__name {
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  padding: 4px 0;
-  font-size: var(--mc-text-md);
+.course-card__hero-name {
+  font-size: var(--mc-text-lg);
   font-weight: var(--mc-font-semibold);
   color: var(--mc-text);
-  line-height: var(--mc-leading-tight);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
-.course-card__fav {
-  color: var(--mc-text-muted);
-  margin: -4px -8px 0 0;
+.course-card__hero-name:hover {
+  color: var(--mc-primary-fg);
 }
 
-.course-card__fav--on {
-  color: var(--mc-warning-fg);
-}
-
-.course-card__desc {
+.course-card__hero-desc {
   margin: 0;
   font-size: var(--mc-text-sm);
+  color: var(--mc-text-secondary);
+  max-width: 70ch;
+}
+
+.course-card__hero-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--mc-space-4);
+  max-width: 520px;
+}
+
+.course-card__hero-progress :deep(.mc-progress) {
+  flex: 1;
+}
+
+.course-card__hero-stat {
+  font-size: var(--mc-text-xs);
+  white-space: nowrap;
+}
+
+.course-card__hero-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--mc-space-2);
+  margin-top: var(--mc-space-1);
+}
+
+/* ---- 分组 ---- */
+.hall__group + .hall__group {
+  margin-top: var(--mc-space-8);
+}
+
+.hall__group-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--mc-space-2);
+  margin-bottom: var(--mc-space-2);
+}
+
+.hall__group-title {
+  font-size: var(--mc-text-sm);
+  font-weight: var(--mc-font-semibold);
+  color: var(--mc-text-secondary);
+  letter-spacing: 0.02em;
+}
+
+.hall__group-count {
+  font-size: var(--mc-text-xs);
   color: var(--mc-text-muted);
 }
 
-/* 简介缺失时卡片会矮一截：把 meta 行往下推，保证一排卡片底部对齐 */
-.course-card__head {
-  margin-bottom: auto;
+/* ---- 紧凑列表（不再是一整片同构卡片） ---- */
+.hall__list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.course-card--row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) 180px auto;
+  align-items: center;
+  gap: var(--mc-space-4);
+  padding: var(--mc-space-2) var(--mc-space-3);
+  border-radius: var(--mc-radius);
+  transition: var(--mc-transition-colors);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .course-card--row:hover {
+    background: var(--mc-bg-hover);
+  }
+}
+
+.course-card__thumb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 44px;
+  border-radius: var(--mc-radius-sm);
+  overflow: hidden;
+  background-image: var(--mc-gradient-brand-soft);
+  color: var(--mc-primary-fg);
+  flex: none;
+}
+
+.course-card__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 按 id 稳定分配缩略图配色，避免整列同色 */
+.course-card--g0 .course-card__thumb {
+  background-image: var(--mc-gradient-thumb-1);
+  color: var(--mc-primary-fg);
+}
+.course-card--g1 .course-card__thumb {
+  background-image: var(--mc-gradient-thumb-2);
+  color: var(--mc-accent-fg);
+}
+.course-card--g2 .course-card__thumb {
+  background-image: var(--mc-gradient-thumb-3);
+  color: var(--mc-success-fg);
+}
+.course-card--g3 .course-card__thumb {
+  background-image: var(--mc-gradient-thumb-4);
+  color: var(--mc-warning-fg);
+}
+.course-card--g4 .course-card__thumb {
+  background-image: var(--mc-gradient-thumb-5);
+  color: var(--mc-primary-fg);
+}
+.course-card--g5 .course-card__thumb {
+  background-image: var(--mc-gradient-thumb-6);
+  color: var(--mc-seal-fg);
+}
+
+.course-card__row-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mc-space-1);
+  min-width: 0;
+}
+
+.course-card__name {
+  font-size: var(--mc-text-base);
+  font-weight: var(--mc-font-semibold);
+  color: var(--mc-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.course-card__name:hover {
+  color: var(--mc-primary-fg);
 }
 
 .course-card__meta {
   display: flex;
   align-items: center;
-  gap: var(--mc-space-2);
+  gap: var(--mc-space-3);
   flex-wrap: wrap;
   font-size: var(--mc-text-xs);
   color: var(--mc-text-muted);
@@ -475,10 +615,61 @@ function resetFilters(): void {
 .course-card__stat {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--mc-space-1);
 }
 
-.course-card__cta {
-  margin-top: auto;
+.course-card__row-progress {
+  min-width: 0;
+}
+
+.course-card__row-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--mc-space-1);
+}
+
+.course-card__fav--on {
+  color: var(--mc-warning-fg);
+}
+
+/* ---- 加载骨架 ---- */
+.hall__row-skeleton {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) 180px;
+  align-items: center;
+  gap: var(--mc-space-4);
+  padding: var(--mc-space-3);
+}
+
+.hall__skeleton-thumb {
+  height: 44px;
+  border-radius: var(--mc-radius-sm);
+}
+
+.hall__skeleton-line {
+  height: 14px;
+}
+
+.hall__skeleton-line--short {
+  width: 45%;
+}
+
+/* ---- 窄屏：主推块改为上下、列表让出进度列 ---- */
+@media (max-width: 900px) {
+  .course-card--featured {
+    grid-template-columns: 1fr;
+  }
+
+  .course-card__hero {
+    min-height: 132px;
+  }
+
+  .course-card--row {
+    grid-template-columns: 56px minmax(0, 1fr) auto;
+  }
+
+  .course-card__row-progress {
+    display: none;
+  }
 }
 </style>
