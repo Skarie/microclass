@@ -633,8 +633,8 @@ onMounted(() => void load());
 .tab {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
+  gap: 8px;
+  padding: 8px 12px;
   border: 1px solid var(--mc-border);
   border-radius: var(--mc-radius-pill, 999px);
   background: transparent;
@@ -645,7 +645,7 @@ onMounted(() => void load());
 .tab--active {
   border-color: var(--mc-primary);
   color: var(--mc-primary-fg);
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
 }
 
 .tab__n {
@@ -694,7 +694,7 @@ onMounted(() => void load());
   display: flex;
   gap: var(--mc-space-2);
   flex-wrap: wrap;
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
 .item__meta {
@@ -726,7 +726,7 @@ onMounted(() => void load());
 }
 
 .answer-pick {
-  padding: 2px 10px;
+  padding: var(--mc-space-1) var(--mc-space-3);
   border: 1px solid var(--mc-border);
   border-radius: var(--mc-radius-sm);
   background: transparent;
@@ -738,7 +738,7 @@ onMounted(() => void load());
 .answer-pick--on {
   border-color: var(--mc-primary);
   color: var(--mc-primary-fg);
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
 }
 
 .majority {
@@ -747,7 +747,7 @@ onMounted(() => void load());
 
 .majority__samples {
   margin: 0;
-  padding-left: 18px;
+  padding-left: 16px;
   max-height: 240px;
   overflow-y: auto;
 }
@@ -767,6 +767,6 @@ onMounted(() => void load());
 }
 
 .stale--strong {
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
 }
 </style>

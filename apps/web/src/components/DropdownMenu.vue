@@ -233,7 +233,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick));
 }
 
 .dd__item-hint {
-  font-size: 11px;
+  font-size: var(--mc-text-xs);
   color: var(--mc-text-muted);
 }
 </style>

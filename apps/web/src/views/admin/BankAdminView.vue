@@ -2451,7 +2451,7 @@ onMounted(() => {
 }
 
 .metric__link {
-  margin-left: 6px;
+  margin-left: 8px;
   color: var(--mc-primary-fg);
   white-space: nowrap;
 }
@@ -2539,7 +2539,7 @@ onMounted(() => {
 .nav-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   margin: 0 0 8px;
   padding: 0;
   list-style: none;
@@ -2552,7 +2552,7 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 7px 8px;
+  padding: 8px 8px;
   border-radius: var(--mc-radius-sm);
   cursor: pointer;
   font-size: var(--mc-text-sm);
@@ -2570,8 +2570,8 @@ onMounted(() => {
 .nav-crumb {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 6px;
+  gap: 8px;
+  margin-bottom: 8px;
   font-size: var(--mc-text-sm);
 }
 
@@ -2608,13 +2608,13 @@ onMounted(() => {
 
 .chip {
   min-height: 32px;
-  padding: 6px 12px;
+  padding: 8px 12px;
   border: 1px solid var(--mc-border);
   border-radius: var(--mc-radius-pill);
   background: transparent;
   color: var(--mc-text-secondary);
   font-size: var(--mc-text-sm);
-  line-height: 1.4;
+  line-height: var(--mc-leading-snug);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -2628,7 +2628,7 @@ onMounted(() => {
   border-color: var(--mc-primary);
   background: var(--mc-primary-soft);
   color: var(--mc-primary-fg);
-  font-weight: 500;
+  font-weight: var(--mc-font-medium);
 }
 
 /* 行内操作：默认隐形，鼠标移到行上才出现（常显会让表格很吵、也容易误点删除） */
@@ -2645,7 +2645,7 @@ onMounted(() => {
 
 .bulk-bar__count {
   font-size: var(--mc-text-sm);
-  font-weight: 500;
+  font-weight: var(--mc-font-medium);
   color: var(--mc-primary-fg);
 }
 
@@ -2818,8 +2818,8 @@ onMounted(() => {
 
 .kpi__value {
   font-size: var(--mc-text-2xl);
-  font-weight: 600;
-  line-height: 1.2;
+  font-weight: var(--mc-font-semibold);
+  line-height: var(--mc-leading-display);
   font-variant-numeric: tabular-nums;
 }
 
@@ -2870,7 +2870,6 @@ onMounted(() => {
 .bank-item {
   padding: var(--mc-space-3) var(--mc-space-3);
   border-radius: var(--mc-radius);
-  border-left: 3px solid transparent;
   min-height: 44px;
 }
 
@@ -2882,13 +2881,13 @@ onMounted(() => {
 /* 题库名两行显示：审计发现长名字被单行截断且没有 title，信息等于丢失 */
 .bank-item__name {
   font-size: var(--mc-text-base);
-  font-weight: 500;
+  font-weight: var(--mc-font-medium);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   white-space: normal;
-  line-height: 1.35;
+  line-height: var(--mc-leading-snug);
 }
 
 .bank-item__meta {
@@ -2936,7 +2935,7 @@ onMounted(() => {
 
 .bank-head__name {
   font-size: var(--mc-text-lg);
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
   min-width: 0;
 }
 
@@ -2975,7 +2974,7 @@ onMounted(() => {
   background: var(--mc-bg-elev, var(--mc-surface-2));
   border-bottom: 1px solid var(--mc-border-strong);
   font-size: var(--mc-text-xs);
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
   color: var(--mc-text-muted);
   letter-spacing: 0.02em;
   text-align: left;
@@ -2997,7 +2996,7 @@ onMounted(() => {
 
 .col-answer {
   font-size: var(--mc-text-base);
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
 }
 
 .pager {
@@ -3008,10 +3007,10 @@ onMounted(() => {
 .bank-panel__tree-toggle {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
-  padding: 6px 8px;
-  margin-bottom: 6px;
+  padding: 8px 8px;
+  margin-bottom: 8px;
   border: 1px solid var(--mc-border);
   border-radius: var(--mc-radius-sm);
   background: var(--mc-surface-2);
@@ -3035,9 +3034,9 @@ onMounted(() => {
 }
 
 .stem__toggle {
-  margin-top: 2px;
+  margin-top: 4px;
   min-height: 24px;
-  padding: 2px 0;
+  padding: 4px 0;
   border: 0;
   background: none;
   color: var(--mc-primary-fg);
@@ -3047,7 +3046,7 @@ onMounted(() => {
 
 .bank-panel__more {
   width: 100%;
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
 /* 题干下方的次要信息行（难度 / 知识点 / 册次 / 选项数） */
@@ -3086,27 +3085,27 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   min-height: 32px;
-  gap: 6px;
+  gap: 8px;
   font-size: var(--mc-text-sm);
   color: var(--mc-text-muted);
   cursor: pointer;
 }
 
 .tree__children {
-  margin-left: 2px;
+  margin-left: 4px;
   border-left: 1px dashed var(--mc-border);
 }
 
 .tree__hint {
-  font-size: 11px;
-  padding: 2px 6px 2px 26px;
+  font-size: var(--mc-text-xs);
+  padding: var(--mc-space-1) var(--mc-space-2) var(--mc-space-1) 24px;
 }
 
 .tree__bank {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 6px 3px 34px;
+  gap: 8px;
+  padding: var(--mc-space-1) var(--mc-space-2) var(--mc-space-1) 32px;
   border-radius: var(--mc-radius-sm);
   cursor: pointer;
   font-size: var(--mc-text-sm);
@@ -3122,7 +3121,7 @@ onMounted(() => {
 }
 
 .tree__rebind {
-  margin: var(--mc-space-2) 0 0 6px;
+  margin: var(--mc-space-2) 0 0 8px;
 }
 
 .bank-panel__list {
@@ -3196,7 +3195,7 @@ onMounted(() => {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .diff-preview__samples li {
@@ -3213,7 +3212,7 @@ onMounted(() => {
 
 .diff-preview__sample--hard .diff-preview__score {
   color: var(--mc-danger-fg);
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
 }
 
 .toolbar {
@@ -3290,13 +3289,13 @@ onMounted(() => {
 .bank-item__main {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
   flex: 1;
 }
 
 .bank-item__name {
-  font-weight: 500;
+  font-weight: var(--mc-font-medium);
   font-size: var(--mc-text-sm);
 }
 
@@ -3332,7 +3331,7 @@ onMounted(() => {
   align-items: center;
   min-height: 32px;
   align-items: center;
-  gap: 5px;
+  gap: var(--mc-space-1);
   font-size: 0.9em;
   color: var(--mc-text-muted);
   white-space: nowrap;
@@ -3423,10 +3422,10 @@ onMounted(() => {
   justify-content: center;
   width: 22px;
   height: 22px;
-  border-radius: 50%;
+  border-radius: var(--mc-radius-pill);
   background: var(--mc-bg-sunken);
   font-size: var(--mc-text-xs);
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
 }
 
 .judge-row {
@@ -3479,7 +3478,7 @@ onMounted(() => {
 
 .import-help code {
   background: var(--mc-bg-sunken);
-  border-radius: 4px;
+  border-radius: var(--mc-radius);
   padding: 0 4px;
   font-size: var(--mc-text-xs);
 }

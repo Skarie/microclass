@@ -381,7 +381,7 @@ const colorTokens = [
 .ds__swatch-token {
   color: var(--mc-text-muted);
   font-family: var(--mc-font-mono);
-  font-size: 11px;
+  font-size: var(--mc-text-xs);
   margin-left: auto;
 }
 
@@ -439,7 +439,7 @@ const colorTokens = [
 }
 
 .ds__icon code {
-  font-size: 11px;
+  font-size: var(--mc-text-xs);
   color: var(--mc-text-muted);
   font-family: var(--mc-font-mono);
 }

@@ -812,7 +812,7 @@ onMounted(async () => {
 /* 标题吸顶：长列表滚动时"这一栏是什么、多少条"始终可见 */
 
 .compose__field .mc-label {
-  font-size: 11px;
+  font-size: var(--mc-text-xs);
   color: var(--mc-text-muted);
 }
 
@@ -841,7 +841,7 @@ onMounted(async () => {
   width: 64px;
   min-width: 64px;
   text-align: center;
-  padding: 2px 4px;
+  padding: 4px 4px;
   min-height: 30px;
 }
 

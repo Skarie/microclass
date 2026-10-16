@@ -112,20 +112,20 @@ function percent(value: number): string {
 }
 
 .donut__value {
-  font-size: 26px;
+  font-size: var(--mc-text-2xl);
   font-weight: var(--mc-font-semibold);
   fill: var(--mc-text);
 }
 
 .donut__label {
-  font-size: 11px;
+  font-size: var(--mc-text-xs);
   fill: var(--mc-text-muted);
 }
 
 .donut__legend {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -145,7 +145,7 @@ function percent(value: number): string {
 .donut__dot {
   width: 10px;
   height: 10px;
-  border-radius: 50%;
+  border-radius: var(--mc-radius-pill);
   flex: none;
 }
 

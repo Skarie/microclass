@@ -263,9 +263,9 @@ onMounted(() => {
   flex-direction: column;
   gap: var(--mc-space-1);
   padding: var(--mc-space-3) var(--mc-space-4);
-  border-left: 3px solid var(--mc-primary);
-  border-radius: var(--mc-radius-sm);
-  background: var(--mc-bg-sunken);
+  border: 1px solid var(--mc-primary-border);
+  border-radius: var(--mc-radius);
+  background: var(--mc-primary-soft);
   font-size: var(--mc-text-sm);
 }
 </style>

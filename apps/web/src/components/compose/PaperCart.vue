@@ -108,7 +108,7 @@ const byType = computed(() => {
 .cart__head {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .cart__stats {
@@ -160,8 +160,8 @@ const byType = computed(() => {
 .cart__item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 6px;
+  gap: 8px;
+  padding: 4px 8px;
   border-radius: var(--mc-radius-sm);
   background: var(--mc-bg-sunken);
 }
@@ -174,7 +174,7 @@ const byType = computed(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: var(--mc-text-xs);
   flex: none;
 }
 

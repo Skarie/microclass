@@ -533,7 +533,7 @@ watch(lessonId, async () => {
 .watch__crumb {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   color: var(--mc-text-muted);
   max-width: 22ch;
   overflow: hidden;
@@ -702,8 +702,8 @@ a.watch__crumb:hover {
   background: transparent;
   color: var(--mc-text-muted);
   cursor: pointer;
-  font-size: 15px;
-  line-height: 1;
+  font-size: var(--mc-text-base);
+  line-height: var(--mc-leading-display);
 }
 
 @media (max-width: 1100px) {

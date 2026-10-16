@@ -36,7 +36,7 @@ const isIconName = (v: string): v is IconName => Object.prototype.hasOwnProperty
 <style scoped>
 .empty__title {
   font-size: var(--mc-text-md);
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
   color: var(--mc-text);
 }
 

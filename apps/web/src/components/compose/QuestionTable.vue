@@ -268,7 +268,7 @@ const matchedBeyondPage = computed(() => Math.max(0, (props.total ?? 0) - props.
 /* 来源：跟在题干下方的小字（原先是独立列，180px 把题干挤到只剩一两行） */
 .qt__src {
   display: block;
-  margin-top: 2px;
+  margin-top: 4px;
   color: var(--mc-text-muted);
   font-size: var(--mc-text-xs);
   overflow: hidden;

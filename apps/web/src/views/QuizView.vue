@@ -390,8 +390,8 @@ watch(lessonId, () => retry(0));
 
 .quiz__score-num {
   font-size: var(--mc-text-2xl);
-  font-weight: 700;
-  line-height: 1.1;
+  font-weight: var(--mc-font-bold);
+  line-height: var(--mc-leading-display);
 }
 
 .quiz__score-total {
@@ -449,13 +449,13 @@ watch(lessonId, () => retry(0));
   background: var(--mc-primary-soft);
   color: var(--mc-primary-fg);
   font-size: var(--mc-text-xs);
-  font-weight: 700;
+  font-weight: var(--mc-font-bold);
 }
 
 .question__stem {
   flex: 1;
   font-size: var(--mc-text-md);
-  font-weight: 500;
+  font-weight: var(--mc-font-medium);
   white-space: pre-wrap;
 }
 
@@ -507,10 +507,10 @@ watch(lessonId, () => retry(0));
   width: 22px;
   height: 22px;
   flex: none;
-  border-radius: 50%;
+  border-radius: var(--mc-radius-pill);
   background: var(--mc-bg-sunken);
   font-size: var(--mc-text-xs);
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
 }
 
 .option__text {
@@ -537,7 +537,7 @@ watch(lessonId, () => retry(0));
 
 .answer__correct {
   color: var(--mc-success-fg);
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
 }
 
 .answer__analysis {
@@ -546,7 +546,7 @@ watch(lessonId, () => retry(0));
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 2px;
+  gap: 4px;
 }
 
 .quiz__footer {

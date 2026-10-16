@@ -213,7 +213,7 @@ function tooltipFor(index: number): string {
 }
 
 .trend__tick {
-  font-size: 10px;
+  font-size: var(--mc-text-xs);
   fill: var(--mc-text-muted);
 }
 
@@ -260,13 +260,13 @@ function tooltipFor(index: number): string {
 .trend__key {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--mc-space-1);
 }
 
 .trend__swatch {
   width: 10px;
   height: 10px;
-  border-radius: 2px;
+  border-radius: var(--mc-radius-xs);
   display: inline-block;
 }
 

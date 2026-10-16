@@ -315,8 +315,8 @@ function practice(item: WrongItem): void {
 
 .wb__stat-value {
   font-size: var(--mc-text-2xl);
-  font-weight: 700;
-  line-height: 1.2;
+  font-weight: var(--mc-font-bold);
+  line-height: var(--mc-leading-display);
 }
 
 .wb__stat-value--pending {
@@ -373,13 +373,13 @@ function practice(item: WrongItem): void {
   background: var(--mc-primary-soft);
   color: var(--mc-primary-fg);
   font-size: var(--mc-text-xs);
-  font-weight: 700;
+  font-weight: var(--mc-font-bold);
 }
 
 .question__stem {
   flex: 1;
   font-size: var(--mc-text-md);
-  font-weight: 500;
+  font-weight: var(--mc-font-medium);
   white-space: pre-wrap;
 }
 
@@ -418,10 +418,10 @@ function practice(item: WrongItem): void {
   width: 22px;
   height: 22px;
   flex: none;
-  border-radius: 50%;
+  border-radius: var(--mc-radius-pill);
   background: var(--mc-bg-sunken);
   font-size: var(--mc-text-xs);
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
 }
 
 .option__text {
@@ -444,7 +444,7 @@ function practice(item: WrongItem): void {
 
 .answer__correct {
   color: var(--mc-success-fg);
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
 }
 
 .answer__analysis {

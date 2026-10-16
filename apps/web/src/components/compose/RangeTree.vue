@@ -277,7 +277,7 @@ void ICONS;
 .tree__row {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   min-height: 30px;
   border-radius: var(--mc-radius-sm);
 }
@@ -347,7 +347,7 @@ void ICONS;
 .tree__chips {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
@@ -355,7 +355,7 @@ void ICONS;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 6px;
+  padding: 4px 8px;
   border-radius: var(--mc-radius-pill);
   background: var(--mc-primary-soft);
   color: var(--mc-primary-fg);

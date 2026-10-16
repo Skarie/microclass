@@ -292,8 +292,8 @@ async function toggleFav(): Promise<void> {
   border-radius: var(--mc-radius);
   background: var(--mc-bg-sunken);
   overflow: hidden;
-  font-size: 44px;
-  font-weight: 700;
+  font-size: var(--mc-text-2xl);
+  font-weight: var(--mc-font-bold);
   color: var(--mc-primary-fg);
   opacity: 0.9;
 }
@@ -409,7 +409,7 @@ async function toggleFav(): Promise<void> {
 
 .lesson__title {
   font-size: var(--mc-text-base);
-  font-weight: 500;
+  font-weight: var(--mc-font-medium);
 }
 
 .lesson__meta {
@@ -419,7 +419,7 @@ async function toggleFav(): Promise<void> {
 .lesson__bar {
   height: 4px;
   max-width: 320px;
-  margin-top: 2px;
+  margin-top: 4px;
 }
 
 .lesson__actions {

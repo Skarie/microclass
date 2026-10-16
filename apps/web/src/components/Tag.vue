@@ -32,16 +32,16 @@ withDefaults(
   border-radius: var(--mc-radius-pill);
   font-weight: var(--mc-font-medium);
   white-space: nowrap;
-  line-height: 1;
+  line-height: var(--mc-leading-display);
 }
 
 .tag--sm {
-  padding: 3px 7px;
-  font-size: 11px;
+  padding: 4px 8px;
+  font-size: var(--mc-text-xs);
 }
 
 .tag--md {
-  padding: 4px 9px;
+  padding: var(--mc-space-1) var(--mc-space-2);
   font-size: var(--mc-text-xs);
 }
 

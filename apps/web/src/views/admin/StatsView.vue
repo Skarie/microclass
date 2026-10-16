@@ -495,13 +495,13 @@ onMounted(async () => {
 .stat {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   padding: var(--mc-space-4);
 }
 
 .stat__value {
   font-size: var(--mc-text-lg);
-  font-weight: 700;
+  font-weight: var(--mc-font-bold);
 }
 
 .stat__label {

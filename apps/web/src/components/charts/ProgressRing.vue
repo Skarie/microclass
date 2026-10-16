@@ -82,7 +82,7 @@ const strokeVar = computed(() => {
 }
 
 .ring__text {
-  font-size: 12px;
+  font-size: var(--mc-text-xs);
   font-weight: var(--mc-font-semibold);
   fill: var(--mc-text);
 }

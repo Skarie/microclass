@@ -450,8 +450,8 @@ async function logout(): Promise<void> {
 
 .stat__value {
   font-size: var(--mc-text-xl);
-  font-weight: 700;
-  line-height: 1.2;
+  font-weight: var(--mc-font-bold);
+  line-height: var(--mc-leading-display);
 }
 
 .stat__value--text {
@@ -460,7 +460,7 @@ async function logout(): Promise<void> {
 
 .stat__value small {
   font-size: var(--mc-text-xs);
-  font-weight: 400;
+  font-weight: var(--mc-font-normal);
   color: var(--mc-text-muted);
 }
 

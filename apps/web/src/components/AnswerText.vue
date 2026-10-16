@@ -40,8 +40,8 @@ const multi = computed(() => isMultiPart(blanks.value));
 .ans__blank {
   display: inline-block;
   min-width: 1.1em;
-  margin-right: 2px;
-  padding: 0 3px;
+  margin-right: 4px;
+  padding: 0 4px;
   border-radius: var(--mc-radius-sm);
   background: var(--mc-bg-soft);
   font-size: 0.82em;
@@ -50,7 +50,7 @@ const multi = computed(() => isMultiPart(blanks.value));
 }
 
 .ans__or {
-  margin: 0 3px;
+  margin: 0 4px;
   color: var(--mc-text-muted);
   font-size: 0.88em;
 }

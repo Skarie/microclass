@@ -83,7 +83,7 @@ withDefaults(
   display: inline-flex;
   align-items: center;
   min-height: 24px;
-  padding: 0 2px;
+  padding: 0 4px;
   color: var(--mc-text-muted);
 }
 

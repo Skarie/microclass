@@ -448,8 +448,8 @@ onBeforeUnmount(stopTimer);
 
 .clock__value {
   font-size: var(--mc-text-xl);
-  font-weight: 700;
-  line-height: 1.2;
+  font-weight: var(--mc-font-bold);
+  line-height: var(--mc-leading-display);
 }
 
 .notice {
@@ -507,13 +507,13 @@ onBeforeUnmount(stopTimer);
   background: var(--mc-primary-soft);
   color: var(--mc-primary-fg);
   font-size: var(--mc-text-xs);
-  font-weight: 700;
+  font-weight: var(--mc-font-bold);
 }
 
 .question__stem {
   flex: 1;
   font-size: var(--mc-text-md);
-  font-weight: 500;
+  font-weight: var(--mc-font-medium);
   white-space: pre-wrap;
 }
 
@@ -565,10 +565,10 @@ onBeforeUnmount(stopTimer);
   width: 22px;
   height: 22px;
   flex: none;
-  border-radius: 50%;
+  border-radius: var(--mc-radius-pill);
   background: var(--mc-bg-sunken);
   font-size: var(--mc-text-xs);
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
 }
 
 .option__text {
@@ -626,6 +626,6 @@ onBeforeUnmount(stopTimer);
   border-color: var(--mc-primary);
   background: var(--mc-primary-soft);
   color: var(--mc-primary-fg);
-  font-weight: 700;
+  font-weight: var(--mc-font-bold);
 }
 </style>

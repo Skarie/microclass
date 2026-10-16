@@ -79,7 +79,7 @@ const widthOf = (item: BarItem): number => {
 .bars {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .bars__row {
@@ -87,7 +87,7 @@ const widthOf = (item: BarItem): number => {
   grid-template-columns: minmax(120px, 1.2fr) minmax(80px, 1.6fr) 64px minmax(0, 1fr);
   align-items: center;
   gap: var(--mc-space-2);
-  padding: 4px 6px;
+  padding: 4px 8px;
   border-radius: var(--mc-radius-sm);
   text-align: left;
   background: none;
@@ -107,7 +107,7 @@ const widthOf = (item: BarItem): number => {
 .bars__label {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
 }
 

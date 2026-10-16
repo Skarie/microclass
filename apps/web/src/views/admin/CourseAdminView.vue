@@ -1322,7 +1322,7 @@ function fsPick(): void {
   background: transparent;
   color: var(--mc-text-muted);
   font-size: var(--mc-text-sm, 13px);
-  padding: 6px 10px;
+  padding: var(--mc-space-2) var(--mc-space-3);
   border-radius: var(--mc-radius-sm);
   cursor: pointer;
 }
@@ -1334,7 +1334,7 @@ function fsPick(): void {
 .tab.is-active {
   background: var(--mc-primary);
   color: var(--mc-text-inverse);
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
 }
 
 .tab__count {
@@ -1370,7 +1370,7 @@ function fsPick(): void {
   background: var(--mc-bg);
   color: var(--mc-text-muted);
   font-size: var(--mc-text-xs);
-  padding: 6px 10px;
+  padding: var(--mc-space-2) var(--mc-space-3);
   cursor: pointer;
 }
 
@@ -1431,8 +1431,8 @@ function fsPick(): void {
 }
 
 .card__initial {
-  font-size: 40px;
-  font-weight: 700;
+  font-size: var(--mc-text-2xl);
+  font-weight: var(--mc-font-bold);
   color: var(--mc-primary-fg);
 }
 
@@ -1452,7 +1452,7 @@ function fsPick(): void {
 }
 
 .card__name {
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
   color: var(--mc-text);
   font-size: var(--mc-text-md, 15px);
 }
@@ -1470,7 +1470,7 @@ function fsPick(): void {
 .card__meta {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: var(--mc-text-xs);
   flex-wrap: wrap;
 }
@@ -1478,7 +1478,7 @@ function fsPick(): void {
 .card__folder {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: var(--mc-text-xs);
   color: var(--mc-text-muted);
   background: var(--mc-bg-sunken);
@@ -1517,7 +1517,7 @@ function fsPick(): void {
 
 .batch-bar__count {
   font-size: var(--mc-text-sm, 13px);
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
 }
 
 .folder-cell {
@@ -1554,7 +1554,7 @@ function fsPick(): void {
   border-radius: var(--mc-radius-sm);
   background: var(--mc-bg-sunken);
   color: var(--mc-primary-fg);
-  font-weight: 700;
+  font-weight: var(--mc-font-bold);
   overflow: hidden;
 }
 
@@ -1567,12 +1567,12 @@ function fsPick(): void {
 .course__text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
 }
 
 .course__name {
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
   color: var(--mc-text);
 }
 
@@ -1611,7 +1611,7 @@ function fsPick(): void {
 .root-item__info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
   flex: 1;
 }
@@ -1689,7 +1689,7 @@ function fsPick(): void {
 }
 
 .cat__name {
-  font-weight: 500;
+  font-weight: var(--mc-font-medium);
 }
 
 .cat__count {

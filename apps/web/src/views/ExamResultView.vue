@@ -310,8 +310,8 @@ function resultBadgeText(item: GradedItem): string {
 
 .scorecard__num {
   font-size: var(--mc-text-2xl);
-  font-weight: 700;
-  line-height: 1.1;
+  font-weight: var(--mc-font-bold);
+  line-height: var(--mc-leading-display);
 }
 
 .scorecard__total {
@@ -322,7 +322,7 @@ function resultBadgeText(item: GradedItem): string {
 .scorecard__percent {
   margin-top: var(--mc-space-1);
   font-size: var(--mc-text-md);
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
 }
 
 .result__score-info {
@@ -354,19 +354,19 @@ function resultBadgeText(item: GradedItem): string {
 
 .metric__value {
   font-size: var(--mc-text-lg);
-  font-weight: 700;
-  line-height: 1.2;
+  font-weight: var(--mc-font-bold);
+  line-height: var(--mc-leading-display);
 }
 
 .metric__value small {
   font-size: var(--mc-text-xs);
-  font-weight: 400;
+  font-weight: var(--mc-font-normal);
   color: var(--mc-text-muted);
 }
 
 .metric__value--time {
   font-size: var(--mc-text-sm);
-  font-weight: 500;
+  font-weight: var(--mc-font-medium);
   color: var(--mc-text-secondary);
 }
 
@@ -407,13 +407,13 @@ function resultBadgeText(item: GradedItem): string {
   background: var(--mc-primary-soft);
   color: var(--mc-primary-fg);
   font-size: var(--mc-text-xs);
-  font-weight: 700;
+  font-weight: var(--mc-font-bold);
 }
 
 .question__stem {
   flex: 1;
   font-size: var(--mc-text-md);
-  font-weight: 500;
+  font-weight: var(--mc-font-medium);
   white-space: pre-wrap;
 }
 
@@ -452,10 +452,10 @@ function resultBadgeText(item: GradedItem): string {
   width: 22px;
   height: 22px;
   flex: none;
-  border-radius: 50%;
+  border-radius: var(--mc-radius-pill);
   background: var(--mc-bg-sunken);
   font-size: var(--mc-text-xs);
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
 }
 
 .option__text {
@@ -478,7 +478,7 @@ function resultBadgeText(item: GradedItem): string {
 
 .answer__correct {
   color: var(--mc-success-fg);
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
 }
 
 .answer__given {

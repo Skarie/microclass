@@ -375,11 +375,11 @@ function resetFilters(): void {
   position: absolute;
   left: var(--mc-space-2);
   bottom: var(--mc-space-2);
-  padding: 3px 9px;
+  padding: var(--mc-space-1) var(--mc-space-2);
   border-radius: var(--mc-radius-pill);
   background: color-mix(in srgb, var(--mc-bg-elevated) 86%, transparent);
   color: var(--mc-text-secondary);
-  font-size: 11px;
+  font-size: var(--mc-text-xs);
   font-weight: var(--mc-font-medium);
   backdrop-filter: blur(6px);
   border: 1px solid var(--mc-border);
@@ -391,10 +391,10 @@ function resetFilters(): void {
   top: var(--mc-space-2);
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding: 3px 8px;
+  gap: 4px;
+  padding: 4px 8px;
   border-radius: var(--mc-radius-pill);
-  font-size: 11px;
+  font-size: var(--mc-text-xs);
   font-weight: var(--mc-font-semibold);
   backdrop-filter: blur(4px);
 }
@@ -431,7 +431,7 @@ function resetFilters(): void {
   display: inline-flex;
   align-items: center;
   min-height: 24px;
-  padding: 2px 0;
+  padding: 4px 0;
   font-size: var(--mc-text-md);
   font-weight: var(--mc-font-semibold);
   color: var(--mc-text);
@@ -445,7 +445,7 @@ function resetFilters(): void {
 
 .course-card__fav {
   color: var(--mc-text-muted);
-  margin: -4px -6px 0 0;
+  margin: -4px -8px 0 0;
 }
 
 .course-card__fav--on {

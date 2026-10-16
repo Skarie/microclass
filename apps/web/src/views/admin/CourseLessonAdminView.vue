@@ -831,7 +831,7 @@ function formatTime(seconds: number | null): string {
 .toolbar__title {
   margin: 0;
   font-size: var(--mc-text-lg, 18px);
-  font-weight: 700;
+  font-weight: var(--mc-font-bold);
 }
 
 .toolbar__count {
@@ -854,7 +854,7 @@ function formatTime(seconds: number | null): string {
 }
 
 .folder__path {
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
   word-break: break-all;
 }
 
@@ -899,7 +899,7 @@ function formatTime(seconds: number | null): string {
 }
 
 .chapter__name {
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
   font-size: var(--mc-text-sm, 13px);
 }
 
@@ -928,8 +928,8 @@ function formatTime(seconds: number | null): string {
   cursor: grab;
   color: var(--mc-text-muted);
   user-select: none;
-  font-size: 16px;
-  line-height: 1;
+  font-size: var(--mc-text-lg);
+  line-height: var(--mc-leading-display);
 }
 
 .lesson__index {
@@ -960,7 +960,7 @@ function formatTime(seconds: number | null): string {
 .lesson__text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
   flex: 1;
 }
@@ -973,7 +973,7 @@ function formatTime(seconds: number | null): string {
 }
 
 .lesson__title {
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
   color: var(--mc-text);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -985,7 +985,7 @@ function formatTime(seconds: number | null): string {
 }
 
 .lesson__badge {
-  font-size: 11px;
+  font-size: var(--mc-text-xs);
 }
 
 .lesson__path {
@@ -1061,7 +1061,7 @@ function formatTime(seconds: number | null): string {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   padding: var(--mc-space-3);
   border: 1px solid var(--mc-border);
   border-radius: var(--mc-radius);
@@ -1069,8 +1069,8 @@ function formatTime(seconds: number | null): string {
 }
 
 .scan-summary__num {
-  font-size: 22px;
-  font-weight: 700;
+  font-size: var(--mc-text-xl);
+  font-weight: var(--mc-font-bold);
 }
 
 .scan-summary__num--primary {
@@ -1079,7 +1079,7 @@ function formatTime(seconds: number | null): string {
 
 .scan-folders {
   margin: 0;
-  padding-left: 18px;
+  padding-left: 16px;
   font-size: var(--mc-text-xs);
 }
 

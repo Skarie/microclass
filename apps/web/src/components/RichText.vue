@@ -97,7 +97,7 @@ watch(html, () => void nextTick(classifyImages));
   display: inline-block;
   max-width: 100%;
   max-height: 320px;
-  margin: 0 3px;
+  margin: 0 4px;
   vertical-align: middle;
   border: 1px solid var(--mc-border);
   border-radius: var(--mc-radius-sm);

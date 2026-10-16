@@ -117,7 +117,7 @@ withDefaults(
 .stat__body {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -136,7 +136,7 @@ withDefaults(
 }
 
 .stat__unit {
-  margin-left: 3px;
+  margin-left: 4px;
   font-size: var(--mc-text-xs);
   font-weight: var(--mc-font-normal);
   color: var(--mc-text-muted);
@@ -153,7 +153,7 @@ withDefaults(
 .stat__trend {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   font-weight: var(--mc-font-medium);
 }
 

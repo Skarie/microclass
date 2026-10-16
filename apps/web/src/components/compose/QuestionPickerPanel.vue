@@ -495,7 +495,7 @@ watch(
 .pk__field {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .pk__group {
@@ -511,7 +511,7 @@ watch(
 }
 
 .pk__chip {
-  padding: 3px 8px;
+  padding: 4px 8px;
   border: 1px solid var(--mc-border);
   border-radius: var(--mc-radius-pill);
   background: var(--mc-bg-elevated);

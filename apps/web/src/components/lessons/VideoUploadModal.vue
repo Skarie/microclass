@@ -246,7 +246,7 @@ async function start(): Promise<void> {
 
 .dropzone__title {
   margin: 0;
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
 }
 
 .dropzone__hint {

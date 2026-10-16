@@ -422,7 +422,7 @@ watch(
   font-size: var(--mc-text-xs);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .bp__result-list .is-missing {

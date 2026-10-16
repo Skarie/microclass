@@ -187,12 +187,12 @@ function formatDuration(seconds: number | null | undefined): string {
 .lesson__text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
 }
 
 .lesson__title {
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
   color: var(--mc-text);
 }
 

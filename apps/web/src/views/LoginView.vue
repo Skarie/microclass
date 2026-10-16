@@ -200,7 +200,7 @@ async function submit(): Promise<void> {
   align-items: center;
   gap: var(--mc-space-3);
   font-size: var(--mc-text-lg);
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
 }
 
 .login__logo {
@@ -212,7 +212,7 @@ async function submit(): Promise<void> {
   border-radius: var(--mc-radius-md);
   background: var(--mc-overlay-light);
   border: 1px solid color-mix(in srgb, var(--mc-neutral-0) 30%, transparent);
-  font-weight: 700;
+  font-weight: var(--mc-font-bold);
 }
 
 .login__slogan {
@@ -272,7 +272,7 @@ async function submit(): Promise<void> {
   color: var(--mc-text-secondary);
   font: inherit;
   font-size: var(--mc-text-md);
-  font-weight: 500;
+  font-weight: var(--mc-font-medium);
   cursor: pointer;
 }
 

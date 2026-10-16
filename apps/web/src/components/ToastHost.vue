@@ -86,13 +86,13 @@ const iconNames: Record<string, IconName> = {
   justify-content: center;
   width: 18px;
   height: 18px;
-  border-radius: 50%;
+  border-radius: var(--mc-radius-pill);
   font-size: var(--mc-text-xs);
-  font-weight: 700;
+  font-weight: var(--mc-font-bold);
   color: var(--mc-text-inverse);
   background: var(--mc-primary);
   flex: none;
-  margin-top: 2px;
+  margin-top: 4px;
 }
 
 .toast--success .toast__icon {
@@ -116,7 +116,7 @@ const iconNames: Record<string, IconName> = {
 }
 
 .toast__detail {
-  margin-top: 2px;
+  margin-top: 4px;
   font-size: var(--mc-text-xs);
   color: var(--mc-text-muted);
 }
@@ -126,8 +126,8 @@ const iconNames: Record<string, IconName> = {
   background: transparent;
   color: var(--mc-text-muted);
   cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-  padding: 0 2px;
+  font-size: var(--mc-text-lg);
+  line-height: var(--mc-leading-display);
+  padding: 0 4px;
 }
 </style>

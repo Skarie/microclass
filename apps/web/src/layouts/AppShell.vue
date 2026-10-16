@@ -240,26 +240,26 @@ const levelProgress = computed(() => {
   border-radius: var(--mc-radius-sm);
   background: var(--mc-primary);
   color: var(--mc-text-inverse);
-  font-weight: 700;
+  font-weight: var(--mc-font-bold);
   flex: none;
 }
 
 .brand__name {
   font-size: var(--mc-text-md);
-  font-weight: 600;
+  font-weight: var(--mc-font-semibold);
 }
 
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .nav__group {
   margin-top: var(--mc-space-4);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .nav__group-title {
@@ -310,7 +310,7 @@ const levelProgress = computed(() => {
   border: 1px solid var(--mc-border);
   border-radius: var(--mc-radius-xl);
   box-shadow: var(--mc-shadow-sm);
-  background-image: linear-gradient(140deg, var(--mc-primary-soft) 0%, var(--mc-bg-sunken) 62%);
+  background: var(--mc-primary-soft);
   display: flex;
   flex-direction: column;
   gap: var(--mc-space-2);

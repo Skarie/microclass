@@ -612,7 +612,7 @@ function syncQuery(): void {
 .ana__field {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   min-width: 180px;
 }
 
@@ -653,7 +653,7 @@ function syncQuery(): void {
 .ana__masteryitem {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .ana__masteryhead {
@@ -767,7 +767,7 @@ function syncQuery(): void {
 }
 
 .ana__barlabel {
-  font-size: 10px;
+  font-size: var(--mc-text-xs);
   color: var(--mc-text-muted);
   margin-top: 4px;
   white-space: nowrap;

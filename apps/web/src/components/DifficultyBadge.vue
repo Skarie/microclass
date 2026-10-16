@@ -94,7 +94,7 @@ const sourceLabel = computed(() => difficultySourceLabel(props.source));
   padding: 0 4px;
   border-radius: var(--mc-radius-sm);
   border: 1px solid var(--mc-border);
-  font-size: 11px;
+  font-size: var(--mc-text-xs);
 }
 
 .diff__source--manual {
@@ -109,6 +109,6 @@ const sourceLabel = computed(() => difficultySourceLabel(props.source));
 
 .diff__samples {
   color: var(--mc-text-secondary, inherit);
-  font-size: 11px;
+  font-size: var(--mc-text-xs);
 }
 </style>

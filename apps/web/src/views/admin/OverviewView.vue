@@ -391,7 +391,7 @@ onMounted(async () => {
 .overview__todo-body {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
   flex: 1;
 }
@@ -430,7 +430,7 @@ onMounted(async () => {
 }
 
 .overview__clear p {
-  margin: 2px 0 0;
+  margin: 4px 0 0;
 }
 
 .overview__links {
@@ -442,7 +442,7 @@ onMounted(async () => {
 .overview__link {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   padding: var(--mc-space-3);
   border: 1px solid var(--mc-border);
   border-radius: var(--mc-radius);
