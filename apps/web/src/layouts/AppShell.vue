@@ -205,7 +205,7 @@ onMounted(async () => {
         class="topbar__manage"
         :items="manageMenuItems"
         icon="grid"
-        label="教学管理"
+        label="管理菜单"
         :align="'right'"
         @select="onManageSelect"
       />
