@@ -1,9 +1,21 @@
 <script setup lang="ts">
+/**
+ * 登录 / 注册
+ *
+ * 优化前：左侧一整块扁平深绿面板（占半屏、上下大量死空间）+ 右侧窄卡片，
+ * 是典型的老式分栏登录页；手机端还会先看到一大块色板。
+ *
+ * 优化后：全屏品牌氛围背景 + 居中卡片。理由：
+ *  - 登录页只有"一个任务"，居中卡片的视线动线最短；
+ *  - 不再用整块重色压住半个屏幕（之前也嫌"留白大"）；
+ *  - 窄屏天然适配，卡片直接铺满宽度。
+ */
 import { computed, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useToastStore } from '@/stores/toast';
 import { errorMessage } from '@/composables/useAsync';
+import Icon from '@/components/Icon.vue';
 
 const auth = useAuthStore();
 const toast = useToastStore();
@@ -62,252 +74,251 @@ async function submit(): Promise<void> {
 
 <template>
   <div class="login">
-    <div class="login__aside">
-      <div class="login__brand">
+    <main class="login__card">
+      <header class="login__head">
         <span class="login__logo" aria-hidden="true">微</span>
-        <span>{{ auth.siteName }}</span>
-      </div>
-      <h1 class="login__slogan">看的每一分钟，都算数</h1>
-      <p class="login__desc">课程视频 · 章节归类 · 课后刷题 · 错题本 · 在线考试，一站式轻量学习平台。</p>
-      <ul class="login__features">
-        <li><Icon name="video" :size="16" /> 本地视频与外部链接统一管理，支持断点续播</li>
-        <li><Icon name="bank" :size="16" /> 题库导入导出，五种题型自动判分</li>
-        <li><Icon name="wrong" :size="16" /> 错题自动收录，答对自动标记掌握</li>
-        <li><Icon name="stats" :size="16" /> 学习统计与成绩单导出，进度一目了然</li>
-      </ul>
-    </div>
+        <div class="login__head-text">
+          <h1 class="login__title">{{ auth.siteName }}</h1>
+          <p class="login__slogan">看的每一分钟，都算数</p>
+        </div>
+      </header>
 
-    <div class="login__panel">
-      <div class="mc-card login__card">
-        <div class="login__tabs" role="tablist">
-          <button
-            class="login__tab"
-            :class="{ 'login__tab--active': isLogin }"
-            type="button"
-            role="tab"
-            :aria-selected="isLogin"
-            @click="switchMode('login')"
-          >
-            登录
-          </button>
-          <button
-            v-if="auth.allowRegister"
-            class="login__tab"
-            :class="{ 'login__tab--active': !isLogin }"
-            type="button"
-            role="tab"
-            :aria-selected="!isLogin"
-            @click="switchMode('register')"
-          >
-            注册
-          </button>
+      <div class="login__tabs" role="tablist" aria-label="登录或注册">
+        <button
+          class="login__tab"
+          :class="{ 'login__tab--active': isLogin }"
+          type="button"
+          role="tab"
+          :aria-selected="isLogin"
+          @click="switchMode('login')"
+        >
+          登录
+        </button>
+        <button
+          v-if="auth.allowRegister"
+          class="login__tab"
+          :class="{ 'login__tab--active': !isLogin }"
+          type="button"
+          role="tab"
+          :aria-selected="!isLogin"
+          @click="switchMode('register')"
+        >
+          注册
+        </button>
+      </div>
+
+      <form class="login__form" @submit.prevent="submit">
+        <div class="mc-field">
+          <label class="mc-label mc-label--required" for="username">账号</label>
+          <input
+            id="username"
+            v-model.trim="form.username"
+            class="mc-input"
+            autocomplete="username"
+            placeholder="请输入账号"
+            :aria-invalid="Boolean(usernameError)"
+          />
+          <span v-if="usernameError" class="mc-error-text">{{ usernameError }}</span>
         </div>
 
-        <form class="mc-col login__form" @submit.prevent="submit">
-          <div class="mc-field">
-            <label class="mc-label mc-label--required" for="username">账号</label>
-            <input
-              id="username"
-              v-model.trim="form.username"
-              class="mc-input"
-              autocomplete="username"
-              placeholder="请输入账号"
-              :aria-invalid="Boolean(usernameError)"
-            />
-            <span v-if="usernameError" class="mc-error-text">{{ usernameError }}</span>
-          </div>
+        <div class="mc-field">
+          <label class="mc-label mc-label--required" for="password">密码</label>
+          <input
+            id="password"
+            v-model="form.password"
+            class="mc-input"
+            type="password"
+            :autocomplete="isLogin ? 'current-password' : 'new-password'"
+            placeholder="请输入密码"
+            :aria-invalid="Boolean(passwordError)"
+          />
+          <span v-if="passwordError" class="mc-error-text">{{ passwordError }}</span>
+        </div>
 
+        <template v-if="!isLogin">
           <div class="mc-field">
-            <label class="mc-label mc-label--required" for="password">密码</label>
+            <label class="mc-label mc-label--required" for="confirm">确认密码</label>
             <input
-              id="password"
-              v-model="form.password"
+              id="confirm"
+              v-model="form.confirm"
               class="mc-input"
               type="password"
-              :autocomplete="isLogin ? 'current-password' : 'new-password'"
-              placeholder="请输入密码"
-              :aria-invalid="Boolean(passwordError)"
+              autocomplete="new-password"
+              placeholder="再次输入密码"
+              :aria-invalid="Boolean(confirmError)"
             />
-            <span v-if="passwordError" class="mc-error-text">{{ passwordError }}</span>
+            <span v-if="confirmError" class="mc-error-text">{{ confirmError }}</span>
           </div>
+          <div class="mc-field">
+            <label class="mc-label" for="displayName">姓名（选填）</label>
+            <input id="displayName" v-model.trim="form.displayName" class="mc-input" placeholder="用于成绩单显示" />
+          </div>
+        </template>
 
-          <template v-if="!isLogin">
-            <div class="mc-field">
-              <label class="mc-label mc-label--required" for="confirm">确认密码</label>
-              <input
-                id="confirm"
-                v-model="form.confirm"
-                class="mc-input"
-                type="password"
-                autocomplete="new-password"
-                placeholder="再次输入密码"
-                :aria-invalid="Boolean(confirmError)"
-              />
-              <span v-if="confirmError" class="mc-error-text">{{ confirmError }}</span>
-            </div>
-            <div class="mc-field">
-              <label class="mc-label" for="displayName">姓名（选填）</label>
-              <input id="displayName" v-model.trim="form.displayName" class="mc-input" placeholder="用于成绩单显示" />
-            </div>
-          </template>
+        <p v-if="error" class="login__error" role="alert">{{ error }}</p>
 
-          <p v-if="error" class="login__error" role="alert">{{ error }}</p>
+        <button
+          class="mc-btn mc-btn--primary mc-btn--lg mc-btn--block"
+          type="submit"
+          :disabled="!canSubmit || submitting"
+        >
+          <Icon name="graduation" :size="16" />
+          {{ submitting ? '处理中…' : isLogin ? '登录' : '注册并登录' }}
+        </button>
+      </form>
 
-          <button
-            class="mc-btn mc-btn--primary mc-btn--lg mc-btn--block"
-            type="submit"
-            :disabled="!canSubmit || submitting"
-          >
-            {{ submitting ? '处理中…' : isLogin ? '登录' : '注册并登录' }}
-          </button>
-        </form>
-      </div>
-      <p class="login__foot mc-muted">首次部署的默认管理员账号为 admin，密码由部署时配置决定。</p>
-    </div>
+      <p class="login__hint">首次部署的默认管理员账号为 <code>admin</code>，密码由部署时配置决定。</p>
+    </main>
+
+    <footer class="login__meta">
+      <span>微课堂 · 自托管轻量学习平台</span>
+      <span class="login__meta-sep">·</span>
+      <span>学习数据保存在你自己的机器上</span>
+    </footer>
   </div>
 </template>
 
 <style scoped>
 .login {
-  min-height: 100%;
-  display: grid;
-  grid-template-columns: 1.1fr 1fr;
-  background: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--mc-space-6);
+  min-height: 100dvh;
+  padding: var(--mc-space-6);
+  background-image: var(--mc-bg-art);
 }
 
-.login__aside {
-  position: relative;
-  overflow: hidden;
-  padding: var(--mc-space-12) var(--mc-space-10);
-  /* 墨卷：纯色深松绿面板，不用多色渐变；白字对比充足 */
-  background-image: none;
-  background-color: var(--mc-primary-700);
-  color: var(--mc-neutral-0);
+.login__card {
   display: flex;
   flex-direction: column;
   gap: var(--mc-space-4);
-  justify-content: center;
+  width: min(400px, 100%);
+  padding: var(--mc-space-6);
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius-xl);
+  background: var(--mc-bg-elevated);
+  box-shadow: var(--mc-shadow-lg);
 }
 
-/* 墨卷：不加装饰光斑，保持平面 */
-.login__aside > * {
-  position: relative;
-  z-index: 1;
-}
-
-.login__brand {
+/* 头部：Logo + 站点名 + 主张，一行说清"这是什么地方" */
+.login__head {
   display: flex;
   align-items: center;
   gap: var(--mc-space-3);
-  font-size: var(--mc-text-lg);
-  font-weight: var(--mc-font-semibold);
 }
 
 .login__logo {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  flex: none;
+  width: 40px;
+  height: 40px;
   border-radius: var(--mc-radius-md);
-  background: var(--mc-overlay-light);
-  border: 1px solid color-mix(in srgb, var(--mc-neutral-0) 30%, transparent);
+  background-image: var(--mc-gradient-brand);
+  color: var(--mc-neutral-0);
+  font-size: var(--mc-text-lg);
   font-weight: var(--mc-font-bold);
+}
+
+.login__head-text {
+  min-width: 0;
+}
+
+.login__title {
+  margin: 0;
+  font-size: var(--mc-text-lg);
+  font-weight: var(--mc-font-bold);
+  color: var(--mc-text);
 }
 
 .login__slogan {
-  font-size: var(--mc-text-3xl);
-  font-weight: var(--mc-font-bold);
-  letter-spacing: var(--mc-tracking-tight);
-  line-height: var(--mc-leading-tight);
-  max-width: 460px;
-}
-
-.login__desc {
-  max-width: 460px;
-  opacity: 0.9;
   margin: 0;
+  font-size: var(--mc-text-xs);
+  color: var(--mc-text-muted);
 }
 
-.login__features {
-  margin: var(--mc-space-4) 0 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: var(--mc-space-2);
-  font-size: var(--mc-text-sm);
-  opacity: 0.92;
-}
-
-.login__panel {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--mc-space-4);
-  padding: var(--mc-space-10) var(--mc-space-8);
-}
-
-.login__card {
-  width: 100%;
-  max-width: 400px;
-  padding: var(--mc-space-6);
-  display: flex;
-  flex-direction: column;
-  gap: var(--mc-space-5);
-}
-
+/* 分段式登录/注册切换（比细下划线更像"选中"） */
 .login__tabs {
-  display: flex;
-  gap: var(--mc-space-4);
-  border-bottom: 1px solid var(--mc-border);
+  display: grid;
+  grid-auto-flow: column;
+  gap: var(--mc-space-1);
+  padding: var(--mc-space-1);
+  border-radius: var(--mc-radius);
+  background: var(--mc-bg-sunken);
 }
 
 .login__tab {
-  padding: var(--mc-space-2) 0;
-  border: none;
-  border-bottom: 2px solid transparent;
+  padding: var(--mc-space-2);
+  border: 0;
+  border-radius: var(--mc-radius-sm);
   background: transparent;
+  font-size: var(--mc-text-sm);
   color: var(--mc-text-secondary);
-  font: inherit;
-  font-size: var(--mc-text-md);
-  font-weight: var(--mc-font-medium);
   cursor: pointer;
+  transition: var(--mc-transition-colors);
 }
 
 .login__tab--active {
+  background: var(--mc-bg-elevated);
   color: var(--mc-primary-fg);
-  border-bottom-color: var(--mc-primary);
+  font-weight: var(--mc-font-semibold);
+  box-shadow: var(--mc-shadow-sm);
 }
 
 .login__form {
-  gap: var(--mc-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--mc-space-3);
 }
 
 .login__error {
   margin: 0;
   padding: var(--mc-space-2) var(--mc-space-3);
-  border-radius: var(--mc-radius);
+  border-radius: var(--mc-radius-sm);
   background: var(--mc-danger-soft);
   color: var(--mc-danger-fg);
-  font-size: var(--mc-text-sm);
-}
-
-.login__foot {
   font-size: var(--mc-text-xs);
-  max-width: 400px;
-  text-align: center;
-  margin: 0;
 }
 
-@media (max-width: 900px) {
+.login__hint {
+  margin: 0;
+  padding-top: var(--mc-space-3);
+  border-top: 1px solid var(--mc-border);
+  font-size: var(--mc-text-xs);
+  line-height: var(--mc-leading-relaxed);
+  color: var(--mc-text-muted);
+}
+
+.login__hint code {
+  padding: 0 var(--mc-space-1);
+  border-radius: var(--mc-radius-sm);
+  background: var(--mc-bg-sunken);
+  font-family: var(--mc-font-mono);
+}
+
+.login__meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--mc-space-2);
+  font-size: var(--mc-text-xs);
+  color: var(--mc-text-muted);
+}
+
+.login__meta-sep {
+  opacity: 0.6;
+}
+
+@media (max-width: 480px) {
   .login {
-    grid-template-columns: 1fr;
+    padding: var(--mc-space-4);
   }
 
-  .login__aside {
-    display: none;
+  .login__card {
+    padding: var(--mc-space-5);
   }
 }
 </style>
