@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { usePanelStore } from '@/stores/panel';
 import { useToastStore } from '@/stores/toast';
 
 /**
@@ -210,6 +211,14 @@ router.beforeEach(async (to) => {
   if (to.meta.requiresAdmin && !auth.isAdmin) {
     toast.error('没有权限访问该页面');
     return { name: 'home' };
+  }
+  // 双面板：处于学员视图时不进管理页（管理员本人也一样）
+  if (to.path.startsWith('/admin')) {
+    const panel = usePanelStore();
+    if (auth.isTeacher && !panel.isAdminPanel.value) {
+      toast.info('已切换到教学管理面板');
+      panel.setMode('admin');
+    }
   }
   if (to.meta.requiresTeacher && !auth.isTeacher) {
     toast.error('需要教师或管理员权限');

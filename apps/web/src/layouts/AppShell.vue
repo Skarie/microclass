@@ -17,6 +17,7 @@ import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useThemeStore } from '@/stores/theme';
 import { useToastStore } from '@/stores/toast';
+import { usePanelStore } from '@/stores/panel';
 import { api } from '@/api/client';
 import DropdownMenu from '@/components/DropdownMenu.vue';
 import Icon from '@/components/Icon.vue';
@@ -28,6 +29,7 @@ const theme = useThemeStore();
 const toast = useToastStore();
 const route = useRoute();
 const router = useRouter();
+const panel = usePanelStore();
 const summary = ref<Summary | null>(null);
 const mobileNavOpen = ref(false);
 /* 抽屉里的"教学管理"默认收起：移动端 9 项太长，先给一级导航让位 */
@@ -61,6 +63,27 @@ const manageNav: NavItem[] = [
 ];
 
 const visibleManageNav = computed(() => manageNav.filter((i) => !i.adminOnly || auth.isAdmin));
+/** 教学模式下的顶部导航：管理功能优先（学员视图则回到 studentNav） */
+const adminNav: NavItem[] = [
+  { to: '/admin/overview', label: '总览', icon: 'grid' },
+  { to: '/admin/courses', label: '课程管理', icon: 'courses' },
+  { to: '/admin/banks', label: '题库管理', icon: 'bank' },
+  { to: '/admin/exams', label: '考试管理', icon: 'exam' },
+  { to: '/admin/stats', label: '学习统计', icon: 'stats' },
+  { to: '/admin/analytics', label: '学情分析', icon: 'target' },
+];
+const navItems = computed(() => (panel.isAdminPanel.value ? adminNav : studentNav));
+
+/** 切换面板：切到学员视图时，若正在管理页则回首页 */
+function switchPanel(next: 'admin' | 'student'): void {
+  panel.setMode(next);
+  if (next === 'student' && route.path.startsWith('/admin')) {
+    void router.push({ name: 'home' });
+  }
+  if (next === 'admin' && !route.path.startsWith('/admin')) {
+    void router.push({ name: 'admin-overview' });
+  }
+}
 const userName = computed(() => auth.user?.display_name || auth.user?.username || '我');
 /** 顶栏"教学管理"下拉：key = 路由路径 */
 const manageMenuItems = computed(() =>
@@ -125,7 +148,7 @@ onMounted(async () => {
       <!-- 一级导航：横向（对标 MOOC）；窄屏收进抽屉 -->
       <nav class="nav" aria-label="主导航">
         <RouterLink
-          v-for="item in studentNav"
+          v-for="item in navItems"
           :key="item.to"
           class="nav__item"
           :class="{ 'nav__item--active': isActive(item.to) }"
@@ -153,8 +176,32 @@ onMounted(async () => {
         <Icon :name="theme.resolved === 'dark' ? 'sun' : 'moon'" :size="18" />
       </button>
 
+      <!-- 双面板切换：教学管理 / 学员视图（默认教学管理） -->
+      <div v-if="panel.canSwitch.value" class="panel-switch" role="group" aria-label="切换面板">
+        <button
+          class="panel-switch__btn"
+          :class="{ 'panel-switch__btn--on': panel.isAdminPanel.value }"
+          type="button"
+          :aria-pressed="panel.isAdminPanel.value"
+          @click="switchPanel('admin')"
+        >
+          <Icon name="grid" :size="14" />
+          教学管理
+        </button>
+        <button
+          class="panel-switch__btn"
+          :class="{ 'panel-switch__btn--on': !panel.isAdminPanel.value }"
+          type="button"
+          :aria-pressed="!panel.isAdminPanel.value"
+          @click="switchPanel('student')"
+        >
+          <Icon name="user" :size="14" />
+          学员视图
+        </button>
+      </div>
+
       <DropdownMenu
-        v-if="auth.isTeacher"
+        v-if="auth.isTeacher && panel.isAdminPanel.value"
         class="topbar__manage"
         :items="manageMenuItems"
         icon="grid"
@@ -186,7 +233,7 @@ onMounted(async () => {
     <!-- 窄屏抽屉：一级导航 + 教学管理（可折叠） -->
     <aside v-if="mobileNavOpen" class="drawer" aria-label="移动端导航">
       <RouterLink
-        v-for="item in studentNav"
+        v-for="item in navItems"
         :key="item.to"
         class="drawer__item"
         :class="{ 'drawer__item--active': isActive(item.to) }"
@@ -363,6 +410,37 @@ onMounted(async () => {
   display: none;
 }
 
+/* 双面板切换器 */
+.panel-switch {
+  display: flex;
+  gap: var(--mc-space-1);
+  padding: var(--mc-space-1);
+  border-radius: var(--mc-radius);
+  background: var(--mc-bg-sunken);
+}
+
+.panel-switch__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mc-space-1);
+  padding: var(--mc-space-1) var(--mc-space-2);
+  border: 0;
+  border-radius: var(--mc-radius-sm);
+  background: transparent;
+  font-size: var(--mc-text-xs);
+  color: var(--mc-text-secondary);
+  cursor: pointer;
+  transition: var(--mc-transition-colors);
+  white-space: nowrap;
+}
+
+.panel-switch__btn--on {
+  background: var(--mc-bg-elevated);
+  color: var(--mc-primary-fg);
+  font-weight: var(--mc-font-semibold);
+  box-shadow: var(--mc-shadow-sm);
+}
+
 /* ---------- 内容区（留白收紧）---------- */
 .content {
   flex: 1;
@@ -494,7 +572,8 @@ onMounted(async () => {
 
   .nav,
   .topbar__level,
-  .topbar__manage {
+  .topbar__manage,
+  .panel-switch {
     display: none;
   }
 

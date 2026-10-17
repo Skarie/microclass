@@ -85,8 +85,13 @@ async function submit(): Promise<void> {
       persistRemember();
       toast.success('注册成功，已自动登录');
     }
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/';
-    await router.replace(redirect);
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : null;
+    if (redirect) {
+      await router.replace(redirect);
+    } else {
+      // 管理员默认落在教学管理面板；学员落首页
+      await router.replace({ name: auth.isTeacher ? 'admin-overview' : 'home' });
+    }
   } catch (e) {
     error.value = errorMessage(e);
   } finally {

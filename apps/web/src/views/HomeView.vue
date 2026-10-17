@@ -16,6 +16,7 @@ import { RouterLink } from 'vue-router';
 import { api } from '@/api/client';
 import { useAsync } from '@/composables/useAsync';
 import { useAuthStore } from '@/stores/auth';
+import { usePanelStore } from '@/stores/panel';
 import Icon from '@/components/Icon.vue';
 import ProgressBar from '@/components/ProgressBar.vue';
 import Tag from '@/components/Tag.vue';
@@ -40,6 +41,7 @@ interface WrongBook {
 }
 
 const auth = useAuthStore();
+const panel = usePanelStore();
 const { data } = useAsync<CoursesResponse>(() => api.get<CoursesResponse>('/courses'));
 const summary = ref<Summary | null>(null);
 const wrong = ref<WrongBook | null>(null);
@@ -258,7 +260,7 @@ const manageJumps: Jump[] = [
         </RouterLink>
       </nav>
 
-      <template v-if="auth.isAdmin">
+      <template v-if="panel.isAdminPanel.value">
         <header class="jumps__head jumps__head--sub">
           <h2 class="jumps__title">教学管理</h2>
           <span class="jumps__hint mc-muted">管理员可见</span>
