@@ -102,7 +102,7 @@ async function toggleFav(): Promise<void> {
 <template>
   <section v-if="loading && !data" class="mc-col">
     <div class="mc-skeleton detail__hero" />
-    <div class="mc-skeleton" style="height: 200px" />
+    <div class="mc-skeleton mc-skeleton--h200" />
   </section>
 
   <EmptyState

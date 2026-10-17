@@ -370,10 +370,11 @@ function resetFilters(): void {
   box-shadow: var(--mc-focus-ring);
 }
 
-.hall__search-input {
+/* 用后代选择器压过 .mc-input 的边框，避免 !important */
+.hall__search .hall__search-input {
   min-width: 200px;
-  border: none !important;
-  box-shadow: none !important;
+  border: none;
+  box-shadow: none;
   background: transparent;
 }
 

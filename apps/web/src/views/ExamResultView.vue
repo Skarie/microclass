@@ -123,8 +123,8 @@ function resultBadgeText(item: GradedItem): string {
 
 <template>
   <section v-if="loading && !data" class="mc-col">
-    <div class="mc-skeleton" style="height: 180px" />
-    <div class="mc-skeleton" style="height: 320px" />
+    <div class="mc-skeleton mc-skeleton--h180" />
+    <div class="mc-skeleton mc-skeleton--h320" />
   </section>
 
   <section v-else-if="!data" class="mc-card loadfail">

@@ -490,6 +490,23 @@ a:hover {
   line-height: var(--mc-leading-display);
 }
 
+/* 骨架屏高度：避免模板里写 style="height: 200px"（尺寸应集中管理） */
+.mc-skeleton--h160 {
+  height: 160px;
+}
+
+.mc-skeleton--h180 {
+  height: 180px;
+}
+
+.mc-skeleton--h200 {
+  height: 200px;
+}
+
+.mc-skeleton--h320 {
+  height: 320px;
+}
+
 .mc-skeleton {
   border-radius: var(--mc-radius);
   background-image: var(--mc-gradient-shimmer);

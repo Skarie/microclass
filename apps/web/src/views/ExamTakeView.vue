@@ -216,7 +216,7 @@ onBeforeUnmount(stopTimer);
 
 <template>
   <section v-if="loading && !data" class="mc-col">
-    <div class="mc-skeleton" style="height: 160px" />
+    <div class="mc-skeleton mc-skeleton--h160" />
     <div class="mc-skeleton" style="height: 320px" />
   </section>
 
