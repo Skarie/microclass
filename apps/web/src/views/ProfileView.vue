@@ -259,7 +259,7 @@ async function logout(): Promise<void> {
           description="在课程详情页进入在线考试，交卷后成绩会显示在这里。"
         />
         <div v-else class="mc-table-wrap">
-          <table class="mc-table" aria-label="我的考试成绩">
+          <table class="mc-table mc-table--compact" aria-label="我的考试成绩">
             <thead>
               <tr>
                 <th scope="col">考试</th>
@@ -314,7 +314,7 @@ async function logout(): Promise<void> {
           description="进入任意课时的「课后练习」作答，提交后会生成记录与最好成绩。"
         />
         <div v-else class="mc-table-wrap">
-          <table class="mc-table" aria-label="我的刷题记录">
+          <table class="mc-table mc-table--compact" aria-label="我的刷题记录">
             <thead>
               <tr>
                 <th scope="col">课时</th>
@@ -408,32 +408,6 @@ async function logout(): Promise<void> {
 </template>
 
 <style scoped>
-.profile__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--mc-space-5);
-  padding: var(--mc-space-5);
-}
-
-.profile__head-main {
-  gap: var(--mc-space-2);
-  min-width: 0;
-}
-
-.profile__title {
-  font-size: var(--mc-text-lg);
-}
-
-.profile__hint {
-  margin: 0;
-  font-size: var(--mc-text-sm);
-}
-
-.profile__head-actions {
-  flex: none;
-}
-
 .stat {
   display: flex;
   flex-direction: column;

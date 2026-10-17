@@ -617,12 +617,6 @@ onMounted(() => void load());
   flex-wrap: wrap;
 }
 
-.head__actions {
-  display: flex;
-  gap: var(--mc-space-2);
-  flex-wrap: wrap;
-}
-
 .tabs {
   display: flex;
   align-items: center;

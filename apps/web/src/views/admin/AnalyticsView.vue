@@ -514,7 +514,7 @@ function syncQuery(): void {
         </div>
         <BarList :items="studentBars" :limit="15" caption="学员错题数对比" />
         <div class="ana__tablewrap">
-          <table class="mc-table">
+          <table class="mc-table mc-table--compact">
             <thead>
               <tr>
                 <th>学员</th>
@@ -644,30 +644,6 @@ function syncQuery(): void {
   gap: var(--mc-space-3);
 }
 
-.ana__masteryrow {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: var(--mc-space-3);
-}
-
-.ana__masteryitem {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.ana__masteryhead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--mc-space-2);
-}
-
-.ana__masterynum {
-  font-size: var(--mc-text-xs);
-  color: var(--mc-text-muted);
-}
-
 .ana__tabs {
   display: flex;
   gap: var(--mc-space-1);
@@ -700,10 +676,6 @@ function syncQuery(): void {
   overflow-x: auto;
 }
 
-.ana__row {
-  cursor: pointer;
-}
-
 .ana__detail td {
   background: var(--mc-bg-sunken);
 }
@@ -717,59 +689,11 @@ function syncQuery(): void {
   font-size: var(--mc-text-sm);
 }
 
-.ana__stem {
-  max-width: 420px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .ana__filterline {
   display: flex;
   align-items: flex-end;
   gap: var(--mc-space-3);
   flex-wrap: wrap;
   font-size: var(--mc-text-xs);
-}
-
-.ana__chart {
-  display: flex;
-  align-items: flex-end;
-  gap: 4px;
-  height: 200px;
-  padding: var(--mc-space-2) 0;
-  overflow-x: auto;
-}
-
-.ana__bar {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  height: 100%;
-  min-width: 18px;
-  flex: 1;
-}
-
-.ana__barstack {
-  width: 100%;
-  max-width: 26px;
-  background: var(--mc-danger-soft);
-  border-radius: var(--mc-radius-xs) var(--mc-radius-xs) 0 0;
-  display: flex;
-  align-items: flex-end;
-  overflow: hidden;
-}
-
-.ana__barcorrect {
-  width: 100%;
-  background: var(--mc-success);
-}
-
-.ana__barlabel {
-  font-size: var(--mc-text-xs);
-  color: var(--mc-text-muted);
-  margin-top: 4px;
-  white-space: nowrap;
 }
 </style>

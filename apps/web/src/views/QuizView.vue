@@ -350,23 +350,6 @@ watch(lessonId, () => retry(0));
 </template>
 
 <style scoped>
-.quiz__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--mc-space-5);
-  padding: var(--mc-space-5);
-}
-
-.quiz__title {
-  font-size: var(--mc-text-lg);
-}
-
-.quiz__hint {
-  margin: 0;
-  font-size: var(--mc-text-sm);
-}
-
 .quiz__score {
   flex: none;
   display: flex;

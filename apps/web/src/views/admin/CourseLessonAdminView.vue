@@ -828,16 +828,6 @@ function formatTime(seconds: number | null): string {
   align-items: center;
 }
 
-.toolbar__title {
-  margin: 0;
-  font-size: var(--mc-text-lg, 18px);
-  font-weight: var(--mc-font-bold);
-}
-
-.toolbar__count {
-  font-size: var(--mc-text-xs);
-}
-
 /* ---------- 课程文件夹 ---------- */
 .folder {
   display: flex;

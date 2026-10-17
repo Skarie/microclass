@@ -74,11 +74,6 @@ withDefaults(
   line-height: var(--mc-leading-tight);
 }
 
-.ph__head {
-  padding-bottom: var(--mc-space-3);
-  border-bottom: 1px solid var(--mc-border);
-}
-
 .ph__crumb {
   display: inline-flex;
   align-items: center;

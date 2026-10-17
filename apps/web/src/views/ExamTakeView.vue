@@ -404,28 +404,6 @@ onBeforeUnmount(stopTimer);
   padding: var(--mc-space-2) var(--mc-space-4);
 }
 
-.take__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--mc-space-5);
-  padding: var(--mc-space-5);
-}
-
-.take__head-main {
-  gap: var(--mc-space-2);
-  min-width: 0;
-}
-
-.take__title {
-  font-size: var(--mc-text-lg);
-}
-
-.take__hint {
-  margin: 0;
-  font-size: var(--mc-text-sm);
-}
-
 .clock {
   flex: none;
   display: flex;

@@ -280,43 +280,6 @@ function practice(item: WrongItem): void {
 </template>
 
 <style scoped>
-.wb__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--mc-space-5);
-  padding: var(--mc-space-5);
-}
-
-.wb__head-main {
-  gap: var(--mc-space-2);
-  min-width: 0;
-}
-
-.wb__title {
-  font-size: var(--mc-text-lg);
-}
-
-.wb__hint {
-  margin: 0;
-  font-size: var(--mc-text-sm);
-}
-
-.wb__head-actions {
-  flex: none;
-}
-
-.wb__stat {
-  display: flex;
-  flex-direction: column;
-  gap: var(--mc-space-1);
-  padding: var(--mc-space-4) var(--mc-space-5);
-}
-
-.wb__stat-label {
-  font-size: var(--mc-text-xs);
-}
-
 .wb__stat-value {
   font-size: var(--mc-text-2xl);
   font-weight: var(--mc-font-bold);

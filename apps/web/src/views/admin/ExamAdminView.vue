@@ -808,9 +808,6 @@ onMounted(async () => {
 
 /* 步骤条：替代原来的一大段说明文字（那一段占了近半屏，实际没人读第二遍） */
 
-@media (max-width: 1200px) {
-}
-
 /* 标题吸顶：长列表滚动时"这一栏是什么、多少条"始终可见 */
 
 .compose__field .mc-label {
@@ -829,12 +826,6 @@ onMounted(async () => {
   width: 72px;
   min-width: 72px;
   text-align: center;
-}
-
-.difficulty-inline {
-  color: var(--mc-warning-fg);
-  font-size: var(--mc-text-xs);
-  white-space: nowrap;
 }
 
 .basket__target .mc-input,

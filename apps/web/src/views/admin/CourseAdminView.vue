@@ -865,7 +865,7 @@ function fsPick(): void {
       </div>
 
       <div v-else class="mc-table-wrap table-wrap">
-        <table class="mc-table">
+        <table class="mc-table mc-table--compact">
           <thead>
             <tr>
               <th>课程</th>
@@ -1006,7 +1006,7 @@ function fsPick(): void {
         icon="folder"
         title="没有未归类课时"
         description="所有课时都归属到课程了。新上传的视频如果没选课程，会先出现在这里。"
-        action-text="上传视频（不归类）"
+        action-text="上传视频"
         @action="uploadOpen = true"
       />
 
