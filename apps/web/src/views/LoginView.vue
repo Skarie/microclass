@@ -1,23 +1,16 @@
 <script setup lang="ts">
 /**
- * 登录 / 注册（对标超星学习通 passport2.chaoxing.com/login 的结构与要素）
+ * 登录 / 注册
  *
- * 学习通登录页的真实要素（抓取实际页面）：
- *   用户登录标题 + 客服入口 / 账号 / 密码 / 忘记密码 / 登录 / 「下次自动登录」+ 说明 /
- *   新用户注册 / 验证码登录 / 其他登录方式 / 扫码登录 / 勾选同意协议 / 页脚备案信息
- *
- * 我们做不到的不假装：没有扫码（无 App）、没有验证码登录（无短信）、没有自助找回密码
- * （无邮件/短信通道）—— 改为明确指引：联系管理员重置。
- * 能真做的都做了：
- *   - 「记住账号」：真实记忆到 localStorage（只记账号，不保存密码）
- *   - 协议勾选：不勾选不能登录（文案写本平台真实情况，不是法务套话）
+ * 布局：**居中卡片**（用户要求）+ 背景承担设计感（渐变 + 圆形光斑 + 堆叠"书本卡"插画）。
+ * 要素对标超星学习通：用户登录标题 + 帮助入口 / 账号 / 密码 / 记住账号 / 协议勾选 /
+ * 新用户注册 / 页脚信息。做不到的（扫码、验证码、自助找回密码）不放假按钮，改为明确指引。
  */
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useToastStore } from '@/stores/toast';
 import { errorMessage } from '@/composables/useAsync';
-import Icon from '@/components/Icon.vue';
 
 const REMEMBER_KEY = 'mc.login.username';
 
@@ -104,324 +97,263 @@ async function submit(): Promise<void> {
 
 <template>
   <div class="login">
-    <!-- 左侧：品牌 + 抽象插画（学习通式分栏，浅底） -->
-    <aside class="login__brand">
-      <div class="brand__deco" aria-hidden="true">
-        <span class="brand__circle brand__circle--a" />
-        <span class="brand__circle brand__circle--b" />
-        <span class="brand__book brand__book--a" />
-        <span class="brand__book brand__book--b" />
-        <span class="brand__book brand__book--c" />
-      </div>
+    <!-- 背景装饰：圆形光斑 + 堆叠书本卡（纯装饰，居中卡片压在上面） -->
+    <div class="login__deco" aria-hidden="true">
+      <span class="deco__circle deco__circle--a" />
+      <span class="deco__circle deco__circle--b" />
+      <span class="deco__book deco__book--a" />
+      <span class="deco__book deco__book--b" />
+      <span class="deco__book deco__book--c" />
+    </div>
 
-      <header class="brand__head">
-        <span class="brand__logo" aria-hidden="true">微</span>
-        <span class="brand__name">{{ auth.siteName }}</span>
+    <main class="login__card">
+      <header class="card__head">
+        <span class="card__logo" aria-hidden="true">微</span>
+        <h1 class="card__name">{{ auth.siteName }}</h1>
+        <p class="card__slogan">看的每一分钟，都算数</p>
       </header>
 
-      <div class="brand__text">
-        <h1 class="brand__slogan">看的每一分钟，都算数</h1>
-        <p class="brand__desc">课程视频、章节归类、课后练习与错题本一体的一站式学习平台。</p>
+      <div class="card__titles">
+        <h2 class="card__title">{{ isLogin ? '用户登录' : '注册账号' }}</h2>
+        <span class="card__help mc-muted">忘记密码请联系管理员重置</span>
       </div>
 
-      <ul class="brand__points">
-        <li><Icon name="video" :size="15" /> 本地视频与外部链接统一管理，断点续播</li>
-        <li><Icon name="check-circle" :size="15" /> 看完 80% 才解锁练习，进度真实可信</li>
-        <li><Icon name="bank" :size="15" /> 题库导入导出，五种题型自动判分</li>
-        <li><Icon name="wrong" :size="15" /> 错题自动收录，答对自动标记掌握</li>
-      </ul>
-    </aside>
+      <div class="login__tabs" role="tablist" aria-label="登录或注册">
+        <button
+          class="login__tab"
+          :class="{ 'login__tab--active': isLogin }"
+          type="button"
+          role="tab"
+          :aria-selected="isLogin"
+          @click="switchMode('login')"
+        >
+          账号登录
+        </button>
+        <button
+          v-if="auth.allowRegister"
+          class="login__tab"
+          :class="{ 'login__tab--active': !isLogin }"
+          type="button"
+          role="tab"
+          :aria-selected="!isLogin"
+          @click="switchMode('register')"
+        >
+          新用户注册
+        </button>
+      </div>
 
-    <!-- 右侧：表单 -->
-    <main class="login__main">
-      <div class="login__card">
-        <header class="card__head">
-          <h2 class="card__title">{{ isLogin ? '用户登录' : '注册账号' }}</h2>
-          <span class="card__help mc-muted">忘记密码请联系管理员重置</span>
-        </header>
-
-        <div class="login__tabs" role="tablist" aria-label="登录或注册">
-          <button
-            class="login__tab"
-            :class="{ 'login__tab--active': isLogin }"
-            type="button"
-            role="tab"
-            :aria-selected="isLogin"
-            @click="switchMode('login')"
-          >
-            账号登录
-          </button>
-          <button
-            v-if="auth.allowRegister"
-            class="login__tab"
-            :class="{ 'login__tab--active': !isLogin }"
-            type="button"
-            role="tab"
-            :aria-selected="!isLogin"
-            @click="switchMode('register')"
-          >
-            新用户注册
-          </button>
+      <form class="login__form" @submit.prevent="submit">
+        <div class="mc-field">
+          <label class="mc-label mc-label--required" for="username">账号</label>
+          <input
+            id="username"
+            v-model.trim="form.username"
+            class="mc-input"
+            autocomplete="username"
+            placeholder="请输入账号"
+            :aria-invalid="Boolean(usernameError)"
+          />
+          <span v-if="usernameError" class="mc-error-text">{{ usernameError }}</span>
         </div>
 
-        <form class="login__form" @submit.prevent="submit">
-          <div class="mc-field">
-            <label class="mc-label mc-label--required" for="username">账号</label>
-            <input
-              id="username"
-              v-model.trim="form.username"
-              class="mc-input"
-              autocomplete="username"
-              placeholder="请输入账号"
-              :aria-invalid="Boolean(usernameError)"
-            />
-            <span v-if="usernameError" class="mc-error-text">{{ usernameError }}</span>
-          </div>
+        <div class="mc-field">
+          <label class="mc-label mc-label--required" for="password">密码</label>
+          <input
+            id="password"
+            v-model="form.password"
+            class="mc-input"
+            type="password"
+            :autocomplete="isLogin ? 'current-password' : 'new-password'"
+            placeholder="请输入密码"
+            :aria-invalid="Boolean(passwordError)"
+          />
+          <span v-if="passwordError" class="mc-error-text">{{ passwordError }}</span>
+        </div>
 
+        <template v-if="!isLogin">
           <div class="mc-field">
-            <label class="mc-label mc-label--required" for="password">密码</label>
+            <label class="mc-label mc-label--required" for="confirm">确认密码</label>
             <input
-              id="password"
-              v-model="form.password"
+              id="confirm"
+              v-model="form.confirm"
               class="mc-input"
               type="password"
-              :autocomplete="isLogin ? 'current-password' : 'new-password'"
-              placeholder="请输入密码"
-              :aria-invalid="Boolean(passwordError)"
+              autocomplete="new-password"
+              placeholder="再次输入密码"
+              :aria-invalid="Boolean(confirmError)"
             />
-            <span v-if="passwordError" class="mc-error-text">{{ passwordError }}</span>
+            <span v-if="confirmError" class="mc-error-text">{{ confirmError }}</span>
           </div>
-
-          <template v-if="!isLogin">
-            <div class="mc-field">
-              <label class="mc-label mc-label--required" for="confirm">确认密码</label>
-              <input
-                id="confirm"
-                v-model="form.confirm"
-                class="mc-input"
-                type="password"
-                autocomplete="new-password"
-                placeholder="再次输入密码"
-                :aria-invalid="Boolean(confirmError)"
-              />
-              <span v-if="confirmError" class="mc-error-text">{{ confirmError }}</span>
-            </div>
-            <div class="mc-field">
-              <label class="mc-label" for="displayName">姓名（选填）</label>
-              <input id="displayName" v-model.trim="form.displayName" class="mc-input" placeholder="用于成绩单显示" />
-            </div>
-          </template>
-
-          <div class="login__options">
-            <label class="mc-checkbox">
-              <input v-model="rememberMe" type="checkbox" />
-              记住账号
-            </label>
-            <span class="login__options-hint mc-muted">只记住账号，不保存密码</span>
+          <div class="mc-field">
+            <label class="mc-label" for="displayName">姓名（选填）</label>
+            <input id="displayName" v-model.trim="form.displayName" class="mc-input" placeholder="用于成绩单显示" />
           </div>
+        </template>
 
-          <p v-if="error" class="login__error" role="alert">{{ error }}</p>
-
-          <button
-            class="mc-btn mc-btn--primary mc-btn--lg mc-btn--block"
-            type="submit"
-            :disabled="!canSubmit || submitting"
-          >
-            {{ submitting ? '处理中…' : isLogin ? '登录' : '注册并登录' }}
-          </button>
-
-          <label class="login__agree">
-            <input v-model="agreed" type="checkbox" />
-            <span>
-              我已了解：本平台是自托管的内部学习系统，账号由管理员创建，学习记录只保存在本机；
-              视频与题目内容的版权归各自权利人所有。
-            </span>
+        <div class="login__options">
+          <label class="mc-checkbox">
+            <input v-model="rememberMe" type="checkbox" />
+            记住账号
           </label>
-        </form>
+          <span class="login__options-hint mc-muted">只记住账号，不保存密码</span>
+        </div>
 
-        <footer class="card__foot">
-          <span class="mc-muted">首次部署的默认管理员账号为 <code>admin</code>，密码由部署时配置决定。</span>
-        </footer>
-      </div>
+        <p v-if="error" class="login__error" role="alert">{{ error }}</p>
 
-      <p class="login__meta">微课堂 · 自托管轻量学习平台 · 数据保存在本机</p>
+        <button
+          class="mc-btn mc-btn--primary mc-btn--lg mc-btn--block"
+          type="submit"
+          :disabled="!canSubmit || submitting"
+        >
+          {{ submitting ? '处理中…' : isLogin ? '登录' : '注册并登录' }}
+        </button>
+
+        <label class="login__agree">
+          <input v-model="agreed" type="checkbox" />
+          <span>
+            我已了解：本平台是自托管的内部学习系统，账号由管理员创建，学习记录只保存在本机；
+            视频与题目内容的版权归各自权利人所有。
+          </span>
+        </label>
+      </form>
+
+      <footer class="card__foot">
+        <span class="mc-muted">首次部署的默认管理员账号为 <code>admin</code>，密码由部署时配置决定。</span>
+      </footer>
     </main>
+
+    <p class="login__meta">微课堂 · 自托管轻量学习平台 · 数据保存在本机</p>
   </div>
 </template>
 
 <style scoped>
+/* 全屏容器：内容整体居中（卡片 + 底部说明） */
 .login {
-  display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  min-height: 100dvh;
-  background: var(--mc-bg-elevated);
-}
-
-/* ---------- 左侧品牌区（学习通式：浅底 + 抽象插画） ---------- */
-.login__brand {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--mc-space-6);
-  padding: var(--mc-space-8);
+  align-items: center;
+  justify-content: center;
+  gap: var(--mc-space-4);
+  min-height: 100dvh;
+  padding: var(--mc-space-6);
   overflow: hidden;
   background-image: var(--mc-gradient-brand-soft);
-  border-right: 1px solid var(--mc-border);
 }
 
-.brand__deco {
+/* ---------- 背景装饰 ---------- */
+.login__deco {
   position: absolute;
   inset: 0;
   overflow: hidden;
 }
 
-.brand__circle {
+.deco__circle {
   position: absolute;
   border-radius: var(--mc-radius-pill);
   background-image: var(--mc-gradient-brand);
-  opacity: 0.12;
+  opacity: 0.1;
 }
 
-.brand__circle--a {
-  top: -120px;
-  right: -80px;
-  width: 340px;
-  height: 340px;
+.deco__circle--a {
+  top: -160px;
+  left: -120px;
+  width: 420px;
+  height: 420px;
 }
 
-.brand__circle--b {
-  bottom: -140px;
-  left: -100px;
-  width: 300px;
-  height: 300px;
+.deco__circle--b {
+  bottom: -180px;
+  right: -140px;
+  width: 380px;
+  height: 380px;
   opacity: 0.08;
 }
 
-/* 抽象"书本/卡片"插画：矩形 + 圆角堆出层次 */
-.brand__book {
+/* 堆叠"书本卡"：给背景一点叙事，不抢卡片 */
+.deco__book {
   position: absolute;
-  border-radius: var(--mc-radius-md);
+  border-radius: var(--mc-radius-lg);
   background: var(--mc-bg-elevated);
   box-shadow: var(--mc-shadow-md);
 }
 
-.brand__book--a {
-  right: 60px;
-  bottom: 150px;
+.deco__book--a {
+  bottom: 88px;
+  left: 96px;
   width: 150px;
   height: 96px;
-  transform: rotate(-6deg);
+  transform: rotate(-8deg);
 }
 
-.brand__book--b {
-  right: 130px;
-  bottom: 96px;
+.deco__book--b {
+  bottom: 40px;
+  left: 40px;
   width: 120px;
   height: 78px;
-  transform: rotate(8deg);
+  transform: rotate(7deg);
   opacity: 0.7;
 }
 
-.brand__book--c {
-  right: 40px;
-  bottom: 40px;
-  width: 96px;
-  height: 64px;
-  transform: rotate(-12deg);
-  opacity: 0.45;
+.deco__book--c {
+  top: 72px;
+  right: 80px;
+  width: 110px;
+  height: 72px;
+  transform: rotate(10deg);
+  opacity: 0.55;
 }
 
-.brand__head {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--mc-space-2);
-}
-
-.brand__logo {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: var(--mc-radius-sm);
-  background: var(--mc-primary);
-  color: var(--mc-neutral-0);
-  font-weight: var(--mc-font-bold);
-}
-
-.brand__name {
-  font-size: var(--mc-text-base);
-  font-weight: var(--mc-font-semibold);
-  color: var(--mc-text);
-}
-
-.brand__text {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: var(--mc-space-2);
-  max-width: 26rem;
-  margin-top: var(--mc-space-6);
-}
-
-.brand__slogan {
-  margin: 0;
-  font-size: var(--mc-text-2xl);
-  font-weight: var(--mc-font-bold);
-  line-height: var(--mc-leading-display);
-  letter-spacing: var(--mc-tracking-tight);
-  color: var(--mc-text);
-}
-
-.brand__desc {
-  margin: 0;
-  font-size: var(--mc-text-sm);
-  line-height: var(--mc-leading-loose);
-  color: var(--mc-text-secondary);
-}
-
-.brand__points {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: var(--mc-space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: var(--mc-text-sm);
-  color: var(--mc-text-secondary);
-}
-
-.brand__points li {
-  display: flex;
-  align-items: center;
-  gap: var(--mc-space-2);
-}
-
-.brand__points :deep(svg) {
-  color: var(--mc-primary-fg);
-  flex: none;
-}
-
-/* ---------- 右侧表单 ---------- */
-.login__main {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--mc-space-4);
-  padding: var(--mc-space-8);
-}
-
+/* ---------- 居中卡片 ---------- */
 .login__card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--mc-space-4);
-  width: min(400px, 100%);
+  width: min(420px, 100%);
+  padding: var(--mc-space-6);
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius-xl);
+  background: var(--mc-bg-elevated);
+  box-shadow: var(--mc-shadow-lg);
 }
 
 .card__head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--mc-space-1);
+  text-align: center;
+}
+
+.card__logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: var(--mc-space-1);
+  border-radius: var(--mc-radius-md);
+  background-image: var(--mc-gradient-brand);
+  color: var(--mc-neutral-0);
+  font-size: var(--mc-text-lg);
+  font-weight: var(--mc-font-bold);
+}
+
+.card__name {
+  margin: 0;
+  font-size: var(--mc-text-lg);
+  font-weight: var(--mc-font-bold);
+  color: var(--mc-text);
+}
+
+.card__slogan {
+  margin: 0;
+  font-size: var(--mc-text-xs);
+  color: var(--mc-text-muted);
+}
+
+.card__titles {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -430,8 +362,8 @@ async function submit(): Promise<void> {
 
 .card__title {
   margin: 0;
-  font-size: var(--mc-text-xl);
-  font-weight: var(--mc-font-bold);
+  font-size: var(--mc-text-lg);
+  font-weight: var(--mc-font-semibold);
   color: var(--mc-text);
 }
 
@@ -515,49 +447,30 @@ async function submit(): Promise<void> {
 }
 
 .login__meta {
+  position: relative;
   margin: 0;
   font-size: var(--mc-text-xs);
   color: var(--mc-text-muted);
+  text-align: center;
 }
 
-/* ---------- 窄屏：收起插画区，表单铺满 ---------- */
-@media (max-width: 1080px) {
+/* 窄屏：装饰收敛，卡片铺满宽度 */
+@media (max-width: 720px) {
   .login {
-    grid-template-columns: 1fr;
+    padding: var(--mc-space-4);
   }
 
-  .login__brand {
-    gap: var(--mc-space-3);
-    padding: var(--mc-space-6) var(--mc-space-5);
-    border-right: 0;
-    border-bottom: 1px solid var(--mc-border);
-  }
-
-  .brand__text {
-    margin-top: 0;
-  }
-
-  .brand__slogan {
-    font-size: var(--mc-text-xl);
-  }
-
-  .brand__points,
-  .brand__book {
+  .deco__book {
     display: none;
   }
 
-  .login__main {
+  .login__card {
     padding: var(--mc-space-5);
   }
-}
 
-@media (max-width: 480px) {
-  .login__brand {
-    padding: var(--mc-space-5) var(--mc-space-4);
-  }
-
-  .login__main {
-    padding: var(--mc-space-4);
+  .card__titles {
+    flex-direction: column;
+    gap: var(--mc-space-1);
   }
 }
 </style>
