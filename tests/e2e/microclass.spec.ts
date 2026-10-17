@@ -400,8 +400,10 @@ test.describe('微课堂端到端', () => {
     await page.goto('/wrong-book');
     await expect(page).toHaveURL(/\/login\?redirect=/);
 
-    await page.getByLabel('账号').fill('admin');
-    await page.getByLabel('密码').fill('admin123');
+    await page.getByLabel('账号', { exact: true }).fill('admin');
+    await page.getByLabel('密码', { exact: true }).fill('admin123');
+    // 登录页有必须勾选的"我已了解"（对标学习通）
+    await page.locator('.login__agree input[type="checkbox"]').check();
     await page.getByRole('button', { name: /^登录$/ }).click();
     await expect(page).toHaveURL(/\/wrong-book/);
   });

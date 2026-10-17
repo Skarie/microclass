@@ -7,8 +7,11 @@ export const ADMIN = { username: 'admin', password: 'admin123' };
 
 export async function loginViaUi(page: Page, username = ADMIN.username, password = ADMIN.password): Promise<void> {
   await page.goto('/login');
-  await page.getByLabel('账号').fill(username);
-  await page.getByLabel('密码').fill(password);
+  await page.getByLabel('账号', { exact: true }).fill(username);
+  await page.getByLabel('密码', { exact: true }).fill(password);
+  // 登录页有"我已了解"协议勾选（对标学习通：不勾不能登录），测试也要勾
+  const agree = page.locator('.login__agree input[type="checkbox"]');
+  if ((await agree.count()) > 0) await agree.check();
   await page.getByRole('button', { name: /^登录$/ }).click();
   // 登录成功后离开登录页，并等主内容区渲染（顶栏与页面标题可能同名，不用 heading 断言）
   await expect(page).not.toHaveURL(/\/login/);
