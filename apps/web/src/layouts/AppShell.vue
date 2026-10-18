@@ -24,6 +24,7 @@ import Icon from '@/components/Icon.vue';
 import type { IconName } from '@/components/icons';
 import type { Summary } from '@/api/types';
 
+const appVersion = __APP_VERSION__;
 const auth = useAuthStore();
 const theme = useThemeStore();
 const toast = useToastStore();
@@ -292,7 +293,7 @@ onMounted(async () => {
         </nav>
       </div>
       <div class="footer__bar">
-        <span>微课堂 v2.0.0 · 自托管部署</span>
+        <span>微课堂 v{{ appVersion }} · 自托管部署</span>
         <span>数据仅存于本机；课程内容版权归各自权利人所有。</span>
       </div>
     </footer>

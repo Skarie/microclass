@@ -1,6 +1,6 @@
 {
   "name": "@microclass/api",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "type": "module",
   "main": "./dist/server.js",
@@ -18,7 +18,7 @@
     "@fastify/rate-limit": "^10.2.2",
     "@fastify/static": "^10.1.3",
     "@fastify/swagger": "^9.8.1",
-    "@microclass/shared": "2.0.0",
+    "@microclass/shared": "*",
     "fastify": "^5.12.7",
     "katex": "^0.18.7"
   },

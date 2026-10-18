@@ -1,6 +1,10 @@
+import { readFileSync } from 'node:fs';
 import { fileURLToPath, URL } from 'node:url';
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
+
+/* 版本号单一来源：apps/web/package.json；UI 里用 __APP_VERSION__，不再手写 */
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string };
 
 /**
  * 前端构建：产物输出到 apps/web/dist，由 API 服务同源托管
@@ -9,6 +13,9 @@ import vue from '@vitejs/plugin-vue';
  */
 export default defineConfig({
   plugins: [vue()],
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

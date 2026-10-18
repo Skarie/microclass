@@ -14,6 +14,7 @@ import { errorMessage } from '@/composables/useAsync';
 
 const REMEMBER_KEY = 'mc.login.username';
 
+const appVersion = __APP_VERSION__;
 const auth = useAuthStore();
 const toast = useToastStore();
 const route = useRoute();
@@ -227,7 +228,7 @@ async function submit(): Promise<void> {
       </footer>
     </main>
 
-    <p class="login__meta">微课堂 · 自托管轻量学习平台 · 数据保存在本机</p>
+    <p class="login__meta">微课堂 v{{ appVersion }} · 自托管轻量学习平台 · 数据保存在本机</p>
   </div>
 </template>
 
