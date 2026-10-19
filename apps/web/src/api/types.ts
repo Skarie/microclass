@@ -214,7 +214,7 @@ export interface QuizSubmitResult {
   total: number;
   manual: number;
   best: number;
-  results: GradedItem[];
+  results?: GradedItem[];
 }
 
 export interface WrongItem extends QuestionView {

@@ -82,7 +82,8 @@ export interface ExamSubmitResult {
   need: number;
   usedSeconds: number;
   manual: number;
-  results: ExamGradedItem[];
+  /** 交卷不再回带整卷结果（成绩页单独取 /result），只有 myResult 会填充 */
+  results?: ExamGradedItem[];
 }
 
 /** 试卷结构（大题）解析：坏数据不炸，退化成空数组 */
@@ -1437,10 +1438,15 @@ export class ExamService {
     );
     const need = Math.ceil((total * exam.pass_score) / 100);
     const passed = score >= need;
+    /**
+     * 存库只留判分必需的四元组：题干/选项/解析在成绩页按卷面重建。
+     * 否则一份 1000 题的卷要写 3~4MB JSON，几十人同时交卷就把写入排队成秒级。
+     */
+    const slim = results.map((r) => ({ qid: r.qid, given: r.given, correct: r.correct, score: r.score }));
     const attemptId = this.exams.createAttempt({
       examId,
       userId: viewer.id,
-      answers: results,
+      answers: slim,
       score,
       total,
       passed,
@@ -1454,7 +1460,7 @@ export class ExamService {
       targetId: examId,
       detail: { score, total, passed },
     });
-    return { attemptId, score, total, passed, need, usedSeconds, manual, results };
+    return { attemptId, score, total, passed, need, usedSeconds, manual };
   }
 
   /**
@@ -1513,7 +1519,23 @@ export class ExamService {
     const attempt = this.exams.findAttempt(examId, viewer.id);
     if (!attempt) throw AppError.notFound('暂无成绩');
     const need = Math.ceil((attempt.total * exam.pass_score) / 100);
-    const results = safeParseResults(attempt.answers);
+    const stored = safeParseResults(attempt.answers);
+    // 新数据只存四元组，按（已缓存的）卷面补全题干/选项/解析；老数据本身完整则原样用
+    const paperById = new Map(this.paperOf(examId).map((q) => [q.id, q]));
+    const results = stored.map((r) => {
+      if (r.stem) return r;
+      const q = paperById.get(r.qid);
+      if (!q) return r;
+      return {
+        ...r,
+        type: q.type as QuestionType,
+        stem: q.stem,
+        options: parseOptions(q.options),
+        image_path: q.image_path,
+        answer: q.answer,
+        analysis: q.analysis,
+      };
+    });
     /**
      * 交卷后是否公布答案解析（学习通里的"答案公布"开关）：
      * 老师/管理员始终能看；学员在 show_answers=0 时只看到得分与是否答对，看不到正确答案与解析。
