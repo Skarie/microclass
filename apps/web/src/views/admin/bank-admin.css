@@ -648,23 +648,6 @@
   font-size: var(--mc-text-xs);
 }
 
-.difficulty-panel {
-  gap: var(--mc-space-2);
-  padding-top: var(--mc-space-3);
-  border-top: 1px dashed var(--mc-border);
-}
-
-.difficulty-panel__head {
-  display: flex;
-  align-items: center;
-  gap: var(--mc-space-2);
-  flex-wrap: wrap;
-}
-
-.difficulty-panel__head .mc-card__title {
-  margin-right: auto;
-}
-
 .diff-preview {
   gap: var(--mc-space-3);
 }
@@ -912,30 +895,7 @@
   display: none;
 }
 
-.error-list {
-  margin: 0;
-  padding: var(--mc-space-3) var(--mc-space-3) var(--mc-space-3) var(--mc-space-6);
-  list-style: disc;
-  max-height: 260px;
-  overflow-y: auto;
-  border-radius: var(--mc-radius);
-  background: var(--mc-danger-soft);
-  color: var(--mc-danger-fg);
-  font-size: var(--mc-text-sm);
-  display: flex;
-  flex-direction: column;
-  gap: var(--mc-space-1);
-}
-
-.error-list__item {
-  word-break: break-all;
-}
-
 /* 提示类（可以导入、但需要老师留意，如被忽略的图片链接） */
-.error-list--warn {
-  background: var(--mc-warning-soft);
-  color: var(--mc-warning-fg);
-}
 
 .import-help code {
   background: var(--mc-bg-sunken);

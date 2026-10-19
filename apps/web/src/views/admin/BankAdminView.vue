@@ -9,6 +9,8 @@ import PageHeader from '@/components/PageHeader.vue';
 import DropdownMenu from '@/components/DropdownMenu.vue';
 import Icon from '@/components/Icon.vue';
 import RichText from '@/components/RichText.vue';
+import BankDifficultyPanel from './BankDifficultyPanel.vue';
+import BankImportResult from './BankImportResult.vue';
 import DifficultyBadge from '@/components/DifficultyBadge.vue';
 import { difficultyLabel, difficultySourceLabel } from '@/composables/difficulty';
 import type { Bank, QuestionType, QuestionView } from '@/api/types';
@@ -1537,40 +1539,14 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- 难度结构：三档 / 五级 / 来源（迁移 0016 的难度模型） -->
-        <div v-if="health.difficulty" class="health__rows difficulty-panel">
-          <div class="difficulty-panel__head">
-            <span class="mc-card__title">难度划分</span>
-            <span class="mc-muted"> 模型先验（内容特征）+ 作答数据校准 + 人工优先，阈值按分位数自动定 </span>
-            <button class="mc-btn mc-btn--sm" type="button" @click="openDifficulty">重算难度</button>
-            <button class="mc-btn mc-btn--sm" type="button" :disabled="diffBusy" @click="calibrateDifficulty">
-              按作答校准
-            </button>
-          </div>
-          <p class="mc-muted">
-            三档：
-            <span v-for="b in health.difficulty.buckets" :key="b.difficulty" class="health__kind">
-              {{ DIFFICULTY_LABEL[b.difficulty] ?? b.difficulty }} {{ b.questions }} （{{
-                pct(b.questions, health.stats.total)
-              }}）
-            </span>
-          </p>
-          <p class="mc-muted">
-            五级：
-            <span v-for="l in health.difficulty.levels" :key="l.level" class="health__kind">
-              {{ l.level === 0 ? '未评估' : `${l.level}★` }} {{ l.questions }}
-            </span>
-          </p>
-          <p class="mc-muted">
-            来源：
-            <span v-for="s in health.difficulty.sources" :key="s.source" class="health__kind">
-              {{ SOURCE_LABEL[s.source] ?? s.source }} {{ s.questions }}
-            </span>
-            <span v-if="health.difficulty.unscored > 0" class="health__kind">
-              · 未算过 {{ health.difficulty.unscored }} 题
-            </span>
-          </p>
-        </div>
+        <BankDifficultyPanel
+          v-if="health.difficulty"
+          :difficulty="health.difficulty"
+          :total-questions="health.stats.total"
+          :busy="diffBusy"
+          @recalc="openDifficulty"
+          @calibrate="calibrateDifficulty"
+        />
 
         <div class="health__rows">
           <p class="mc-muted">
@@ -2409,39 +2385,7 @@ onMounted(() => {
     </AppModal>
 
     <!-- 导入结果 -->
-    <AppModal :open="importResult !== null" title="导入结果" width="600px" @close="importResult = null">
-      <div v-if="importResult" class="mc-col">
-        <div class="mc-row mc-row--wrap">
-          <span class="mc-badge mc-badge--success">成功导入 {{ importResult.inserted }} 题</span>
-          <span class="mc-badge" :class="importResult.errors.length > 0 ? 'mc-badge--danger' : ''">
-            未导入 {{ importResult.errors.length }} 题
-          </span>
-        </div>
-
-        <p v-if="importResult.errors.length === 0" class="mc-hint">全部题目都导入成功。</p>
-
-        <ul v-else class="error-list">
-          <li v-for="(msg, i) in importResult.errors" :key="i" class="error-list__item">{{ msg }}</li>
-        </ul>
-
-        <template v-if="importResult.warnings.length > 0">
-          <span class="mc-label">需要注意</span>
-          <ul class="error-list error-list--warn">
-            <li v-for="(msg, i) in importResult.warnings" :key="i" class="error-list__item">{{ msg }}</li>
-          </ul>
-        </template>
-
-        <span class="mc-hint import-help">
-          支持 CSV（Excel）、Markdown（.md/.txt）与 Word（.docx）。Markdown / Word 的写法：题型行（如
-          <code>### 1. 单选题</code>）→ 题干 → <code>A. 选项</code> → <code>答案：B</code> →
-          <code>解析：…</code>；<strong>Word 里的配图会自动导入成题目配图</strong>。可先下载模板照着写。
-        </span>
-      </div>
-
-      <template #footer>
-        <button class="mc-btn mc-btn--primary" type="button" @click="importResult = null">知道了</button>
-      </template>
-    </AppModal>
+    <BankImportResult :open="importResult !== null" :result="importResult" @close="importResult = null" />
   </section>
 </template>
 
