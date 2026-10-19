@@ -73,6 +73,8 @@ export interface AppConfig {
   ffprobePath: string;
   /** ffmpeg 可执行文件路径（同上，用于抽封面帧） */
   ffmpegPath: string;
+  /** 是否在后台自动把视频重封装成 faststart（moov 前置），默认开启 */
+  autoFaststart: boolean;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -114,5 +116,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     cspEnabled: bool('MC_CSP', false, env),
     ffprobePath: str('MC_FFPROBE_PATH', '', env),
     ffmpegPath: str('MC_FFMPEG_PATH', '', env),
+    autoFaststart: str('MC_AUTO_FASTSTART', '1', env) !== '0',
   };
 }

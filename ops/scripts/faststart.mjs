@@ -79,7 +79,7 @@ for (const file of LIMIT > 0 ? todo.slice(0, LIMIT) : todo) {
   } catch (e) {
     failed += 1;
     try {
-      fs.existsSync(tmp) && fs.unlinkSync(tmp);
+      if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
     } catch {
       /* ignore */
     }

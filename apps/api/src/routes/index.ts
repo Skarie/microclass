@@ -8,6 +8,7 @@ import { registerAuthRoutes } from './auth.js';
 import { registerCourseRoutes } from './courses.js';
 import { registerLessonRoutes } from './lessons.js';
 import { registerMediaRoutes } from './media.js';
+import { registerFaststartRoutes } from './faststart.js';
 import { registerUserRoutes } from './users.js';
 import { registerProgressRoutes } from './progress.js';
 import { registerBankRoutes } from './banks.js';
@@ -27,6 +28,7 @@ export async function registerRoutes(app: FastifyInstance, deps: Deps): Promise<
       await registerCourseRoutes(v1, deps);
       await registerLessonRoutes(v1, deps);
       await registerMediaRoutes(v1, deps);
+      await registerFaststartRoutes(v1, deps);
       await registerUserRoutes(v1, deps);
       await registerProgressRoutes(v1, deps);
       await registerBankRoutes(v1, deps);

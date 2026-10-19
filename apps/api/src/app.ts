@@ -45,6 +45,7 @@ import { ExamService } from './services/examService.js';
 import { StatsService } from './services/statsService.js';
 import { NoteService } from './services/noteService.js';
 import { MediaProbeService } from './services/mediaProbeService.js';
+import { MediaFaststartService } from './services/mediaFaststartService.js';
 import path from 'node:path';
 import { registerAuth } from './http/guards.js';
 import { registerOriginCheck } from './http/csrf.js';
@@ -83,6 +84,7 @@ export interface Deps {
   noteService: NoteService;
   watchIntervals: WatchIntervalRepository;
   probe: MediaProbeService;
+  faststart: MediaFaststartService;
   media: MediaRootService;
   storage: StorageService;
   /** 题目图片仓库（内容寻址，题干/选项/解析里的内联图都走它） */
@@ -118,6 +120,10 @@ export function buildDeps(config: AppConfig, db: Db): Deps {
   });
   const signer = new SessionSigner(config.sessionSecret, config.dataDir);
   const media = new MediaRootService(settings, process.cwd());
+  const faststart = new MediaFaststartService({
+    ffmpegPath: config.ffmpegPath || 'ffmpeg',
+    enabled: config.autoFaststart,
+  });
   const storage = new StorageService(config.dataDir);
   const questionMedia = new QuestionMediaStore(config.dataDir);
   const auth = new AuthService(users, settings, audit, signer);
@@ -161,6 +167,7 @@ export function buildDeps(config: AppConfig, db: Db): Deps {
     noteService,
     watchIntervals,
     probe,
+    faststart,
     media,
     storage,
     questionMedia,
@@ -306,8 +313,41 @@ export async function buildApp(config: AppConfig, options?: { db?: Db }): Promis
     await app.register(fastifyStatic, { root: config.webDistDir, wildcard: false });
   }
 
+  /**
+   * faststart 后台巡检：启动 1 分钟后跑第一次，之后每 15 分钟一轮。
+   * 老师上传/挂载视频后不需要任何手工操作，下一轮自动把索引挪到文件头。
+   */
+  const faststartTimer = config.autoFaststart
+    ? setInterval(
+        () => {
+          for (const root of config.mediaRoots as { path: string }[]) {
+            try {
+              deps.faststart.sweep(root.path);
+            } catch {
+              /* 单个目录失败不影响其它 */
+            }
+          }
+        },
+        15 * 60 * 1000,
+      )
+    : null;
+  if (faststartTimer) {
+    faststartTimer.unref();
+    const firstRun = setTimeout(() => {
+      for (const root of config.mediaRoots as { path: string }[]) {
+        try {
+          deps.faststart.sweep(root.path);
+        } catch {
+          /* ignore */
+        }
+      }
+    }, 60 * 1000);
+    firstRun.unref();
+  }
+
   app.addHook('onClose', async () => {
     if (checkpointTimer) clearInterval(checkpointTimer);
+    if (faststartTimer) clearInterval(faststartTimer);
     // 刷掉缓冲中的审计日志，避免关服务时丢最后一批
     try {
       deps.audit.flush();
