@@ -1,0 +1,8 @@
+#!/bin/sh
+# ?????? CI ????????? lint/typecheck ?????
+set -e
+echo "[pre-push] prettier / eslint / typecheck ..."
+npx prettier --check . >/dev/null
+npx eslint . >/dev/null
+npm run typecheck >/dev/null
+echo "[pre-push] ??"

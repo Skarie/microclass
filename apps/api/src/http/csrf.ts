@@ -43,9 +43,9 @@ function selfHosts(req: FastifyRequest): string[] {
     }
   };
   push(req.headers.host);
-  push(req.headers['x-forwarded-host'] as string | undefined);
-  push(req.headers['x-original-host'] as string | undefined);
-  push(req.headers['x-real-host'] as string | undefined);
+  push(req.headers['x-forwarded-host']);
+  push(req.headers['x-original-host']);
+  push(req.headers['x-real-host']);
   // Forwarded: for=...;host=example.com;proto=https
   const forwarded = req.headers.forwarded;
   if (typeof forwarded === 'string') {

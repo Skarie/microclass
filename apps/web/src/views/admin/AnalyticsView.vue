@@ -646,11 +646,17 @@ function syncQuery(): void {
 
 .ana__tabs {
   display: flex;
+  /* 窄屏（手机/侧栏展开）时允许换行，否则四个中文标签会被挤出容器 */
+  flex-wrap: wrap;
   gap: var(--mc-space-1);
   border-bottom: 1px solid var(--mc-border);
 }
 
 .ana__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mc-space-1);
+  white-space: nowrap;
   padding: var(--mc-space-2) var(--mc-space-3);
   border: none;
   background: none;
