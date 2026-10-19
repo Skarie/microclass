@@ -172,6 +172,26 @@ export async function buildApp(config: AppConfig, options?: { db?: Db }): Promis
   const migrations = runMigrations(db, config.migrationsDir);
   const deps = buildDeps(config, db);
 
+  /**
+   * 周期性 checkpoint WAL：-wal 文件在 checkpoint 后只会复用、不会自动缩小，
+   * 长期运行会留下几百 MB 的残留文件。半小时截断一次，成本很低。
+   * 测试环境（:memory:）不跑。
+   */
+  const checkpointTimer =
+    options?.db === undefined
+      ? setInterval(
+          () => {
+            try {
+              db.checkpoint();
+            } catch {
+              /* checkpoint 失败不影响服务，下次再试 */
+            }
+          },
+          30 * 60 * 1000,
+        )
+      : null;
+  if (checkpointTimer) checkpointTimer.unref();
+
   // 首次启动：引导管理员 + 播种媒体根目录设置 + 登记站内上传目录
   deps.auth.bootstrapAdmin(config.bootstrapAdminUser, config.bootstrapAdminPass);
   if (!deps.settings.get('media_roots') && config.mediaRoots.length > 0) {
@@ -269,6 +289,7 @@ export async function buildApp(config: AppConfig, options?: { db?: Db }): Promis
   }
 
   app.addHook('onClose', async () => {
+    if (checkpointTimer) clearInterval(checkpointTimer);
     db.close();
   });
 

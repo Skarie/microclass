@@ -36,6 +36,24 @@ export class Db {
         /* 某些平台不支持 mmap，忽略 */
       }
     }
+    /**
+     * WAL 文件在 checkpoint 之后**不会自动缩小**，只会复用；长期运行会留下一个
+     * 几百 MB 的 -wal 文件（生产上见过 549MB）。设上限后，超过就截断。
+     */
+    if (file !== ':memory:') {
+      try {
+        this.handle.exec('PRAGMA journal_size_limit = 67108864;'); // 64MB
+      } catch {
+        /* 老版本 SQLite 无此参数，忽略 */
+      }
+    }
+  }
+
+  /** 主动做一次 WAL checkpoint（周期任务调用，避免 -wal 长期不缩） */
+  checkpoint(): { busy: number; log: number; checkpointed: number } {
+    const row = this.handle.prepare('PRAGMA wal_checkpoint(TRUNCATE)').get() as
+      { busy: number; log: number; checkpointed: number } | undefined;
+    return row ?? { busy: 0, log: 0, checkpointed: 0 };
   }
 
   run(sql: string, params: unknown[] = []): { changes: number; lastInsertRowid: number } {
