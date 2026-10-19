@@ -431,3 +431,44 @@ MC_DATA_DIR=/path/to/existing/data npm run migrate   # 自动补 schema_migratio
   `/vol1/1000/microclass-releases/microclass-v1-legacy-<时间戳>.tar.gz`，解包即得 `server.js` + `public/` + `lib/`）。
 
 相关文档：[视频挂载完全指南](video.md)、[运维手册](ops-runbook.md)、[安全设计](security.md)、[版本与发布](release.md)。
+
+## 外网访问（反向代理 / 域名 / 端口映射）
+
+从家外访问时如果出现 **「跨站请求被拒绝：Origin 不被信任」**，是 CSRF 的 Origin 校验挡住了写请求
+（POST/PUT/PATCH/DELETE）。同源访问（内网 IP 直连）不会触发。
+
+排查顺序：
+
+1. **反代要透传 Host 与协议**（nginx 示例）：
+
+   ```nginx
+   location / {
+     proxy_pass http://127.0.0.1:8091;
+     proxy_set_header Host $host;                  # 关键：不传的话后端看到 127.0.0.1
+     proxy_set_header X-Forwarded-Proto $scheme;  # 关键：TLS 终止时后端是 http
+     proxy_set_header X-Forwarded-Host $host;
+     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+   }
+   ```
+
+2. **在环境变量里登记外网地址**（反代改了 Host 或前后端不同域时必须）：
+
+   ```yaml
+   environment:
+     MC_ALLOWED_ORIGINS: 'https://mc.example.com,http://192.168.0.105:8091'
+   ```
+
+   支持通配：`https://*.example.com`。
+   **改完需要重启容器**（环境变量在启动时读取）。
+
+3. **反代之后设 `MC_TRUST_PROXY=1`**（从 X-Forwarded-For 取真实客户端 IP，限流按 IP 时更准确）。
+
+4. 校验：
+
+   ```bash
+   curl -i -X POST https://mc.example.com/api/v1/auth/login \
+     -H 'Origin: https://mc.example.com' -H 'content-type: application/json' \
+     -d '{"username":"admin","password":"..."}'
+   ```
+
+   返回 200 即正常；仍 403 时错误信息里会带上被拒的 Origin，照它填进 `MC_ALLOWED_ORIGINS` 即可。
