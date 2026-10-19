@@ -104,7 +104,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     allowRegister: bool('MC_ALLOW_REGISTER', true, env),
     maxUploadMb: int('MC_MAX_UPLOAD_MB', 50, env, 1, 2048),
     maxVideoMb: int('MC_MAX_VIDEO_MB', 2048, env, 1, 20480),
-    rateLimitMax: int('MC_RATE_LIMIT_MAX', 300, env, 1),
+    rateLimitMax: int('MC_RATE_LIMIT_MAX', 3000, env, 1),
     rateLimitWindow: str('MC_RATE_LIMIT_WINDOW', '1 minute', env),
     trustProxy: bool('MC_TRUST_PROXY', true, env),
     allowedOrigins: str('MC_ALLOWED_ORIGINS', '', env)

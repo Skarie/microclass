@@ -234,7 +234,25 @@ export async function buildApp(config: AppConfig, options?: { db?: Db }): Promis
   await app.register(rateLimit, {
     max: config.rateLimitMax,
     timeWindow: config.rateLimitWindow,
-    allowList: [],
+    /**
+     * 计数键：优先按会话（cookie），没有会话才退回 IP。
+     * 原因：学校/机构通常是**一个出口 IP 后面一整个教室**，按 IP 计数会让
+     * 40 个学生共用一份额度，几秒钟就被打成 429（真机压测复现过）。
+     * 按会话计数后，每个学生各自独立限额，互不影响。
+     */
+    keyGenerator: (req) => {
+      const cookie = (req.headers.cookie ?? '').match(/microclass_sid=([^;]+)/)?.[1];
+      return cookie ? `sid:${cookie.slice(-24)}` : `ip:${req.ip}`;
+    },
+    /**
+     * 放行媒体流与静态资源：视频是 Range 分片请求，一个大课时能产生几十上百个
+     * 请求，把它算进接口限额会让"看视频"莫名其妙被限流。
+     */
+    allowList: (req) =>
+      req.url.includes('/video') ||
+      req.url.startsWith('/assets/') ||
+      req.url.endsWith('/readyz') ||
+      req.url.endsWith('/version'),
   });
   await app.register(multipart, {
     /**
