@@ -45,7 +45,7 @@ import { ExamService } from './services/examService.js';
 import { StatsService } from './services/statsService.js';
 import { NoteService } from './services/noteService.js';
 import { MediaProbeService } from './services/mediaProbeService.js';
-import { MediaFaststartService } from './services/mediaFaststartService.js';
+import { MediaOptimizeService } from './services/mediaOptimizeService.js';
 import path from 'node:path';
 import { registerAuth } from './http/guards.js';
 import { registerOriginCheck } from './http/csrf.js';
@@ -84,7 +84,7 @@ export interface Deps {
   noteService: NoteService;
   watchIntervals: WatchIntervalRepository;
   probe: MediaProbeService;
-  faststart: MediaFaststartService;
+  faststart: MediaOptimizeService;
   media: MediaRootService;
   storage: StorageService;
   /** 题目图片仓库（内容寻址，题干/选项/解析里的内联图都走它） */
@@ -120,7 +120,7 @@ export function buildDeps(config: AppConfig, db: Db): Deps {
   });
   const signer = new SessionSigner(config.sessionSecret, config.dataDir);
   const media = new MediaRootService(settings, process.cwd());
-  const faststart = new MediaFaststartService({
+  const faststart = new MediaOptimizeService({
     ffmpegPath: config.ffmpegPath || 'ffmpeg',
     enabled: config.autoFaststart,
     // HLS 产物写到数据目录（媒体挂载常常是只读的，不能写回源目录）

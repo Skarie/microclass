@@ -16,7 +16,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-export interface FaststartStatus {
+export interface MediaOptimizeStatus {
   enabled: boolean;
   /** 只读媒体目录（无法原地 faststart，但仍可生成 HLS 到缓存目录） */
   readOnlyRoots: string[];
@@ -33,7 +33,7 @@ export interface FaststartStatus {
 
 const MOOV = Buffer.from('moov');
 
-export class MediaFaststartService {
+export class MediaOptimizeService {
   private queue: string[] = [];
   private seen = new Set<string>();
   private running = false;
@@ -50,7 +50,7 @@ export class MediaFaststartService {
     fs.mkdirSync(path.join(this.opts.cacheDir, 'hls'), { recursive: true });
   }
 
-  status(): FaststartStatus {
+  status(): MediaOptimizeStatus {
     return {
       enabled: this.opts.enabled,
       readOnlyRoots: [...this.readOnlyRoots],
@@ -163,7 +163,7 @@ export class MediaFaststartService {
       writable = false;
       this.readOnlyRoots.add(path.dirname(src));
     }
-    if (!writable || MediaFaststartService.isFaststart(src)) {
+    if (!writable || MediaOptimizeService.isFaststart(src)) {
       next();
       return;
     }
