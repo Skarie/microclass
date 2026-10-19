@@ -116,6 +116,31 @@ export class ExamService {
     private readonly media: QuestionMediaStore,
   ) {}
 
+  /**
+   * 卷面缓存：交卷时不再每次重读整卷。
+   *
+   * 起因：压测里 1064 题的卷、60 人同时交卷要 7 秒 —— 慢的不是判分（纯内存计算），
+   * 而是每次提交都 `listQuestions` 读 1064 行（含题干/选项/解析），60 次就是 6.4 万行。
+   * 卷面在考试期间只读，缓存 60 秒足够；改卷/换题/删除时主动失效。
+   */
+  private readonly paperCache = new Map<number, { rows: ReturnType<ExamRepository['listQuestions']>; at: number }>();
+  private static readonly PAPER_TTL_MS = 15_000;
+
+  private paperOf(examId: number): ReturnType<ExamRepository['listQuestions']> {
+    const hit = this.paperCache.get(examId);
+    const now = Date.now();
+    if (hit && now - hit.at < ExamService.PAPER_TTL_MS) return hit.rows;
+    const rows = this.exams.listQuestions(examId);
+    if (this.paperCache.size > 300) this.paperCache.clear();
+    this.paperCache.set(examId, { rows, at: now });
+    return rows;
+  }
+
+  /** 卷面变更后失效（改卷、删除、换题时调用） */
+  private clearPaper(examId: number): void {
+    this.paperCache.delete(examId);
+  }
+
   /** 课程下的考试列表；学生只看已发布，且带自己的最近成绩 */
   listForCourse(viewer: User, courseId: number): { course: { id: number; name: string }; exams: unknown[] } {
     const course = this.courses.findById(courseId);
@@ -162,6 +187,7 @@ export class ExamService {
 
   update(actor: User, examId: number, input: ExamDto): void {
     this.findById(examId);
+    this.clearPaper(examId);
     const prepared = this.prepare(input);
     this.exams.update(examId, prepared);
     this.audit.write({
@@ -175,6 +201,7 @@ export class ExamService {
 
   remove(actor: User, examId: number): void {
     const exam = this.findById(examId);
+    this.clearPaper(examId);
     this.exams.delete(examId);
     this.audit.write({
       actorId: actor.id,
@@ -1266,6 +1293,7 @@ export class ExamService {
 
   removeQuestion(actor: User, examId: number, questionId: number): void {
     this.findById(examId);
+    this.clearPaper(examId);
     this.exams.removeQuestion(examId, questionId);
     this.audit.write({
       actorId: actor.id,
@@ -1361,7 +1389,7 @@ export class ExamService {
       if (endAt > 0 && now > endAt + 120) throw AppError.badRequest('考试已结束，不能再交卷');
     }
 
-    const paper = this.exams.listQuestions(examId);
+    const paper = this.paperOf(examId);
     if (paper.length === 0) throw AppError.badRequest('本场考试还没有组卷');
 
     const byId = new Map(paper.map((q) => [String(q.id), q]));
