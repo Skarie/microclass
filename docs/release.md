@@ -1,22 +1,63 @@
 # 版本与发布
 
-## 版本号来源
+## 版本号怎么定
 
-单一事实来源是根 `package.json` 的 `version`，三处产物从它派生：
+用语义化版本，规则简单：
 
-| 产物        | 注入方式                                                                   |
-| ----------- | -------------------------------------------------------------------------- |
-| 后端 API    | 环境变量 `MC_VERSION`（`GET /api/v1/version` 返回），Docker/FPK 构建时传入 |
-| Docker 镜像 | `--build-arg MC_VERSION=<版本>`（Compose 里用 `${MC_VERSION:-2.0.0}`）     |
-| FPK 应用包  | `ops/fpk/manifest` 的 `version`（`build.sh` 会按 package.json 覆盖）       |
+| 改动类型                                               | 升哪一位     | 例子                                   |
+| ------------------------------------------------------ | ------------ | -------------------------------------- |
+| 修 bug、文案、样式微调                                 | patch +1     | 2.1.0 → 2.1.1                          |
+| 新功能、界面结构/信息架构调整、配色体系变化            | minor +1     | 2.1.1 → 2.2.0                          |
+| 不兼容变更（接口、数据迁移、部署方式、配置项语义变化） | major +1     | 2.2.0 → 3.0.0                          |
+| 纯文档/CI/注释，不影响运行产物                         | 可以不升版本 | 或随下一次功能一起升                   |
 
-发版步骤：
+判断不清时按 minor 处理。**同一次改动要在一个版本里做完**：先改完、跑完门禁，再统一升版本、写 CHANGELOG、打 tag。
 
-1. 更新根 `package.json` 的 `version`（workspace 包的版本可保持一致），在 `CHANGELOG.md` 增加条目；
-2. 跑完整质量门禁：`npm run format:check && npm run lint && npm run typecheck && npm run test:coverage && npm run build && npm run test:e2e`；
-3. 产出三端产物（见下）；
-4. 打标签（如仓库纳入版本管理）：`git tag -a v<版本> -m "微课堂 <版本>"`；
-5. 按「部署前检查」逐项确认后再上线。
+## 版本号在哪些地方
+
+`apps/web/package.json` 是前端产物的单一来源，其余地方保持同步：
+
+| 产物           | 来源                                     | 怎么体现                        |
+| -------------- | ---------------------------------------- | ------------------------------- |
+| 前端界面       | `apps/web/package.json` → 构建期 `define` | 页脚与登录页显示 `v<版本>`      |
+| 后端 API       | 环境变量 `MC_VERSION`                     | `GET /api/v1/version`           |
+| Docker 镜像    | 构建参数 `--build-arg MC_VERSION`        | 镜像 tag                        |
+| FPK 应用包     | `ops/fpk/manifest`（`build.sh` 覆盖）    | 应用中心里显示的版本            |
+| 根 / workspace | 各 `package.json` 保持一致               | 便于 `npm ls` 与依赖解析不出错  |
+
+所以升版本时至少要改：根 `package.json`、`apps/api`、`apps/web`、`packages/shared` 四处，并同步 `package-lock.json`（`npm install --package-lock-only`）。
+**注意**：workspace 之间的依赖要用 `"*"` 而不是精确版本，否则升级后容器里 `npm ci` 会去公共 registry 找旧版本直接 404。
+
+## 发版步骤
+
+1. 改完代码，跑门禁：`npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build && npm run test:e2e`；
+2. 升版本（上面四处）+ 同步锁文件；
+3. `CHANGELOG.md` 顶部加 `## [x.y.z] - YYYY-MM-DD`，写清"改了什么、为什么、注意点"；
+4. 提交、推送 `main`；
+5. 打 tag 并推送：`git tag -a vx.y.z -m "vx.y.z · 一句话主题"` → `git push origin vx.y.z`；
+6. 建 GitHub Release，标题用 `vx.y.z · 一句话主题`，正文直接取 CHANGELOG 该版本段落；
+7. 确认 CI 三个 job 全绿，再部署并核对线上版本号（页脚 / 登录页 / `/api/v1/version`）。
+
+## 提交说明怎么写
+
+写给下一个看日志的人看，不写给评审机器人看：
+
+- 标题一句话说清"改了什么"，中文即可，不超过 40 字，结尾不加句号；
+- 正文只在需要时写，2～4 行讲"为什么"，不复述代码；
+- 不写"验证：xx 通过"这类流水账 —— CI 会替你证明；
+- 不写"按用户要求""这是第一版/最终版"之类的话，也不要用 markdown 加粗和分组标题；
+- 一次提交只做一件事；顺手改的东西要么拆开，要么在正文提一句。
+
+示例（好）：
+
+```text
+去掉侧边栏，改成顶部导航
+
+侧边栏太像后台模板，管理入口也挤。改成顶部横向导航，
+管理项收进下拉，窄屏用抽屉。
+```
+
+示例（不好）：大段分点、加粗小标题、末尾附测试清单与"验证"说明。
 
 ## 三端产物
 
