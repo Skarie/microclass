@@ -32,7 +32,13 @@ function sendStream(
   return reply.send(stream);
 }
 
-export function sendFileWithRange(req: FastifyRequest, reply: FastifyReply, absPath: string): FastifyReply {
+export function sendFileWithRange(
+  req: FastifyRequest,
+  reply: FastifyReply,
+  absPath: string,
+  opts?: { cacheControl?: string },
+): FastifyReply {
+  const cacheControl = opts?.cacheControl ?? 'no-store';
   let stat: fs.Stats;
   try {
     stat = fs.statSync(absPath);
@@ -90,7 +96,7 @@ export function sendFileWithRange(req: FastifyRequest, reply: FastifyReply, absP
       .header('content-length', String(end - start + 1))
       .header('content-range', `bytes ${start}-${end}/${total}`)
       .header('accept-ranges', 'bytes')
-      .header('cache-control', 'no-store');
+      .header('cache-control', cacheControl);
     return sendStream(req, reply, absPath, { start, end });
   }
 
@@ -98,6 +104,6 @@ export function sendFileWithRange(req: FastifyRequest, reply: FastifyReply, absP
     .header('content-type', type)
     .header('content-length', String(total))
     .header('accept-ranges', 'bytes')
-    .header('cache-control', 'no-store');
+    .header('cache-control', cacheControl);
   return sendStream(req, reply, absPath);
 }

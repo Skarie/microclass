@@ -171,7 +171,19 @@ export async function registerLessonRoutes(app: FastifyInstance, deps: Deps): Pr
     if (!lesson) throw AppError.notFound('视频不存在');
     if (lesson.video_kind !== 'local') throw AppError.badRequest('该课时不是本地视频');
     const { abs } = deps.media.resolve(lesson.media_root, lesson.video_path);
-    return sendFileWithRange(req, reply, abs);
+    /**
+     * 视频是重资源：允许浏览器私有缓存一天（原来 no-store，二次播放还得整片重下）。
+     * ETag 用 大小+修改时间 生成，内容变了自然失效。
+     */
+    try {
+      const st = fs.statSync(abs);
+      reply.header('cache-control', 'private, max-age=86400');
+      reply.header('etag', `"${st.size.toString(16)}-${Math.floor(st.mtimeMs).toString(16)}"`);
+      reply.header('last-modified', st.mtime.toUTCString());
+    } catch {
+      /* stat 失败交给 sendFileWithRange 返回 404 */
+    }
+    return sendFileWithRange(req, reply, abs, { cacheControl: 'private, max-age=86400' });
   });
 
   /**
