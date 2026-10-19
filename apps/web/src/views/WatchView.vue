@@ -155,6 +155,66 @@ const videoSrc = computed(() => {
 
 const isEmbed = computed(() => lesson.value?.video_kind === 'embed');
 
+/* ---------------- 播放源：HLS 优先，MP4 兜底 ---------------- */
+/** 入库流水线切好 HLS 后，这里会拿到 m3u8；拿不到就继续用 MP4+Range */
+const hlsUrl = ref<string | null>(null);
+let hlsInstance: { destroy: () => void } | null = null;
+
+function destroyHls(): void {
+  if (hlsInstance) {
+    try {
+      hlsInstance.destroy();
+    } catch {
+      /* ignore */
+    }
+    hlsInstance = null;
+  }
+}
+
+/** 查询本课时有没有 HLS 产物（后端入库流水线自动生成） */
+async function loadSourceInfo(): Promise<void> {
+  hlsUrl.value = null;
+  const l = lesson.value;
+  if (!l || l.video_kind !== 'local') return;
+  try {
+    const res = await api.get<{ mp4: string | null; hls: string | null }>(`/lessons/${l.id}/video-sources`);
+    hlsUrl.value = res.hls;
+  } catch {
+    hlsUrl.value = null;
+  }
+}
+
+/**
+ * 挂载播放源：
+ *  - 有 HLS：iOS/Safari 直接用原生播放 m3u8；其它浏览器动态加载 hls.js；
+ *  - 没有 HLS：保留模板里的 MP4 src（Range 流）。
+ */
+async function setupPlayback(): Promise<void> {
+  const video = videoRef.value;
+  if (!video || isEmbed.value) return;
+  destroyHls();
+  const url = hlsUrl.value;
+  if (!url) return;
+  if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = url;
+    return;
+  }
+  try {
+    const { default: HlsCtor } = await import('hls.js');
+    if (!HlsCtor.isSupported()) return;
+    // hls.js 接管前先清掉模板绑定的 MP4 源，避免 MediaSource 冲突
+    video.removeAttribute('src');
+    video.load();
+    const hls = new HlsCtor({ maxBufferLength: 30 });
+    hls.loadSource(url);
+    hls.attachMedia(video);
+    hlsInstance = hls;
+  } catch {
+    /* 加载失败就走 MP4 兜底（模板 src 仍在） */
+    video.src = (lesson.value ? `/api/v1/lessons/${lesson.value.id}/video` : '') || '';
+  }
+}
+
 const watchedPercent = computed(() => {
   if (duration.value > 0) return Math.min(100, Math.round((currentTime.value / duration.value) * 100));
   const p = lesson.value?.progress;
@@ -385,9 +445,12 @@ onMounted(async () => {
   await Promise.all([loadNotes(), loadSiblings()]);
   startAutoSave();
   window.addEventListener('keydown', onPlayerHotkey);
+  await loadSourceInfo();
+  await setupPlayback();
 });
 
 onBeforeUnmount(() => {
+  destroyHls();
   stopAutoSave();
   window.removeEventListener('keydown', onPlayerHotkey);
   cancelAutoNext();
@@ -404,6 +467,8 @@ watch(lessonId, async () => {
   noteText.value = '';
   await run();
   await Promise.all([loadNotes(), loadSiblings()]);
+  await loadSourceInfo();
+  await setupPlayback();
 });
 </script>
 

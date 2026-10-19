@@ -113,6 +113,14 @@ export async function registerLessonRoutes(app: FastifyInstance, deps: Deps): Pr
     const sortRaw = field('sort');
     const sort = sortRaw === '' ? undefined : Number.parseInt(sortRaw, 10);
 
+    // 上传完立刻排队做 faststart + HLS，老师不需要任何手工操作
+    try {
+      const abs = deps.storage.resolve(saved.relPath);
+      if (abs) deps.faststart.enqueue(abs);
+    } catch {
+      /* 入队失败不影响上传结果，下一轮巡检还会捞到 */
+    }
+
     const id = deps.lessonService.createFromUpload(user, {
       title: file.filename,
       // 媒体根「uploads」指向 <dataDir>/uploads/videos，因此入库路径只取文件名
@@ -184,6 +192,42 @@ export async function registerLessonRoutes(app: FastifyInstance, deps: Deps): Pr
       /* stat 失败交给 sendFileWithRange 返回 404 */
     }
     return sendFileWithRange(req, reply, abs, { cacheControl: 'private, max-age=86400' });
+  });
+
+  /**
+   * 播放源：给前端判断"能不能用 HLS"。
+   * HLS 就绪（入库流水线已切好分片）→ 返回 m3u8；否则前端回落到 MP4+Range。
+   */
+  app.get('/lessons/:id/video-sources', async (req, reply) => {
+    requireUser(req, reply);
+    const id = Number((req.params as { id: string }).id);
+    const lesson = deps.lessons.findById(id);
+    if (!lesson || lesson.video_kind !== 'local') return { mp4: null, hls: null };
+    const { abs } = deps.media.resolve(lesson.media_root, lesson.video_path);
+    const hlsReady = deps.faststart.hlsReady(abs);
+    return {
+      mp4: `/api/v1/lessons/${id}/video`,
+      hls: hlsReady ? `/api/v1/lessons/${id}/hls/index.m3u8` : null,
+    };
+  });
+
+  /** HLS 分片/播放列表（产物在数据目录，源媒体只读也能用） */
+  app.get('/lessons/:id/hls/:file', async (req, reply) => {
+    requireUser(req, reply);
+    const id = Number((req.params as { id: string }).id);
+    const lesson = deps.lessons.findById(id);
+    if (!lesson || lesson.video_kind !== 'local') throw AppError.notFound('视频不存在');
+    const { abs } = deps.media.resolve(lesson.media_root, lesson.video_path);
+    const dir = deps.faststart.hlsReady(abs);
+    if (!dir) throw AppError.notFound('HLS 尚未生成');
+    const file = String((req.params as { file: string }).file ?? '');
+    if (!/^[A-Za-z0-9._-]+$/.test(file)) throw AppError.badRequest('文件名非法');
+    const full = path.join(dir, file);
+    if (!full.startsWith(dir)) throw AppError.badRequest('路径非法');
+    // 播放列表要即时生效；分片是内容寻址的，可长缓存
+    const cacheControl = file.endsWith('.m3u8') ? 'no-store' : 'private, max-age=31536000, immutable';
+    reply.header('cache-control', cacheControl);
+    return sendFileWithRange(req, reply, full, { cacheControl });
   });
 
   /**

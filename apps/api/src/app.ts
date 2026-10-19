@@ -123,6 +123,8 @@ export function buildDeps(config: AppConfig, db: Db): Deps {
   const faststart = new MediaFaststartService({
     ffmpegPath: config.ffmpegPath || 'ffmpeg',
     enabled: config.autoFaststart,
+    // HLS 产物写到数据目录（媒体挂载常常是只读的，不能写回源目录）
+    cacheDir: path.join(config.dataDir, 'media-cache'),
   });
   const storage = new StorageService(config.dataDir);
   const questionMedia = new QuestionMediaStore(config.dataDir);

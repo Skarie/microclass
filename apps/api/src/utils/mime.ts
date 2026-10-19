@@ -17,6 +17,9 @@ const MAP: Record<string, string> = {
   '.webp': 'image/webp',
   '.ico': 'image/x-icon',
   '.mp4': 'video/mp4',
+  // HLS：Safari 原生播放要求 m3u8 的类型正确，分片是 MPEG-TS
+  '.m3u8': 'application/vnd.apple.mpegurl',
+  '.ts': 'video/mp2t',
   '.webm': 'video/webm',
   '.mov': 'video/quicktime',
   '.mp3': 'audio/mpeg',

@@ -1,33 +1,32 @@
 /**
- * 视频 faststart 自动优化
+ * 视频入库优化（自动）：faststart + HLS
  *
- * 背景：mp4 的 `moov`（索引）在文件尾部时，浏览器必须把整片下完才能开始播放 ——
- * 150MB 的课时就是"点进去干等"。重封装（`-c copy -movflags +faststart`）只挪索引、
- * 不重新编码，单片几秒。
+ * 为什么要有它：mp4 的 `moov` 在文件尾部时浏览器要下完整片才能播；单码率 MP4 也没有
+ * 弱网降档与分段拖动的能力。主流做法是 HLS —— 分段 + m3u8，起播只需要第一个分片。
  *
- * 为什么做成后台服务而不是脚本：老师上传/挂载视频后不该再找运维手工处理。
- * 这里负责：
- *   1) 定时巡检所有媒体根（默认 15 分钟一次），发现非 faststart 的视频就排队处理；
- *   2) 上传、扫描导入进来的新文件同样会被下一轮巡检捞到；
- *   3) 暴露状态给管理端（队列长度 / 已完成 / 失败），可手动触发。
- *
- * 安全约定：
- *   - 单并发，避免和视频播放抢磁盘；
- *   - 先写临时文件，ffmpeg 成功后才原子替换原文件，失败保留原片；
- *   - 重封装不改内容，只重写索引（时长/清晰度不变）。
+ * 关键设计：
+ *   1) **全自动**：定时巡检所有媒体根 + 上传后立即入队，新视频不需要人工处理；
+ *   2) **不碰源文件**：HLS 产物写到数据目录 `media-cache/hls/<key>/`，只读媒体挂载也能用；
+ *   3) **不重编码**：`-c copy` 直接切分片（源为 H.264/AAC 时），单片几秒；
+ *   4) **幂等**：按「源路径 + 大小 + 修改时间」算 key，产物存在就跳过；
+ *   5) 单并发、失败留原因，状态可查询。
  */
 import { spawn } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
 export interface FaststartStatus {
   enabled: boolean;
-  /** 只读媒体目录：无法原地重封装，需要改挂载权限（报告给管理员，不算失败） */
+  /** 只读媒体目录（无法原地 faststart，但仍可生成 HLS 到缓存目录） */
   readOnlyRoots: string[];
   queued: number;
   running: boolean;
+  current: string;
   done: number;
   failed: number;
+  hlsDone: number;
+  hlsFailed: number;
   lastError: string;
   lastFinishedAt: number | null;
 }
@@ -36,16 +35,20 @@ const MOOV = Buffer.from('moov');
 
 export class MediaFaststartService {
   private queue: string[] = [];
-  /** 处理过的路径（成功/失败都记，避免同一轮反复排队） */
   private seen = new Set<string>();
   private running = false;
   private done = 0;
   private failed = 0;
+  private hlsDone = 0;
+  private hlsFailed = 0;
   private lastError = '';
+  private current = '';
   private lastFinishedAt: number | null = null;
   private readonly readOnlyRoots = new Set<string>();
 
-  constructor(private readonly opts: { ffmpegPath: string; enabled: boolean }) {}
+  constructor(private readonly opts: { ffmpegPath: string; enabled: boolean; cacheDir: string }) {
+    fs.mkdirSync(path.join(this.opts.cacheDir, 'hls'), { recursive: true });
+  }
 
   status(): FaststartStatus {
     return {
@@ -53,38 +56,59 @@ export class MediaFaststartService {
       readOnlyRoots: [...this.readOnlyRoots],
       queued: this.queue.length,
       running: this.running,
+      current: this.current,
       done: this.done,
       failed: this.failed,
+      hlsDone: this.hlsDone,
+      hlsFailed: this.hlsFailed,
       lastError: this.lastError,
       lastFinishedAt: this.lastFinishedAt,
     };
   }
 
-  /** 视频开头 1MB 里是否有 moov：有 → 已 faststart，无需处理 */
+  /** 视频开头 1MB 里是否有 moov：有 → 已 faststart */
   static isFaststart(abs: string): boolean {
     let fd: number | null = null;
     try {
       fd = fs.openSync(abs, 'r');
-      const size = fs.fstatSync(fd).size;
-      const buf = Buffer.alloc(Math.min(size, 1024 * 1024));
+      const buf = Buffer.alloc(Math.min(fs.fstatSync(fd).size, 1024 * 1024));
       fs.readSync(fd, buf, 0, buf.length, 0);
       return buf.includes(MOOV);
     } catch {
-      return true; // 读不到就别当任务，交给播放时报错
+      return true;
     } finally {
       if (fd !== null) fs.closeSync(fd);
     }
   }
 
-  /** 扫描一个目录，把需要优化的视频入队（同步遍历，限制数量避免一次扫太久） */
-  sweep(root: string, limit = 400): number {
-    if (!this.opts.enabled || !this.opts.ffmpegPath) return 0;
-    // 只读挂载（如 compose 里 :ro）无法原地重封装，记下来报给管理员，不要刷成失败
+  /** HLS 产物目录：源路径 + 大小 + mtime 决定，源文件变了自然换新目录 */
+  hlsDirOf(abs: string): string | null {
     try {
-      fs.accessSync(root, fs.constants.W_OK);
-      this.readOnlyRoots.delete(root);
+      const st = fs.statSync(abs);
+      const key = crypto
+        .createHash('sha1')
+        .update(`${abs}:${st.size}:${Math.floor(st.mtimeMs)}`)
+        .digest('hex')
+        .slice(0, 20);
+      return path.join(this.opts.cacheDir, 'hls', key);
     } catch {
-      this.readOnlyRoots.add(root);
+      return null;
+    }
+  }
+
+  /** HLS 是否已就绪（主播放列表存在），返回产物目录 */
+  hlsReady(abs: string): string | null {
+    const dir = this.hlsDirOf(abs);
+    if (!dir) return null;
+    return fs.existsSync(path.join(dir, 'index.m3u8')) ? dir : null;
+  }
+
+  /** 扫描目录：没有 HLS 产物的视频入队 */
+  sweep(root: string, limit = 200): number {
+    if (!this.opts.enabled || !this.opts.ffmpegPath) return 0;
+    try {
+      fs.accessSync(root, fs.constants.R_OK);
+    } catch {
       return 0;
     }
     let added = 0;
@@ -94,27 +118,25 @@ export class MediaFaststartService {
       try {
         entries = fs.readdirSync(dir, { withFileTypes: true });
       } catch {
-        return; // 权限/断链目录直接跳过
+        return;
       }
       for (const e of entries) {
         if (added >= limit) return;
         const p = path.join(dir, e.name);
         if (e.isDirectory()) walk(p);
-        else if (/\.(mp4|m4v)$/i.test(e.name)) {
-          if (this.enqueue(p)) added += 1;
-        }
+        else if (/\.(mp4|m4v|mov)$/i.test(e.name) && this.enqueue(p)) added += 1;
       }
     };
     walk(root);
     return added;
   }
 
-  /** 入队一个视频；返回是否真的入队 */
+  /** 入队：HLS 产物不存在就需要处理 */
   enqueue(abs: string): boolean {
     if (!this.opts.enabled || !this.opts.ffmpegPath) return false;
     if (!abs || this.seen.has(abs) || this.queue.includes(abs)) return false;
     if (!fs.existsSync(abs)) return false;
-    if (MediaFaststartService.isFaststart(abs)) {
+    if (this.hlsReady(abs)) {
       this.seen.add(abs);
       return false;
     }
@@ -125,49 +147,112 @@ export class MediaFaststartService {
 
   private pump(): void {
     if (this.running) return;
-    const next = this.queue.shift();
-    if (!next) return;
+    const src = this.queue.shift();
+    if (!src) return;
     this.running = true;
-    const tmp = `${next}.faststart.tmp.mp4`;
-    const child = spawn(
-      this.opts.ffmpegPath,
-      ['-v', 'error', '-y', '-i', next, '-c', 'copy', '-movflags', '+faststart', tmp],
-      { stdio: ['ignore', 'ignore', 'pipe'] },
-    );
+    this.current = path.basename(src);
+    this.ensureFaststart(src, () => this.buildHls(src));
+  }
+
+  /** 第一步：能写就顺手把 moov 前置（MP4 兜底播放也快）；只读挂载跳过 */
+  private ensureFaststart(src: string, next: () => void): void {
+    let writable = true;
+    try {
+      fs.accessSync(path.dirname(src), fs.constants.W_OK);
+    } catch {
+      writable = false;
+      this.readOnlyRoots.add(path.dirname(src));
+    }
+    if (!writable || MediaFaststartService.isFaststart(src)) {
+      next();
+      return;
+    }
+    const tmp = `${src}.faststart.tmp.mp4`;
+    this.runFfmpeg(['-v', 'error', '-y', '-i', src, '-c', 'copy', '-movflags', '+faststart', tmp], (ok, err) => {
+      if (ok) {
+        try {
+          fs.renameSync(tmp, src);
+          this.done += 1;
+        } catch (e) {
+          this.fail(String(e).slice(0, 200));
+        }
+      } else {
+        this.fail(err);
+        try {
+          if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
+        } catch {
+          /* ignore */
+        }
+      }
+      next();
+    });
+  }
+
+  /** 第二步：切 HLS（-c copy，不重编码） */
+  private buildHls(src: string): void {
+    const dir = this.hlsDirOf(src);
+    if (!dir) {
+      this.finish();
+      return;
+    }
+    fs.mkdirSync(dir, { recursive: true });
+    const args = [
+      '-v',
+      'error',
+      '-y',
+      '-i',
+      src,
+      '-c',
+      'copy',
+      '-f',
+      'hls',
+      '-hls_time',
+      '4',
+      '-hls_playlist_type',
+      'vod',
+      '-hls_flags',
+      'independent_segments',
+      '-hls_segment_filename',
+      path.join(dir, 'seg%05d.ts'),
+      path.join(dir, 'index.m3u8'),
+    ];
+    this.runFfmpeg(args, (ok, err) => {
+      if (ok) {
+        this.hlsDone += 1;
+        this.seen.add(src);
+      } else {
+        this.hlsFailed += 1;
+        this.fail(err);
+        try {
+          fs.rmSync(dir, { recursive: true, force: true });
+        } catch {
+          /* ignore */
+        }
+        this.seen.add(src); // 源文件本身有问题，别每轮反复重试
+      }
+      this.finish();
+    });
+  }
+
+  private finish(): void {
+    this.running = false;
+    this.current = '';
+    this.lastFinishedAt = Date.now();
+    this.pump();
+  }
+
+  private fail(msg: string): void {
+    this.failed += 1;
+    this.lastError = `${this.current}: ${msg}`.slice(0, 300);
+  }
+
+  private runFfmpeg(args: string[], done: (ok: boolean, err: string) => void): void {
+    const child = spawn(this.opts.ffmpegPath, args, { stdio: ['ignore', 'ignore', 'pipe'] });
     let stderr = '';
     child.stderr?.on('data', (chunk: Buffer) => {
       stderr = (stderr + chunk.toString()).slice(-400);
     });
-    child.on('error', (e) => {
-      this.fail(next, tmp, e.message);
-    });
-    child.on('close', (code) => {
-      if (code === 0) {
-        try {
-          fs.renameSync(tmp, next); // 成功才替换
-          this.done += 1;
-          this.seen.add(next);
-          this.lastFinishedAt = Date.now();
-        } catch (e) {
-          this.fail(next, tmp, String(e).slice(0, 200));
-        }
-      } else {
-        this.fail(next, tmp, stderr.trim().split('\n').pop() || `ffmpeg exit ${code}`);
-      }
-      this.running = false;
-      this.pump();
-    });
-  }
-
-  private fail(abs: string, tmp: string, msg: string): void {
-    this.failed += 1;
-    this.seen.add(abs);
-    this.lastError = `${path.basename(abs)}: ${msg}`;
-    this.lastFinishedAt = Date.now();
-    try {
-      if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
-    } catch {
-      /* 忽略清理失败 */
-    }
+    child.on('error', (e) => done(false, e.message));
+    child.on('close', (code) => done(code === 0, stderr.trim().split('\n').pop() || `ffmpeg exit ${code}`));
   }
 }
