@@ -308,6 +308,12 @@ export async function buildApp(config: AppConfig, options?: { db?: Db }): Promis
 
   app.addHook('onClose', async () => {
     if (checkpointTimer) clearInterval(checkpointTimer);
+    // 刷掉缓冲中的审计日志，避免关服务时丢最后一批
+    try {
+      deps.audit.flush();
+    } catch {
+      /* ignore */
+    }
     db.close();
   });
 

@@ -1452,7 +1452,7 @@ export class ExamService {
       passed,
       usedSeconds,
     });
-    this.audit.write({
+    this.audit.writeBuffered({
       actorId: viewer.id,
       actorName: viewer.username,
       action: 'exam.submit',

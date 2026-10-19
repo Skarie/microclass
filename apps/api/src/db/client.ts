@@ -4,12 +4,27 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
+import { DatabaseSync, type StatementSync } from 'node:sqlite';
 
 export type Row = Record<string, unknown>;
 
 export class Db {
   readonly handle: DatabaseSync;
+  /**
+   * 预编译语句缓存。
+   * node:sqlite 的 prepare 每次都要编译 SQL，N150 这种低功耗 CPU 上单条约 0.3~1ms；
+   * 一次请求要跑 4~6 条语句，光编译就占了大半。缓存后同样的 SQL 只编译一次。
+   * 上限 400 条，超了整体清空（动态拼 IN 的语句不常复用，清掉也不亏）。
+   */
+  private readonly stmtCache = new Map<string, StatementSync>();
+  private stmt(sql: string): StatementSync {
+    const hit = this.stmtCache.get(sql);
+    if (hit) return hit;
+    const prepared = this.handle.prepare(sql);
+    if (this.stmtCache.size >= 400) this.stmtCache.clear();
+    this.stmtCache.set(sql, prepared);
+    return prepared;
+  }
 
   constructor(file: string) {
     if (file !== ':memory:') {
@@ -57,7 +72,7 @@ export class Db {
   }
 
   run(sql: string, params: unknown[] = []): { changes: number; lastInsertRowid: number } {
-    const info = this.handle.prepare(sql).run(...(params as never[]));
+    const info = this.stmt(sql).run(...(params as never[]));
     return {
       changes: Number(info.changes ?? 0),
       lastInsertRowid: Number(info.lastInsertRowid ?? 0),
@@ -65,11 +80,11 @@ export class Db {
   }
 
   get<T = Row>(sql: string, params: unknown[] = []): T | undefined {
-    return this.handle.prepare(sql).get(...(params as never[])) as T | undefined;
+    return this.stmt(sql).get(...(params as never[])) as T | undefined;
   }
 
   all<T = Row>(sql: string, params: unknown[] = []): T[] {
-    return this.handle.prepare(sql).all(...(params as never[])) as T[];
+    return this.stmt(sql).all(...(params as never[])) as T[];
   }
 
   exec(sql: string): void {
@@ -89,6 +104,7 @@ export class Db {
   }
 
   close(): void {
+    this.stmtCache.clear();
     this.handle.close();
   }
 }
