@@ -645,30 +645,45 @@ function syncQuery(): void {
 }
 
 .ana__tabs {
+  /* 分段控件形态：单行、不换行，窗口再窄也只会横向滚动，不会把标签挤出去 */
   display: flex;
-  /* 窄屏（手机/侧栏展开）时允许换行，否则四个中文标签会被挤出容器 */
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: var(--mc-space-1);
-  border-bottom: 1px solid var(--mc-border);
+  padding: var(--mc-space-1);
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius);
+  background: var(--mc-bg-subtle);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.ana__tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .ana__tab {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: var(--mc-space-1);
+  flex: none;
+  min-height: 34px;
   white-space: nowrap;
-  padding: var(--mc-space-2) var(--mc-space-3);
-  border: none;
+  padding: var(--mc-space-1) var(--mc-space-3);
+  border: 1px solid transparent;
+  border-radius: var(--mc-radius-sm);
   background: none;
   cursor: pointer;
-  color: var(--mc-text-muted);
+  color: var(--mc-text-secondary);
   font-size: var(--mc-text-sm);
-  border-bottom: 2px solid transparent;
+  line-height: var(--mc-leading-snug);
 }
 
 .ana__tab.is-active {
   color: var(--mc-primary-fg);
-  border-bottom-color: var(--mc-primary);
+  background: var(--mc-bg-elevated);
+  border-color: var(--mc-border);
+  box-shadow: var(--mc-shadow-sm);
   font-weight: var(--mc-font-medium);
 }
 
