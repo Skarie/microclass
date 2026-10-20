@@ -840,57 +840,6 @@
   gap: var(--mc-space-2);
 }
 
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 120px;
-  gap: var(--mc-space-4);
-}
-
-.option-row {
-  display: flex;
-  align-items: center;
-  gap: var(--mc-space-2);
-}
-
-.option-row__pick {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--mc-space-2);
-  cursor: pointer;
-  flex: none;
-}
-
-.option-row__letter {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: var(--mc-radius-pill);
-  background: var(--mc-bg-sunken);
-  font-size: var(--mc-text-xs);
-  font-weight: var(--mc-font-semibold);
-}
-
-.judge-row {
-  gap: var(--mc-space-5);
-}
-
-.image-block {
-  padding: var(--mc-space-3);
-  border: 1px dashed var(--mc-border-strong);
-  border-radius: var(--mc-radius);
-  background: var(--mc-bg-sunken);
-}
-
-.image-block__preview {
-  max-width: 100%;
-  max-height: 200px;
-  align-self: flex-start;
-  border-radius: var(--mc-radius);
-  border: 1px solid var(--mc-border);
-}
-
 .hidden-input {
   display: none;
 }

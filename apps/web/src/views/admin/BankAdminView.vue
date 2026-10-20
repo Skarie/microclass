@@ -9,9 +9,10 @@ import PageHeader from '@/components/PageHeader.vue';
 import DropdownMenu from '@/components/DropdownMenu.vue';
 import Icon from '@/components/Icon.vue';
 import RichText from '@/components/RichText.vue';
+import QuestionEditor from './QuestionEditor.vue';
+import { TYPE_LABEL, TYPE_OPTIONS } from './questionTypes';
 import BankDifficultyPanel from './BankDifficultyPanel.vue';
 import BankImportResult from './BankImportResult.vue';
-import DifficultyBadge from '@/components/DifficultyBadge.vue';
 import { difficultyLabel, difficultySourceLabel } from '@/composables/difficulty';
 import type { Bank, QuestionType, QuestionView } from '@/api/types';
 
@@ -55,15 +56,6 @@ interface OptionDraft {
   text: string;
 }
 
-const TYPE_LABEL: Record<QuestionType, string> = {
-  single: '单选题',
-  multiple: '多选题',
-  judge: '判断题',
-  fill: '填空题',
-  short: '简答题',
-};
-
-const TYPE_OPTIONS: QuestionType[] = ['single', 'multiple', 'judge', 'fill', 'short'];
 const DIFFICULTY_LABEL: Record<string, string> = { easy: '基础', medium: '中等', hard: '较难' };
 const DEFAULT_PAGE_SIZE = 20;
 
@@ -1122,7 +1114,21 @@ const qSaving = ref(false);
 const qEditingId = ref<number | null>(null);
 const qImagePath = ref('');
 const qImageInput = ref<HTMLInputElement | null>(null);
-const qForm = reactive({
+/** 题目编辑表单的字段契约（与 QuestionEditor 的 props 对齐） */
+interface QuestionFormDraft {
+  type: QuestionType;
+  stem: string;
+  options: OptionDraft[];
+  singleAnswer: number;
+  multipleAnswer: number[];
+  judgeAnswer: string;
+  textAnswer: string;
+  analysis: string;
+  sort: number;
+  difficulty: string;
+}
+
+const qForm = reactive<QuestionFormDraft>({
   type: 'single',
   stem: '',
   options: [{ text: '' }, { text: '' }] as OptionDraft[],
@@ -1185,24 +1191,6 @@ function openEditQuestion(question: QuestionView): void {
       ? question.difficulty
       : '';
   qOpen.value = true;
-}
-
-function addOption(): void {
-  if (qForm.options.length >= 26) {
-    toast.warning('最多支持 26 个选项');
-    return;
-  }
-  qForm.options.push({ text: '' });
-}
-
-function removeOption(index: number): void {
-  if (qForm.options.length <= 2) {
-    toast.warning('选择题至少需要 2 个选项');
-    return;
-  }
-  qForm.options.splice(index, 1);
-  if (qForm.singleAnswer >= qForm.options.length) qForm.singleAnswer = 0;
-  qForm.multipleAnswer = qForm.multipleAnswer.filter((i) => i !== index).map((i) => (i > index ? i - 1 : i));
 }
 
 /** 保存时丢弃空选项，并把答案下标重映射到过滤后的位置 */
@@ -2232,157 +2220,17 @@ onMounted(() => {
     </AppModal>
 
     <!-- 题目编辑器 -->
-    <AppModal :open="qOpen" :title="qEditingId === null ? '新建题目' : '编辑题目'" width="720px" @close="qOpen = false">
-      <div class="mc-col">
-        <div class="form-grid">
-          <label class="mc-field">
-            <span class="mc-label mc-label--required">题型</span>
-            <select v-model="qForm.type" class="mc-select">
-              <option v-for="t in TYPE_OPTIONS" :key="t" :value="t">{{ TYPE_LABEL[t] }}</option>
-            </select>
-          </label>
-
-          <label class="mc-field">
-            <span class="mc-label">排序</span>
-            <input v-model.number="qForm.sort" class="mc-input" type="number" min="0" />
-          </label>
-        </div>
-
-        <label class="mc-field">
-          <span class="mc-label mc-label--required">题干</span>
-          <textarea v-model="qForm.stem" class="mc-textarea" maxlength="4000" placeholder="请输入题目内容" />
-        </label>
-
-        <div class="mc-col image-block">
-          <div class="mc-row mc-row--between mc-row--wrap">
-            <span class="mc-label">题目配图</span>
-            <button class="mc-btn mc-btn--sm" type="button" @click="pickQuestionImage">
-              {{ qImagePath ? '更换配图' : '上传配图' }}
-            </button>
-          </div>
-          <img
-            v-if="qImagePath && qEditingId !== null"
-            class="image-block__preview"
-            :src="`/api/v1/question-images/${qEditingId}`"
-            alt="题目配图预览"
-          />
-          <span v-else class="mc-hint">
-            {{ qEditingId === null ? '题目保存后即可上传配图。' : '当前没有配图，支持 jpg / png / gif / webp。' }}
-          </span>
-        </div>
-
-        <template v-if="isChoice">
-          <div class="mc-col">
-            <div class="mc-row mc-row--between">
-              <span class="mc-label mc-label--required">
-                {{ qForm.type === 'single' ? '选项（单选：勾选唯一正确答案）' : '选项（多选：勾选全部正确答案）' }}
-              </span>
-              <button class="mc-btn mc-btn--sm" type="button" @click="addOption">添加选项</button>
-            </div>
-
-            <div v-for="(option, oi) in qForm.options" :key="oi" class="option-row">
-              <label v-if="qForm.type === 'single'" class="option-row__pick">
-                <input v-model="qForm.singleAnswer" type="radio" name="q-answer" :value="oi" />
-                <span class="option-row__letter">{{ letter(oi) }}</span>
-              </label>
-              <label v-else class="option-row__pick">
-                <input v-model="qForm.multipleAnswer" type="checkbox" :value="oi" />
-                <span class="option-row__letter">{{ letter(oi) }}</span>
-              </label>
-
-              <input
-                v-model="option.text"
-                class="mc-input"
-                type="text"
-                maxlength="1000"
-                :placeholder="`选项 ${letter(oi)} 内容`"
-              />
-
-              <button class="mc-btn mc-btn--sm mc-btn--danger" type="button" @click="removeOption(oi)">删除</button>
-            </div>
-          </div>
-        </template>
-
-        <template v-else-if="qForm.type === 'judge'">
-          <div class="mc-field">
-            <span class="mc-label mc-label--required">正确答案</span>
-            <div class="mc-row judge-row">
-              <label class="mc-checkbox">
-                <input v-model="qForm.judgeAnswer" type="radio" name="q-judge" value="T" />
-                对
-              </label>
-              <label class="mc-checkbox">
-                <input v-model="qForm.judgeAnswer" type="radio" name="q-judge" value="F" />
-                错
-              </label>
-            </div>
-          </div>
-        </template>
-
-        <label v-else-if="qForm.type === 'fill'" class="mc-field">
-          <span class="mc-label mc-label--required">填空答案</span>
-          <input
-            v-model="qForm.textAnswer"
-            class="mc-input"
-            type="text"
-            maxlength="2000"
-            placeholder="多个可接受答案用 | 分隔，例如：final|final 关键字"
-          />
-          <span class="mc-hint">学生填写其中任意一个即判为正确。</span>
-        </label>
-
-        <label v-else class="mc-field">
-          <span class="mc-label mc-label--required">参考答案</span>
-          <textarea
-            v-model="qForm.textAnswer"
-            class="mc-textarea"
-            maxlength="2000"
-            placeholder="简答题不自动判分，此处填写参考要点供学生自评"
-          />
-        </label>
-
-        <label class="mc-field">
-          <span class="mc-label">解析</span>
-          <textarea
-            v-model="qForm.analysis"
-            class="mc-textarea"
-            maxlength="4000"
-            placeholder="讲解为什么选这个答案（可选）"
-          />
-        </label>
-
-        <label class="mc-field">
-          <span class="mc-label">难度</span>
-          <select v-model="qForm.difficulty" class="mc-select">
-            <option value="">自动判定（推荐）</option>
-            <option value="easy">基础</option>
-            <option value="medium">中等</option>
-            <option value="hard">较难</option>
-          </select>
-          <span class="mc-hint">
-            「自动判定」由难度模型按内容特征打分（学段年级、题型、算式与公式复杂度、小问数、阅读量、看图、高阶目标），
-            并按分位数分成三档/五级；手动选择会记为<strong>人工标注</strong>，之后的自动重算不会覆盖。
-          </span>
-        </label>
-
-        <p v-if="qEditingId !== null" class="mc-muted">
-          当前难度：
-          <DifficultyBadge
-            :score="questions.find((q) => q.id === qEditingId)?.difficulty_score"
-            :difficulty="questions.find((q) => q.id === qEditingId)?.difficulty"
-            :source="questions.find((q) => q.id === qEditingId)?.difficulty_source"
-            :samples="questions.find((q) => q.id === qEditingId)?.difficulty_n"
-          />
-        </p>
-      </div>
-
-      <template #footer>
-        <button class="mc-btn" type="button" @click="qOpen = false">取消</button>
-        <button class="mc-btn mc-btn--primary" type="button" :disabled="qSaving" @click="saveQuestion">
-          {{ qSaving ? '保存中…' : '保存' }}
-        </button>
-      </template>
-    </AppModal>
+    <QuestionEditor
+      :open="qOpen"
+      :editing-id="qEditingId"
+      :saving="qSaving"
+      :image-path="qImagePath"
+      :current-question="questions.find((q) => q.id === qEditingId) ?? null"
+      :form="qForm"
+      @close="qOpen = false"
+      @save="saveQuestion"
+      @pick-image="pickQuestionImage"
+    />
 
     <!-- 导入结果 -->
     <BankImportResult :open="importResult !== null" :result="importResult" @close="importResult = null" />
