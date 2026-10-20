@@ -802,21 +802,6 @@
   gap: var(--mc-space-2);
 }
 
-.dedupe-samples {
-  display: flex;
-  flex-direction: column;
-  gap: var(--mc-space-2);
-  margin: 0;
-  padding-left: var(--mc-space-4);
-  font-size: var(--mc-font-sm);
-}
-
-.dedupe-samples li {
-  display: flex;
-  align-items: baseline;
-  gap: var(--mc-space-2);
-}
-
 .pager {
   gap: var(--mc-space-2);
 }

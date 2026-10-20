@@ -26,3 +26,12 @@ export interface BankHealth {
     histogram: { bucket: number; questions: number }[];
   };
 }
+
+/** 清理重复题的预览结果 */
+export interface DedupeResult {
+  dryRun: boolean;
+  groups: number;
+  removable: number;
+  removed: number;
+  samples: { stem: string; count: number }[];
+}

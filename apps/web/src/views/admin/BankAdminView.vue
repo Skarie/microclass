@@ -11,8 +11,9 @@ import Icon from '@/components/Icon.vue';
 import RichText from '@/components/RichText.vue';
 import QuestionEditor from './QuestionEditor.vue';
 import BankHealthPanel from './BankHealthPanel.vue';
+import BankQuickDialogs from './BankQuickDialogs.vue';
 import { TYPE_LABEL, TYPE_OPTIONS } from './questionTypes';
-import type { BankHealth } from './bankTypes';
+import type { BankHealth, DedupeResult } from './bankTypes';
 import BankImportResult from './BankImportResult.vue';
 import { difficultyLabel, difficultySourceLabel } from '@/composables/difficulty';
 import type { Bank, QuestionType, QuestionView } from '@/api/types';
@@ -120,13 +121,6 @@ async function loadBanks(keepSelection = true): Promise<void> {
 }
 
 /* ---------------- 题库内去重（标准化） ---------------- */
-interface DedupeResult {
-  dryRun: boolean;
-  groups: number;
-  removable: number;
-  removed: number;
-  samples: { stem: string; count: number }[];
-}
 const dedupeBusy = ref(false);
 const dedupeResult = ref<DedupeResult | null>(null);
 
@@ -1988,71 +1982,22 @@ onMounted(() => {
       </template>
     </AppModal>
 
-    <!-- 清理重复题（先预览再执行） -->
-    <AppModal :open="dedupeResult !== null" title="清理重复题" width="640px" @close="dedupeResult = null">
-      <div v-if="dedupeResult" class="mc-col">
-        <p>
-          题库里发现 <strong>{{ dedupeResult.groups }}</strong> 组重复题，可合并
-          <strong>{{ dedupeResult.removable }}</strong> 道（每组保留最早的一条）。
-        </p>
-        <p class="mc-muted">
-          判定标准：题干与选项完全相同、<strong>答案也一致</strong>。同一题干但答案不同的题不会被自动删除，
-          请在「题库体检」里单独核对。
-        </p>
-        <ul v-if="dedupeResult.samples.length > 0" class="dedupe-samples">
-          <li v-for="(s, i) in dedupeResult.samples" :key="i">
-            <RichText class="stem__text" :text="s.stem" />
-            <span class="mc-muted">×{{ s.count }}</span>
-          </li>
-        </ul>
-      </div>
-      <template #footer>
-        <button class="mc-btn" type="button" @click="dedupeResult = null">取消</button>
-        <button class="mc-btn mc-btn--primary" type="button" :disabled="dedupeBusy" @click="applyDedupe">
-          {{ dedupeBusy ? '合并中…' : '合并重复题' }}
-        </button>
-      </template>
-    </AppModal>
-
-    <!-- 整卷试卷 → 建考试 -->
-    <AppModal :open="examOpen" title="用这份试卷建考试" width="560px" @close="examOpen = false">
-      <div class="mc-col">
-        <p class="mc-muted">
-          把题库「{{ selectedBank?.name }}」的 {{ selectedBank?.question_count }} 道题按顺序生成一场考试。
-        </p>
-        <label class="mc-field">
-          <span class="mc-label mc-label--required">挂到哪门课程</span>
-          <select v-model="examForm.courseId" class="mc-select">
-            <option value="">请选择课程</option>
-            <option v-for="c in courses" :key="c.id" :value="c.id">{{ c.name }}</option>
-          </select>
-        </label>
-        <label class="mc-field">
-          <span class="mc-label">考试名称</span>
-          <input v-model="examForm.title" class="mc-input" type="text" maxlength="100" />
-        </label>
-        <div class="form-grid">
-          <label class="mc-field">
-            <span class="mc-label">时长（分钟）</span>
-            <input v-model.number="examForm.durationMinutes" class="mc-input" type="number" min="1" max="600" />
-          </label>
-          <label class="mc-field">
-            <span class="mc-label">及格分</span>
-            <input v-model.number="examForm.passScore" class="mc-input" type="number" min="0" max="100" />
-          </label>
-        </div>
-        <label class="mc-row check">
-          <input v-model="examForm.publish" type="checkbox" />
-          <span>立即发布（学生能看到）</span>
-        </label>
-      </div>
-      <template #footer>
-        <button class="mc-btn" type="button" @click="examOpen = false">取消</button>
-        <button class="mc-btn mc-btn--primary" type="button" :disabled="examSaving" @click="createExamFromBank">
-          {{ examSaving ? '生成中…' : '生成考试' }}
-        </button>
-      </template>
-    </AppModal>
+    <!-- 清理重复题 / 整卷建考试 两个弹窗 -->
+    <BankQuickDialogs
+      :dedupe-open="dedupeResult !== null"
+      :dedupe="dedupeResult"
+      :dedupe-busy="dedupeBusy"
+      :exam-open="examOpen"
+      :exam-saving="examSaving"
+      :exam-form="examForm"
+      :courses="courses"
+      :bank-name="selectedBank?.name ?? ''"
+      :bank-question-count="selectedBank?.question_count ?? 0"
+      @close-dedupe="dedupeResult = null"
+      @apply-dedupe="applyDedupe"
+      @close-exam="examOpen = false"
+      @create-exam="createExamFromBank"
+    />
 
     <!-- 题库表单 -->
     <AppModal
