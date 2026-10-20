@@ -128,6 +128,7 @@ const dedupeResult = ref<DedupeResult | null>(null);
 async function previewDedupe(): Promise<void> {
   const bank = selectedBank.value;
   if (!bank) return;
+  healthOpen.value = false;
   dedupeBusy.value = true;
   try {
     dedupeResult.value = await api.post<DedupeResult>(`/banks/${bank.id}/dedupe`, { dryRun: true });
@@ -484,6 +485,9 @@ const diffPreview = ref<DifficultyPreview | null>(null);
 const diffScopeAll = ref(false);
 
 async function openDifficulty(): Promise<void> {
+  // 从体检弹窗进来时先把体检关掉：两层弹窗叠在一起，后开的那个按钮会被
+  // 前一层的遮罩挡住（E2E 里点「确认重算」被 backdrop 拦截就是这个原因）
+  healthOpen.value = false;
   diffOpen.value = true;
   await loadDifficultyPreview();
 }
@@ -565,6 +569,7 @@ async function loadCourses(): Promise<void> {
 
 function openExamFromBank(): void {
   if (!selectedBank.value) return;
+  healthOpen.value = false;
   examForm.courseId = courses.value[0]?.id ?? '';
   examForm.title = selectedBank.value.name;
   examForm.durationMinutes = 60;
