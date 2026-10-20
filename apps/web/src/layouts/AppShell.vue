@@ -12,7 +12,7 @@
  *   --> 页脚
  * 窄屏（≤900px）：一级导航收进抽屉（菜单按钮），管理项在抽屉里可折叠。
  */
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useThemeStore } from '@/stores/theme';
@@ -126,6 +126,33 @@ function onManageSelect(key: string): void {
   void router.push(key);
   mobileNavOpen.value = false;
 }
+
+/** 导航在窄屏是横向滚动的：切页后把当前页签滚进可视区，避免高亮项被裁到屏幕外 */
+function revealActiveNav(): void {
+  const nav = document.querySelector<HTMLElement>('.nav');
+  const active = nav?.querySelector<HTMLElement>('.nav__item--active');
+  if (!nav || !active) return;
+  active.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'auto' });
+}
+
+watch(
+  () => route.path,
+  () => {
+    void nextTick(revealActiveNav);
+  },
+);
+
+// 窗口变窄后导航可能被截断：重新把当前页签滚进可视区
+let navResizeTimer: ReturnType<typeof setTimeout> | null = null;
+function onWindowResize(): void {
+  if (navResizeTimer) clearTimeout(navResizeTimer);
+  navResizeTimer = setTimeout(revealActiveNav, 120);
+}
+onMounted(() => window.addEventListener('resize', onWindowResize));
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', onWindowResize);
+  if (navResizeTimer) clearTimeout(navResizeTimer);
+});
 
 onMounted(async () => {
   try {
@@ -371,12 +398,23 @@ onMounted(async () => {
   align-items: center;
   gap: var(--mc-space-1);
   margin-left: var(--mc-space-4);
+  /* 窗口窄时导航本身横向滚动，而不是把每个标签挤成两行 */
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.nav::-webkit-scrollbar {
+  display: none;
 }
 
 .nav__item {
   display: inline-flex;
   align-items: center;
   gap: var(--mc-space-1);
+  /* 标签永不换行：窄屏靠导航横向滚动，不把「课程管理」拆成「课程管/理」 */
+  white-space: nowrap;
+  flex: none;
   padding: var(--mc-space-2) var(--mc-space-3);
   border-radius: var(--mc-radius);
   font-size: var(--mc-text-sm);
@@ -593,7 +631,29 @@ onMounted(async () => {
 }
 
 /* 平板：仍然用顶栏导航，但把次要项收起 */
-@media (min-width: 901px) and (max-width: 1080px) {
+@media (min-width: 901px) and (max-width: 1100px) {
+  /* 更窄的桌面/平板：只留 logo 图标，把横向空间让给导航页签 */
+  .brand__name {
+    display: none;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1400px) {
+  /* 中等宽度：收窄导航内边距与图标，尽量让全部页签一屏放下 */
+  .nav {
+    margin-left: var(--mc-space-2);
+  }
+
+  .nav__item {
+    padding: var(--mc-space-2) var(--mc-space-2);
+  }
+
+  .nav__icon {
+    display: none;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1240px) {
   .topbar__level {
     display: none;
   }
