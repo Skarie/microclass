@@ -3,7 +3,6 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { api } from '@/api/client';
 import { errorMessage } from '@/composables/useAsync';
 import { useToastStore } from '@/stores/toast';
-import AppModal from '@/components/AppModal.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import DropdownMenu from '@/components/DropdownMenu.vue';
@@ -12,6 +11,7 @@ import RichText from '@/components/RichText.vue';
 import QuestionEditor from './QuestionEditor.vue';
 import BankHealthPanel from './BankHealthPanel.vue';
 import BankOverviewHeader from './BankOverviewHeader.vue';
+import BankFormDialog from './BankFormDialog.vue';
 import BankQuickDialogs from './BankQuickDialogs.vue';
 import BankDifficultyCalcDialog from './BankDifficultyCalcDialog.vue';
 import { TYPE_LABEL, TYPE_OPTIONS } from './questionTypes';
@@ -1876,45 +1876,16 @@ onMounted(() => {
     />
 
     <!-- 题库表单 -->
-    <AppModal
+    <BankFormDialog
       :open="bankFormOpen"
-      :title="bankEditingId === null ? '新建题库' : '编辑题库'"
+      :editing-id="bankEditingId"
+      :saving="bankSaving"
+      :form="bankForm"
+      :lesson-options="courseLessonOptions"
+      :catalog-course-id="catalogCourseId"
       @close="bankFormOpen = false"
-    >
-      <div class="mc-col">
-        <label class="mc-field">
-          <span class="mc-label mc-label--required">题库名称</span>
-          <input
-            v-model="bankForm.name"
-            class="mc-input"
-            type="text"
-            maxlength="200"
-            placeholder="例如：第 01 讲 课后练习"
-          />
-        </label>
-
-        <label class="mc-field">
-          <span class="mc-label">关联课时</span>
-          <select v-model="bankForm.lessonId" class="mc-select">
-            <option value="">不关联课时</option>
-            <option v-for="lesson in courseLessonOptions" :key="lesson.id" :value="lesson.id">
-              {{ lesson.title }}
-            </option>
-          </select>
-          <span class="mc-hint">
-            关联课时后，该题库会作为该课时的课后练习题目来源。列表来自左侧选中的课程
-            {{ catalogCourseId === null ? '（请先在左侧选择课程）' : '（含章节分组）' }}。
-          </span>
-        </label>
-      </div>
-
-      <template #footer>
-        <button class="mc-btn" type="button" @click="bankFormOpen = false">取消</button>
-        <button class="mc-btn mc-btn--primary" type="button" :disabled="bankSaving" @click="saveBank">
-          {{ bankSaving ? '保存中…' : '保存' }}
-        </button>
-      </template>
-    </AppModal>
+      @save="saveBank"
+    />
 
     <!-- 题目编辑器 -->
     <QuestionEditor
