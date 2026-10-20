@@ -12,8 +12,9 @@ import RichText from '@/components/RichText.vue';
 import QuestionEditor from './QuestionEditor.vue';
 import BankHealthPanel from './BankHealthPanel.vue';
 import BankQuickDialogs from './BankQuickDialogs.vue';
+import BankDifficultyCalcDialog from './BankDifficultyCalcDialog.vue';
 import { TYPE_LABEL, TYPE_OPTIONS } from './questionTypes';
-import type { BankHealth, DedupeResult } from './bankTypes';
+import type { BankHealth, DedupeResult, DifficultyPreview } from './bankTypes';
 import BankImportResult from './BankImportResult.vue';
 import { difficultyLabel, difficultySourceLabel } from '@/composables/difficulty';
 import type { Bank, QuestionType, QuestionView } from '@/api/types';
@@ -58,7 +59,6 @@ interface OptionDraft {
   text: string;
 }
 
-const DIFFICULTY_LABEL: Record<string, string> = { easy: '基础', medium: '中等', hard: '较难' };
 const DEFAULT_PAGE_SIZE = 20;
 
 const toast = useToastStore();
@@ -466,27 +466,6 @@ async function rebind(): Promise<void> {
 }
 
 /* ---------------- 难度重算（内容特征先验 + 作答校准） ---------------- */
-interface DifficultyPreview {
-  scope: { bankId: number | null; name: string };
-  total: number;
-  willScore: number;
-  skippedManual: number;
-  skippedCalibrated: number;
-  cuts: { easyMax: number; mediumMax: number; five: number[] };
-  predicted: {
-    buckets: { difficulty: string; questions: number; ratio: number }[];
-    levels: { level: number; label: string; questions: number; ratio: number }[];
-  };
-  current: {
-    unscored: number;
-    buckets: { difficulty: string; questions: number }[];
-    sources: { source: string; questions: number }[];
-  };
-  samples: {
-    easiest: { id: number; stem: string; score: number; reasons: string }[];
-    hardest: { id: number; stem: string; score: number; reasons: string }[];
-  };
-}
 
 interface DifficultyApplyResult {
   scored: number;
@@ -502,13 +481,6 @@ const diffBusy = ref(false);
 const diffPreview = ref<DifficultyPreview | null>(null);
 /** 全库重算（不限于当前题库）：量大，默认勾选也只在老师点确认后执行 */
 const diffScopeAll = ref(false);
-
-const SOURCE_LABEL: Record<string, string> = {
-  auto: '模型先验',
-  calibrated: '作答校准',
-  manual: '人工标注',
-  unknown: '未评估',
-};
 
 async function openDifficulty(): Promise<void> {
   diffOpen.value = true;
@@ -1912,75 +1884,19 @@ onMounted(() => {
     />
 
     <!-- 重算难度（先预览再执行） -->
-    <AppModal :open="diffOpen" title="重算难度" width="760px" @close="diffOpen = false">
-      <div v-if="diffBusy && !diffPreview" class="loading"><div class="mc-skeleton loading__row" /></div>
-      <div v-else-if="diffPreview" class="mc-col diff-preview">
-        <label class="mc-row diff-preview__scope">
-          <input v-model="diffScopeAll" type="checkbox" @change="loadDifficultyPreview" />
-          <span>重算<strong>全库</strong>难度（当前{{ selectedBank ? `题库「${selectedBank.name}」` : '' }}）</span>
-        </label>
-
-        <p>
-          将评估 <strong>{{ diffPreview.willScore }}</strong> 道题（共 {{ diffPreview.total }} 道）； 保留<strong
-            >人工标注</strong
-          >
-          {{ diffPreview.skippedManual }} 道、<strong>已校准</strong> {{ diffPreview.skippedCalibrated }} 道不动。
-        </p>
-        <p class="mc-muted">
-          判定方式（主流做法）：内容特征先验（学段年级、题型、算式与公式复杂度、小问数、题干阅读量、看图、高阶目标动词、
-          卷型与知识点标注）→ 0–100 分 → 按**分位数**分档，保证结构合理。作答数据积累后会再做一次校准。
-        </p>
-
-        <div class="diff-preview__grid">
-          <div>
-            <div class="mc-label">算完之后的三档结构</div>
-            <p v-for="b in diffPreview.predicted.buckets" :key="b.difficulty" class="mc-muted">
-              {{ DIFFICULTY_LABEL[b.difficulty] ?? b.difficulty }}：{{ b.questions }} 题（{{ b.ratio }}%）
-            </p>
-            <div class="mc-label">五级口径</div>
-            <p v-for="l in diffPreview.predicted.levels" :key="l.level" class="mc-muted">
-              {{ l.level }}★ {{ l.label }}：{{ l.questions }} 题（{{ l.ratio }}%）
-            </p>
-          </div>
-          <div>
-            <div class="mc-label">当前库里已有的</div>
-            <p v-for="b in diffPreview.current.buckets" :key="b.difficulty" class="mc-muted">
-              {{ DIFFICULTY_LABEL[b.difficulty] ?? b.difficulty }}：{{ b.questions }} 题
-            </p>
-            <p class="mc-muted">
-              来源：
-              <span v-for="s in diffPreview.current.sources" :key="s.source">
-                {{ SOURCE_LABEL[s.source] ?? s.source }} {{ s.questions }}
-              </span>
-            </p>
-            <p class="mc-muted">
-              阈值：基础 &lt; {{ diffPreview.cuts.easyMax }} 分｜中档 &lt;
-              {{ diffPreview.cuts.mediumMax }} 分｜其余为较难
-            </p>
-          </div>
-        </div>
-
-        <div class="mc-label">抽查：模型认为最容易 / 最难的题</div>
-        <ul class="diff-preview__samples">
-          <li v-for="s in diffPreview.samples.easiest" :key="`e${s.id}`">
-            <span class="diff-preview__score">{{ s.score }}</span>
-            <RichText class="stem__text" :text="s.stem" />
-          </li>
-          <li v-for="s in diffPreview.samples.hardest" :key="`h${s.id}`" class="diff-preview__sample--hard">
-            <span class="diff-preview__score">{{ s.score }}</span>
-            <RichText class="stem__text" :text="s.stem" />
-            <span class="mc-muted">{{ s.reasons }}</span>
-          </li>
-        </ul>
-      </div>
-
-      <template #footer>
-        <button class="mc-btn mc-btn--ghost" type="button" @click="diffOpen = false">取消</button>
-        <button class="mc-btn mc-btn--primary" type="button" :disabled="diffBusy" @click="applyDifficulty">
-          {{ diffBusy ? '重算中…' : '确认重算' }}
-        </button>
-      </template>
-    </AppModal>
+    <BankDifficultyCalcDialog
+      :open="diffOpen"
+      :busy="diffBusy"
+      :scope-all="diffScopeAll"
+      :bank-name="selectedBank?.name ?? ''"
+      :preview="diffPreview"
+      @close="diffOpen = false"
+      @apply="applyDifficulty"
+      @toggle-scope="
+        diffScopeAll = !diffScopeAll;
+        loadDifficultyPreview();
+      "
+    />
 
     <!-- 清理重复题 / 整卷建考试 两个弹窗 -->
     <BankQuickDialogs

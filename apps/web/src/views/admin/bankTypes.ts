@@ -35,3 +35,26 @@ export interface DedupeResult {
   removed: number;
   samples: { stem: string; count: number }[];
 }
+
+/** 重算难度的预览结构 */
+export interface DifficultyPreview {
+  scope: { bankId: number | null; name: string };
+  total: number;
+  willScore: number;
+  skippedManual: number;
+  skippedCalibrated: number;
+  cuts: { easyMax: number; mediumMax: number; five: number[] };
+  predicted: {
+    buckets: { difficulty: string; questions: number; ratio: number }[];
+    levels: { level: number; label: string; questions: number; ratio: number }[];
+  };
+  current: {
+    unscored: number;
+    buckets: { difficulty: string; questions: number }[];
+    sources: { source: string; questions: number }[];
+  };
+  samples: {
+    easiest: { id: number; stem: string; score: number; reasons: string }[];
+    hardest: { id: number; stem: string; score: number; reasons: string }[];
+  };
+}
