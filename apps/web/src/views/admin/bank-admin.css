@@ -2,21 +2,7 @@
   gap: var(--mc-space-5);
 }
 
-.metric__link {
-  margin-left: 8px;
-  color: var(--mc-primary-fg);
-  white-space: nowrap;
-}
-
 /* 可点击的指标链接（不是路由跳转，而是把左侧列表按该条件筛出来） */
-.metric__link--btn {
-  border: 0;
-  background: none;
-  padding: 0;
-  font: inherit;
-  cursor: pointer;
-  text-decoration: underline;
-}
 
 /* 需要教师处理的数据质量问题，给一点提示色 */
 .metric--warn .metric__value {
@@ -800,11 +786,6 @@
   color: var(--mc-text-muted);
   white-space: nowrap;
   cursor: pointer;
-}
-
-.table-wrap {
-  max-height: 52vh;
-  overflow: auto;
 }
 
 .stem {

@@ -10,8 +10,9 @@ import DropdownMenu from '@/components/DropdownMenu.vue';
 import Icon from '@/components/Icon.vue';
 import RichText from '@/components/RichText.vue';
 import QuestionEditor from './QuestionEditor.vue';
+import BankHealthPanel from './BankHealthPanel.vue';
 import { TYPE_LABEL, TYPE_OPTIONS } from './questionTypes';
-import BankDifficultyPanel from './BankDifficultyPanel.vue';
+import type { BankHealth } from './bankTypes';
 import BankImportResult from './BankImportResult.vue';
 import { difficultyLabel, difficultySourceLabel } from '@/composables/difficulty';
 import type { Bank, QuestionType, QuestionView } from '@/api/types';
@@ -631,33 +632,6 @@ async function createExamFromBank(): Promise<void> {
 }
 
 /* ---------------- 题库体检（标准化与质量） ---------------- */
-interface BankHealth {
-  scope: { bankId: number | null; name: string };
-  stats: {
-    total: number;
-    missingDifficulty: number;
-    emptyAnswer: number;
-    withoutImage: number;
-    withImage: number;
-    /** 解析只有图片、没有一个字的题（图片里是解析文字截图） */
-    mediaOnlyAnalysis: number;
-    duplicateGroups: number;
-    duplicateQuestions: number;
-    conflictGroups: number;
-    noFingerprint: number;
-  };
-  metadata: { withSubject: number; withBook: number; withPoint: number; withHash: number };
-  duplicates: { content_hash: string; n: number; answers: number; stem: string }[];
-  kinds: { kind: string; banks: number; questions: number }[];
-  /** 难度结构（迁移 0016 的难度模型） */
-  difficulty: {
-    unscored: number;
-    buckets: { difficulty: string; questions: number }[];
-    levels: { level: number; questions: number }[];
-    sources: { source: string; questions: number }[];
-    histogram: { bucket: number; questions: number }[];
-  };
-}
 const healthOpen = ref(false);
 const healthLoading = ref(false);
 const health = ref<BankHealth | null>(null);
@@ -677,12 +651,6 @@ async function loadHealth(silent = false): Promise<void> {
 function toggleHealth(): void {
   healthOpen.value = !healthOpen.value;
   if (healthOpen.value) void loadHealth();
-}
-
-/** 体检里的比例（百分比，保留一位小数） */
-function pct(part: number, total: number): string {
-  if (!total) return '0%';
-  return `${((part / total) * 100).toFixed(1)}%`;
 }
 
 async function selectBank(bank: Bank): Promise<void> {
@@ -1477,110 +1445,18 @@ onMounted(() => {
       </template>
     </AppModal>
     <!-- 题库体检：弹窗展示，避免在页面中间插入整块导致布局跳动 -->
-    <AppModal
+    <BankHealthPanel
+      v-if="health"
       :open="healthOpen"
-      :title="`题库体检（${health?.scope.name ?? '全库'}）`"
-      width="920px"
+      :health="health"
+      :loading="healthLoading"
+      :diff-busy="diffBusy"
       @close="healthOpen = false"
-    >
-      <div v-if="healthLoading && !health" class="loading"><div class="mc-skeleton loading__row" /></div>
-      <div v-else-if="health" class="mc-col health__body">
-        <div class="mc-grid mc-grid--stats">
-          <div class="metric">
-            <div class="metric__value">{{ health.stats.total }}</div>
-            <div class="mc-muted">题目总量</div>
-          </div>
-          <div class="metric">
-            <div class="metric__value">{{ health.stats.duplicateGroups }}</div>
-            <div class="mc-muted">重复题分组（{{ health.stats.duplicateQuestions }} 题）</div>
-          </div>
-          <div class="metric">
-            <div class="metric__value">{{ health.stats.conflictGroups }}</div>
-            <div class="mc-muted">
-              同题不同答案
-              <RouterLink v-if="health.stats.conflictGroups > 0" class="metric__link" to="/admin/question-conflicts">
-                去核对 →
-              </RouterLink>
-            </div>
-          </div>
-          <div class="metric">
-            <div class="metric__value">{{ health.stats.withImage }}</div>
-            <div class="mc-muted">带配图（{{ pct(health.stats.withImage, health.stats.total) }}）</div>
-          </div>
-          <div class="metric" :class="{ 'metric--warn': health.stats.mediaOnlyAnalysis > 0 }">
-            <div class="metric__value">{{ health.stats.mediaOnlyAnalysis }}</div>
-            <div class="mc-muted">
-              解析只有图片
-              <button
-                v-if="health.stats.mediaOnlyAnalysis > 0"
-                class="metric__link metric__link--btn"
-                type="button"
-                @click="showMediaOnlyQuestions"
-              >
-                筛出来看 →
-              </button>
-            </div>
-          </div>
-          <div class="metric">
-            <div class="metric__value">{{ health.stats.missingDifficulty }}</div>
-            <div class="mc-muted">未标难度（旧的粗标）</div>
-          </div>
-        </div>
-
-        <BankDifficultyPanel
-          v-if="health.difficulty"
-          :difficulty="health.difficulty"
-          :total-questions="health.stats.total"
-          :busy="diffBusy"
-          @recalc="openDifficulty"
-          @calibrate="calibrateDifficulty"
-        />
-
-        <div class="health__rows">
-          <p class="mc-muted">
-            标准化元数据覆盖率：学科 {{ pct(health.metadata.withSubject, health.stats.total) }}｜ 书册
-            {{ pct(health.metadata.withBook, health.stats.total) }}｜ 知识点
-            {{ pct(health.metadata.withPoint, health.stats.total) }}｜ 内容指纹
-            {{ pct(health.metadata.withHash, health.stats.total) }}
-          </p>
-          <p class="mc-muted">
-            题库类型：
-            <span v-for="k in health.kinds" :key="k.kind" class="health__kind">
-              {{ KIND_LABEL[k.kind] ?? k.kind }} {{ k.banks }} 个 / {{ k.questions }} 题
-            </span>
-          </p>
-        </div>
-
-        <div v-if="health.duplicates.length > 0" class="mc-table-wrap table-wrap">
-          <table class="mc-table mc-table--compact">
-            <thead>
-              <tr>
-                <th>重复题（题干）</th>
-                <th>出现次数</th>
-                <th>答案种类</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="d in health.duplicates" :key="d.content_hash">
-                <td><RichText class="stem__text" :text="d.stem" /></td>
-                <td>{{ d.n }}</td>
-                <td>
-                  <span class="mc-badge" :class="d.answers > 1 ? 'mc-badge--danger' : ''">{{ d.answers }}</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <template #footer>
-        <span v-if="health" class="mc-muted">共 {{ health.stats.total }} 题</span>
-        <div class="mc-spacer" />
-        <button class="mc-btn mc-btn--sm" type="button" :disabled="healthLoading" @click="loadHealth()">
-          重新统计
-        </button>
-        <button class="mc-btn mc-btn--sm mc-btn--primary" type="button" @click="healthOpen = false">关闭</button>
-      </template>
-    </AppModal>
+      @refresh="loadHealth()"
+      @show-media-only="showMediaOnlyQuestions"
+      @recalc="openDifficulty"
+      @calibrate="calibrateDifficulty"
+    />
 
     <div class="layout">
       <aside class="mc-card bank-panel">
