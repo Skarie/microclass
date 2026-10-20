@@ -11,6 +11,7 @@ import Icon from '@/components/Icon.vue';
 import RichText from '@/components/RichText.vue';
 import QuestionEditor from './QuestionEditor.vue';
 import BankHealthPanel from './BankHealthPanel.vue';
+import BankOverviewHeader from './BankOverviewHeader.vue';
 import BankQuickDialogs from './BankQuickDialogs.vue';
 import BankDifficultyCalcDialog from './BankDifficultyCalcDialog.vue';
 import { TYPE_LABEL, TYPE_OPTIONS } from './questionTypes';
@@ -1355,61 +1356,20 @@ onMounted(() => {
     </PageHeader>
 
     <!-- 指标卡片行：先给全局规模感，再进入具体操作（对标学之思/超星的工作台形态） -->
-    <div class="kpi">
-      <div class="kpi__card">
-        <div class="kpi__label">题库总数</div>
-        <div class="kpi__value">{{ catalog.binding.banks.toLocaleString() }}</div>
-        <div class="kpi__sub mc-muted">
-          已归属 {{ catalog.binding.bound.toLocaleString() }} · 未归属
-          {{ catalog.binding.unbound.toLocaleString() }}
-        </div>
-      </div>
-      <div class="kpi__card">
-        <div class="kpi__label">题目总量</div>
-        <div class="kpi__value">{{ health ? health.stats.total.toLocaleString() : '—' }}</div>
-        <div class="kpi__sub mc-muted">全部题库合计</div>
-      </div>
-      <button class="kpi__card kpi__card--action" type="button" @click="pickUnbound('')">
-        <div class="kpi__label">未归属课程</div>
-        <div class="kpi__value">{{ catalog.binding.unbound.toLocaleString() }}</div>
-        <div class="kpi__sub mc-muted">点这里按册次归类 →</div>
-      </button>
-      <div class="kpi__card">
-        <div class="kpi__label">待补答案</div>
-        <div class="kpi__value">{{ health ? health.stats.emptyAnswer.toLocaleString() : '—' }}</div>
-        <div class="kpi__sub mc-muted">答案册未覆盖，需补齐</div>
-      </div>
-    </div>
-
-    <!-- 按册次批量挂课程：一次把该册次下所有未归属题库挂到目标课程 -->
-    <AppModal :open="bindBookTarget !== null" title="按册次挂到课程" width="520px" @close="closeBindBook">
-      <div class="mc-col bindbook">
-        <p class="bindbook__lead">
-          把「{{ bindBookTarget?.book }}」下的
-          <strong>{{ bindBookTarget?.bankCount ?? 0 }}</strong>
-          个未归属题库挂到：
-        </p>
-        <select v-model="bindCourseId" class="mc-select" aria-label="选择课程">
-          <option value="">请选择课程…</option>
-          <option v-for="c in courses" :key="c.id" :value="c.id">{{ c.name }}</option>
-        </select>
-        <p class="mc-muted bindbook__hint">
-          只会影响该册次下<strong>尚未归属</strong>的题库；已经挂在其它课程下的题库不会被改动。
-        </p>
-      </div>
-      <template #footer>
-        <div class="mc-spacer" />
-        <button class="mc-btn mc-btn--sm" type="button" @click="closeBindBook">取消</button>
-        <button
-          class="mc-btn mc-btn--sm mc-btn--primary"
-          type="button"
-          :disabled="bindingBook || bindCourseId === ''"
-          @click="confirmBindBook"
-        >
-          {{ bindingBook ? '挂载中…' : '确认挂载' }}
-        </button>
-      </template>
-    </AppModal>
+    <!-- KPI 卡片行 + 按册次挂课程弹窗 -->
+    <BankOverviewHeader
+      :binding="catalog.binding"
+      :question-total="health ? health.stats.total : null"
+      :empty-answer="health ? health.stats.emptyAnswer : null"
+      :bind-book-target="bindBookTarget"
+      :bind-course-id="bindCourseId"
+      :courses="courses"
+      :binding-book="bindingBook"
+      @pick-unbound="pickUnbound('')"
+      @close-bind="closeBindBook"
+      @confirm-bind="confirmBindBook"
+      @update:bind-course-id="bindCourseId = $event"
+    />
     <!-- 题库体检：弹窗展示，避免在页面中间插入整块导致布局跳动 -->
     <BankHealthPanel
       v-if="health"
