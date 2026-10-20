@@ -265,9 +265,7 @@ export function useBankCatalog(deps: BankCatalogDeps) {
         unmatched: number;
         unmatchedBooks: { book: string; banks: number }[];
       }>('/banks/rebind-courses');
-      toast.success(
-        `已归属课程：课时推导 ${res.byLesson} 个、册次匹配 ${res.byBook} 个；仍未归属 ${res.unmatched} 个`,
-      );
+      toast.success(`已归属课程：课时推导 ${res.byLesson} 个、册次匹配 ${res.byBook} 个；仍未归属 ${res.unmatched} 个`);
       unmatchedBooks.value = res.unmatchedBooks;
       await loadCatalog();
       await loadBanks();

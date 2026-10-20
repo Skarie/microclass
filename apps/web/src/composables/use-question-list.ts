@@ -64,6 +64,8 @@ export interface QuestionListDeps {
   selectedBankId: Ref<number | null>;
   selectedBank: ComputedRef<Bank | null>;
   loadBanks: (keepSelection?: boolean) => Promise<void>;
+  /** 隐藏的配图文件输入框（模板里的 ref="qImageInput"） */
+  qImageInput: Ref<HTMLInputElement | null>;
 }
 
 export function useQuestionList(deps: QuestionListDeps) {
@@ -197,7 +199,9 @@ export function useQuestionList(deps: QuestionListDeps) {
     if (!window.confirm(`确定删除选中的 ${ids.length} 道题吗？删除后不可恢复。`)) return;
     bulkBusy.value = true;
     try {
-      const res = await api.post<{ deleted: number; skipped: number }>(`/banks/${bankId}/questions/bulk-delete`, { ids });
+      const res = await api.post<{ deleted: number; skipped: number }>(`/banks/${bankId}/questions/bulk-delete`, {
+        ids,
+      });
       toast.success(`已删除 ${res.deleted} 道题`);
       clearSelection();
       await loadQuestions();
@@ -283,6 +287,11 @@ export function useQuestionList(deps: QuestionListDeps) {
     } finally {
       questionsLoading.value = false;
     }
+  }
+
+  /** 没有选中题库时清空列表（只清题目，不动 total：与原来的行为一致） */
+  function clearQuestions(): void {
+    questions.value = [];
   }
 
   function search(): void {
@@ -397,7 +406,6 @@ export function useQuestionList(deps: QuestionListDeps) {
   const qSaving = ref(false);
   const qEditingId = ref<number | null>(null);
   const qImagePath = ref('');
-  const qImageInput = ref<HTMLInputElement | null>(null);
 
   const qForm = reactive<QuestionFormDraft>({
     type: 'single',
@@ -565,7 +573,7 @@ export function useQuestionList(deps: QuestionListDeps) {
       toast.info('请先保存题目，再上传配图');
       return;
     }
-    qImageInput.value?.click();
+    deps.qImageInput.value?.click();
   }
 
   async function onQuestionImagePicked(event: Event): Promise<void> {
@@ -602,6 +610,7 @@ export function useQuestionList(deps: QuestionListDeps) {
     DIFFICULTY_OPTIONS,
     difficultyTitle,
     loadQuestions,
+    clearQuestions,
     search,
     resetFilters,
     showMediaOnlyQuestions,
@@ -643,7 +652,6 @@ export function useQuestionList(deps: QuestionListDeps) {
     qSaving,
     qEditingId,
     qImagePath,
-    qImageInput,
     qForm,
     openCreateQuestion,
     openEditQuestion,

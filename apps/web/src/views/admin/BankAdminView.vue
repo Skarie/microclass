@@ -1,8 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
-import { api } from '@/api/client';
-import { errorMessage } from '@/composables/useAsync';
-import { useToastStore } from '@/stores/toast';
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 import EmptyState from '@/components/EmptyState.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import DropdownMenu from '@/components/DropdownMenu.vue';
@@ -14,909 +11,183 @@ import BankOverviewHeader from './BankOverviewHeader.vue';
 import BankFormDialog from './BankFormDialog.vue';
 import BankQuickDialogs from './BankQuickDialogs.vue';
 import BankDifficultyCalcDialog from './BankDifficultyCalcDialog.vue';
-import { TYPE_LABEL, TYPE_OPTIONS } from './questionTypes';
-import type { BankHealth, DedupeResult, DifficultyPreview } from './bankTypes';
 import BankImportResult from './BankImportResult.vue';
-import { difficultyLabel, difficultySourceLabel } from '@/composables/difficulty';
-import type { Bank, QuestionType, QuestionView } from '@/api/types';
-
-interface BankListResponse {
-  banks: Bank[];
-  /** 当前筛选条件下的题库总数（服务端分页用） */
-  total?: number;
-}
-
-interface QuestionPageResponse {
-  total: number;
-  page: number;
-  pageSize: number;
-  questions: QuestionView[];
-}
-
-interface OkIdResponse {
-  ok: boolean;
-  id: number;
-}
-
-interface OkResponse {
-  ok: boolean;
-}
-
-interface ImageResponse {
-  ok: boolean;
-  imagePath: string;
-}
-
-interface ImportResponse {
-  ok: boolean;
-  inserted: number;
-  errors: string[];
-  /** 能导入但需要留意的提示（如被忽略的图片链接） */
-  warnings?: string[];
-}
-
-/** 选项草稿：用对象包裹，避免下标访问在 strict 下的 undefined 噪音 */
-interface OptionDraft {
-  text: string;
-}
-
-const DEFAULT_PAGE_SIZE = 20;
-
-const toast = useToastStore();
-
-/* ---------------- 题库列表（范围由目录树决定） ---------------- */
-/** 目录树里选中的小节（课时）id；null = 整个课程 */
-const kindFilter = ref<'' | 'lesson' | 'chapter' | 'paper'>('');
-const banks = ref<Bank[]>([]);
-/** 当前筛选条件下题库总数（服务端分页，页面只取前 N 个，避免一次拉 1 万多条） */
-const banksTotal = ref(0);
-const BANKS_PAGE = 300;
-const banksLoading = ref(false);
-const selectedBankId = ref<number | null>(null);
-
-const selectedBank = computed(() => banks.value.find((b) => b.id === selectedBankId.value) ?? null);
+import { TYPE_LABEL, TYPE_OPTIONS } from './questionTypes';
+import { difficultyLabel } from '@/composables/difficulty';
+import { KIND_LABEL, useBankCatalog, type BankCatalogDeps } from '@/composables/use-bank-catalog';
+import { useQuestionList } from '@/composables/use-question-list';
+import { useBankImport } from '@/composables/use-bank-import';
+import { useBankActions } from '@/composables/use-bank-actions';
 
 /**
- * 「关联课时」下拉的选项：只列**当前选中课程**的课时（含章节分组）。
- * 全库有 3,700+ 个课时，一次性拉 1.9MB 塞进下拉既慢又没法用；
- * 课程目录里已经有这些课时，直接用。
+ * 本组件只做组合式函数的编排：目录 → 题目列表 → 导入导出 → 题库操作。
+ * 业务状态各自落在对应的组合式函数里，跨函数只通过参数/返回值传递（没有全局单例）。
+ * 弹窗、编辑器与页面头部都是独立组件，这里仅把状态与操作接上。
  */
-const courseLessonOptions = computed(() => {
-  const chapters = catalogCourseDetail.value?.chapters ?? [];
-  return chapters.flatMap((chapter) =>
-    chapter.lessons.map((lesson) => ({ id: lesson.id, title: `${chapter.name} · ${lesson.title}` })),
-  );
+const catalogDeps: BankCatalogDeps = {
+  // 先占位：题目列表创建后立刻回填（loadBanks 只在挂载与用户交互之后才调用）
+  loadQuestions: async () => {},
+  clearQuestions: () => {},
+};
+const catalogApi = useBankCatalog(catalogDeps);
+/** 两个隐藏的文件输入框：模板 ref 必须由本组件持有，再把 ref 注入相关组合式函数 */
+const fileInput = ref<HTMLInputElement | null>(null);
+const qImageInput = ref<HTMLInputElement | null>(null);
+const questionApi = useQuestionList({
+  selectedBankId: catalogApi.selectedBankId,
+  selectedBank: catalogApi.selectedBank,
+  loadBanks: catalogApi.loadBanks,
+  qImageInput,
+});
+catalogDeps.loadQuestions = questionApi.loadQuestions;
+catalogDeps.clearQuestions = questionApi.clearQuestions;
+
+const importApi = useBankImport({
+  selectedBankId: catalogApi.selectedBankId,
+  selectedBank: catalogApi.selectedBank,
+  loadQuestions: questionApi.loadQuestions,
+  loadBanks: catalogApi.loadBanks,
+  page: questionApi.page,
+  fileInput,
+});
+const actionsApi = useBankActions({
+  selectedBankId: catalogApi.selectedBankId,
+  selectedBank: catalogApi.selectedBank,
+  loadBanks: catalogApi.loadBanks,
+  loadQuestions: questionApi.loadQuestions,
+  loadCatalog: catalogApi.loadCatalog,
+  downloadTemplate: importApi.downloadTemplate,
+  exportBank: importApi.exportBank,
 });
 
-async function loadBanks(keepSelection = true): Promise<void> {
-  banksLoading.value = true;
-  try {
-    const res = await api.get<BankListResponse>('/banks', {
-      ...(kindFilter.value === '' ? {} : { kind: kindFilter.value }),
-      ...(bankKeyword.value ? { keyword: bankKeyword.value } : {}),
-      ...(unboundBook.value ? { book: unboundBook.value } : {}),
-      ...(onlyUnbound.value
-        ? { courseId: 'unbound' }
-        : catalogCourseId.value === null
-          ? {}
-          : { courseId: catalogCourseId.value }),
-      // 服务端分页：一次最多取 300 个题库（全库有 1.2 万个，之前一次全拉会拖垮页面）
-      limit: BANKS_PAGE,
-      offset: 0,
-    });
-    banks.value = res.banks;
-    banksTotal.value = res.total ?? res.banks.length;
-    const stillThere = banks.value.some((b) => b.id === selectedBankId.value);
-    if (!keepSelection || !stillThere) {
-      selectedBankId.value = banks.value[0]?.id ?? null;
-    }
-    if (selectedBankId.value === null) questions.value = [];
-    else await loadQuestions();
-  } catch (e) {
-    toast.error(errorMessage(e));
-    banks.value = [];
-    selectedBankId.value = null;
-  } finally {
-    banksLoading.value = false;
-  }
-}
-
-/* ---------------- 题库内去重（标准化） ---------------- */
-const dedupeBusy = ref(false);
-const dedupeResult = ref<DedupeResult | null>(null);
-
-async function previewDedupe(): Promise<void> {
-  const bank = selectedBank.value;
-  if (!bank) return;
-  healthOpen.value = false;
-  dedupeBusy.value = true;
-  try {
-    dedupeResult.value = await api.post<DedupeResult>(`/banks/${bank.id}/dedupe`, { dryRun: true });
-    if (dedupeResult.value.removable === 0) {
-      toast.info('这个题库里没有「题干+选项相同且答案一致」的重复题');
-      dedupeResult.value = null;
-    }
-  } catch (e) {
-    toast.error(errorMessage(e));
-  } finally {
-    dedupeBusy.value = false;
-  }
-}
-
-async function applyDedupe(): Promise<void> {
-  const bank = selectedBank.value;
-  if (!bank) return;
-  dedupeBusy.value = true;
-  try {
-    const res = await api.post<DedupeResult>(`/banks/${bank.id}/dedupe`, { dryRun: false });
-    toast.success(`已合并 ${res.removed} 道重复题（涉及 ${res.groups} 组）`);
-    dedupeResult.value = null;
-    await loadBanks();
-  } catch (e) {
-    toast.error(errorMessage(e));
-  } finally {
-    dedupeBusy.value = false;
-  }
-}
-
-/* ---------------- 题库目录树（课程 → 章节 → 小节 → 题库） ---------------- */
-interface CatalogCourse {
-  id: number;
-  name: string;
-  bankCount: number;
-  questionCount: number;
-  chapterCount: number;
-}
-
-interface CatalogResponse {
-  courses: CatalogCourse[];
-  unbound: { bankCount: number; questionCount: number };
-  /** 未归属课程按册次分组（复习类、还没建课程的册次） */
-  unboundBooks: { book: string; bankCount: number; questionCount: number }[];
-  binding: { bound: number; unbound: number; banks: number };
-}
-
-interface CatalogLesson {
-  id: number;
-  title: string;
-  bankCount: number;
-  questionCount: number;
-  banks: { id: number; name: string; kind: string; questionCount: number }[];
-}
-
-/** 单个课程的章节/课时细节：用于「关联课时」下拉（左栏导航已不使用它） */
-interface CatalogDetail {
-  course: { id: number; name: string } | undefined;
-  chapters: {
-    name: string;
-    lessonCount: number;
-    bankCount: number;
-    questionCount: number;
-    lessons: CatalogLesson[];
-    banks: { id: number; name: string; kind: string; point: string; questionCount: number }[];
-  }[];
-}
-
-const catalog = ref<CatalogResponse>({
-  courses: [],
-  unbound: { bankCount: 0, questionCount: 0 },
-  unboundBooks: [],
-  binding: { bound: 0, unbound: 0, banks: 0 },
-});
-const catalogLoading = ref(false);
-const catalogCourseId = ref<number | null>(null);
-const catalogCourseDetail = ref<CatalogDetail | null>(null);
-const catalogCourseLoading = ref<number | null>(null);
-const onlyUnbound = ref(false);
-const rebinding = ref(false);
-/** 「未归属课程」里选中的册次（细分导航） */
-const unboundBook = ref('');
-/** 自动匹配后仍未归属的册次（提示老师手工挂） */
-const unmatchedBooks = ref<{ book: string; banks: number }[]>([]);
-const bankKeyword = ref('');
-/**
- * 题库列表先只渲染前 50 条（可展开）。
- * 左栏一次最多 300 条，每条都带一个下拉菜单组件，DOM 会到 4000+ 节点；
- * 绝大多数情况下老师会先搜索，先给 50 条既够用又轻。
- */
-const BANK_LIST_PAGE = 50;
-const showAllBanks = ref(false);
-/** 排序：默认沿用服务端顺序（最新创建在前），可切题量/名称 */
-const bankSort = ref<'default' | 'questions' | 'name'>('default');
-const sortedBanks = computed(() => {
-  if (bankSort.value === 'default') return banks.value;
-  const copy = [...banks.value];
-  if (bankSort.value === 'questions') copy.sort((a, b) => b.question_count - a.question_count);
-  else copy.sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'));
-  return copy;
-});
-const visibleBanks = computed(() =>
-  showAllBanks.value ? sortedBanks.value : sortedBanks.value.slice(0, BANK_LIST_PAGE),
-);
-
-/** 题干是否默认折叠（长题干限 3 行，点一下展开）：一屏能多看几道题 */
-const expandedStems = ref<Set<number>>(new Set());
-function isStemExpanded(id: number): boolean {
-  return expandedStems.value.has(id);
-}
-function toggleStem(id: number): void {
-  const next = new Set(expandedStems.value);
-  if (next.has(id)) next.delete(id);
-  else next.add(id);
-  expandedStems.value = next;
-}
-
-/** 课程名搜索（课程有 50+ 门，给个快速过滤） */
-const courseKeyword = ref('');
-
-/**
- * 题库名**输入即搜**（300ms 防抖）。
- * 左栏搜索原来只认回车，老师输完常常以为"没搜到"；与题目关键词搜索保持一致。
- */
-let bankKeywordTimer: ReturnType<typeof setTimeout> | undefined;
-watch(bankKeyword, () => {
-  if (bankKeywordTimer) clearTimeout(bankKeywordTimer);
-  bankKeywordTimer = setTimeout(() => void loadBanks(false), 300);
-});
-
-const visibleCourses = computed(() => {
-  const k = courseKeyword.value.trim().toLowerCase();
-  if (!k) return catalog.value.courses;
-  return catalog.value.courses.filter((c) => c.name.toLowerCase().includes(k));
-});
-
-/**
- * 左栏导航：**搜索优先，否则逐级下钻**（课程 → 题库）。
- *
- * 为什么改：原来左栏是"巨型课程树（12,682 个题库）+ 平铺 300 条题库列表"两层叠在一起，
- * 既没有结构也不好用。现在一级只列课程（含"未归属课程"），点进去才看该课程的题库，
- * 面包屑可返回；搜索框一输入就直接跳到搜索结果，不再依赖树。
- */
-const searchActive = computed(() => bankKeyword.value.trim() !== '');
-/**
- * 当前层级：courses（课程列表）/ books（未归属的册次列表）/ banks（题库列表）。
- * 搜索时直接落到 banks；模板与标题计数都读它，避免三处各写一遍条件。
- */
-const browseLevel = computed<'courses' | 'books' | 'banks'>(() => {
-  if (searchActive.value) return 'banks';
-  if (onlyUnbound.value) return unboundBook.value === '' ? 'books' : 'banks';
-  return catalogCourseId.value === null ? 'courses' : 'banks';
-});
-const activeCourseName = computed(() => {
-  if (onlyUnbound.value) return unboundBook.value !== '' ? `未归属 / ${unboundBook.value}` : '未归属课程';
-  const course = catalog.value.courses.find((c) => c.id === catalogCourseId.value);
-  return course?.name ?? '全部课程';
-});
-
-/**
- * 题库详情区的次要操作菜单。
- * 之前这里是 8 个同权重按钮并排（主次不分），现在只留「导入题目 / 新建题目」，
- * 导出与整卷相关操作收进「导出 / 更多」。
- */
-const bankMenuItems = computed(() => [
-  {
-    key: 'export-csv',
-    label: '导出 CSV',
-    icon: 'download' as const,
-    hint: 'Excel 继续编辑',
-    disabled: !selectedBank.value,
-  },
-  {
-    key: 'export-md',
-    label: '导出 Markdown',
-    icon: 'download' as const,
-    hint: '可贴进笔记软件',
-    disabled: !selectedBank.value,
-  },
-  {
-    key: 'export-docx',
-    label: '导出 Word（含答案）',
-    icon: 'print' as const,
-    hint: '打印发给教研组',
-    disabled: !selectedBank.value,
-  },
-  {
-    key: 'export-docx-blank',
-    label: 'Word 试卷（不含答案）',
-    icon: 'print' as const,
-    hint: '直接发给学生',
-    disabled: !selectedBank.value,
-  },
-  {
-    key: 'exam',
-    label: '用这份试卷建考试',
-    icon: 'exam' as const,
-    hint: '按题目顺序生成考试',
-    disabled: !selectedBank.value || selectedBank.value.kind !== 'paper',
-  },
-  {
-    key: 'template-csv',
-    label: '下载 CSV 模板',
-    icon: 'download' as const,
-    hint: '按模板填好后再导入',
-  },
-  {
-    key: 'template-md',
-    label: '下载 Markdown 模板',
-    icon: 'download' as const,
-  },
-  {
-    key: 'dedupe',
-    label: '清理重复题',
-    icon: 'copy' as const,
-    hint: '题干+选项+答案一致才合并',
-    disabled: !selectedBank.value || dedupeBusy.value,
-  },
-]);
-
-/**
- * 题库列表里每一行的「⋯」菜单。
- *
- * 设计取舍（原页面的"反人类"点之一）：左栏每个题库行都常显 3 个按钮
- * （重命名 / 删除），300 行就是 900 个按钮 —— 又挤又容易误点删除。
- * 现在行内只保留名称与题量，操作收进选中/悬停才出现的菜单。
- */
-function bankRowMenuItems() {
-  return [
-    { key: 'rename', label: '重命名', icon: 'edit' as const },
-    { key: 'delete', label: '删除题库', icon: 'trash' as const, danger: true },
-  ];
-}
-
-function onBankRowMenu(bank: Bank, key: string): void {
-  if (key === 'rename') openEditBank(bank);
-  else if (key === 'delete') void removeBank(bank);
-}
-
-function onBankMenuSelect(key: string): void {
-  switch (key) {
-    case 'template-csv':
-      void downloadTemplate('csv');
-      break;
-    case 'template-md':
-      void downloadTemplate('md');
-      break;
-    case 'export-csv':
-      void exportBank('csv');
-      break;
-    case 'export-md':
-      void exportBank('md');
-      break;
-    case 'export-docx':
-      void exportBank('docx');
-      break;
-    case 'export-docx-blank':
-      void exportBank('docx', false);
-      break;
-    case 'exam':
-      openExamFromBank();
-      break;
-    case 'dedupe':
-      void previewDedupe();
-      break;
-  }
-}
-
-async function loadCatalog(): Promise<void> {
-  catalogLoading.value = true;
-  try {
-    catalog.value = await api.get<CatalogResponse>('/banks/catalog');
-  } catch (e) {
-    toast.error(errorMessage(e));
-  } finally {
-    catalogLoading.value = false;
-  }
-}
-
-async function pickCourse(courseId: number | null): Promise<void> {
-  catalogCourseId.value = courseId;
-  onlyUnbound.value = false;
-  unboundBook.value = '';
-  // 拉一次课程详情：给「关联课时」下拉提供章节/课时选项
-  if (courseId !== null) await loadCatalogCourse(courseId);
-  await loadBanks(false);
-}
-
-/** 取某课程的章节/课时细节（只服务「关联课时」下拉，左栏导航不再用它） */
-async function loadCatalogCourse(courseId: number): Promise<void> {
-  catalogCourseLoading.value = courseId;
-  try {
-    catalogCourseDetail.value = await api.get<CatalogDetail>(`/banks/catalog?courseId=${courseId}`);
-  } catch (e) {
-    toast.error(errorMessage(e));
-  } finally {
-    catalogCourseLoading.value = null;
-  }
-}
-
-async function pickUnbound(book = ''): Promise<void> {
-  onlyUnbound.value = true;
-  unboundBook.value = book;
-  catalogCourseId.value = null;
-  await loadBanks(false);
-}
-
-/** 把某个题库挂到指定课程（「未归属」里手工归类） */
-async function bindBankCourse(bank: Bank, courseId: number | null): Promise<void> {
-  try {
-    await api.put<OkResponse>(`/banks/${bank.id}`, { name: bank.name, lessonId: bank.lesson_id, courseId });
-    toast.success(courseId === null ? `已把「${bank.name}」移出课程` : `已把「${bank.name}」挂到课程`);
-    await Promise.all([loadCatalog(), loadBanks()]);
-  } catch (e) {
-    toast.error(errorMessage(e));
-  }
-}
-
-async function rebind(): Promise<void> {
-  rebinding.value = true;
-  try {
-    const res = await api.post<{
-      byLesson: number;
-      byBook: number;
-      unmatched: number;
-      unmatchedBooks: { book: string; banks: number }[];
-    }>('/banks/rebind-courses');
-    toast.success(`已归属课程：课时推导 ${res.byLesson} 个、册次匹配 ${res.byBook} 个；仍未归属 ${res.unmatched} 个`);
-    unmatchedBooks.value = res.unmatchedBooks;
-    await loadCatalog();
-    await loadBanks();
-  } catch (e) {
-    toast.error(errorMessage(e));
-  } finally {
-    rebinding.value = false;
-  }
-}
-
-/* ---------------- 难度重算（内容特征先验 + 作答校准） ---------------- */
-
-interface DifficultyApplyResult {
-  scored: number;
-  updated: number;
-  skippedManual: number;
-  skippedCalibrated: number;
-  cuts: { easyMax: number; mediumMax: number };
-  buckets: { difficulty: string; questions: number }[];
-}
-
-const diffOpen = ref(false);
-const diffBusy = ref(false);
-const diffPreview = ref<DifficultyPreview | null>(null);
-/** 全库重算（不限于当前题库）：量大，默认勾选也只在老师点确认后执行 */
-const diffScopeAll = ref(false);
-
-async function openDifficulty(): Promise<void> {
-  // 从体检弹窗进来时先把体检关掉：两层弹窗叠在一起，后开的那个按钮会被
-  // 前一层的遮罩挡住（E2E 里点「确认重算」被 backdrop 拦截就是这个原因）
-  healthOpen.value = false;
-  diffOpen.value = true;
-  await loadDifficultyPreview();
-}
-
-async function loadDifficultyPreview(): Promise<void> {
-  diffBusy.value = true;
-  diffPreview.value = null;
-  try {
-    const query = diffScopeAll.value || !selectedBank.value ? '' : `?bankId=${selectedBank.value.id}`;
-    diffPreview.value = await api.get<DifficultyPreview>(`/questions/difficulty/preview${query}`);
-  } catch (e) {
-    toast.error(errorMessage(e));
-    diffOpen.value = false;
-  } finally {
-    diffBusy.value = false;
-  }
-}
-
-async function applyDifficulty(): Promise<void> {
-  diffBusy.value = true;
-  try {
-    const scope = diffScopeAll.value || !selectedBank.value ? '' : `?bankId=${selectedBank.value.id}`;
-    const res = await api.post<DifficultyApplyResult>(`/questions/difficulty/apply${scope}`);
-    toast.success(
-      `已重算 ${res.updated} 道题的难度（保留人工 ${res.skippedManual} 道 / 已校准 ${res.skippedCalibrated} 道）`,
-    );
-    diffOpen.value = false;
-    await loadBanks();
-    await loadHealth();
-  } catch (e) {
-    toast.error(errorMessage(e));
-  } finally {
-    diffBusy.value = false;
-  }
-}
-
-/** 用真实作答数据校准（有足够作答的题才动） */
-async function calibrateDifficulty(): Promise<void> {
-  diffBusy.value = true;
-  try {
-    const preview = await api.post<{ calibrated: number; candidates: number; minSamples: number; dryRun: boolean }>(
-      '/questions/difficulty/calibrate',
-    );
-    if (preview.calibrated === 0) {
-      toast.info(`还没有达到 ${preview.minSamples} 次作答的题目，暂时用不上作答数据校准`);
-      return;
-    }
-    const applied = await api.post<{ calibrated: number }>('/questions/difficulty/calibrate?dryRun=0');
-    toast.success(`已按作答数据校准 ${applied.calibrated} 道题的难度`);
-    await loadBanks();
-    await loadHealth();
-  } catch (e) {
-    toast.error(errorMessage(e));
-  } finally {
-    diffBusy.value = false;
-  }
-}
-
-/* ---------------- 整卷试卷 → 一键建考试 ---------------- */
-const examOpen = ref(false);
-const examSaving = ref(false);
-const courses = ref<{ id: number; name: string }[]>([]);
-const examForm = reactive<{
-  courseId: number | '';
-  title: string;
-  durationMinutes: number;
-  passScore: number;
-  publish: boolean;
-}>({ courseId: '', title: '', durationMinutes: 60, passScore: 60, publish: true });
-
-async function loadCourses(): Promise<void> {
-  try {
-    const res = await api.get<{ courses: { id: number; name: string }[] }>('/courses');
-    courses.value = res.courses;
-  } catch (e) {
-    toast.error(errorMessage(e));
-  }
-}
-
-function openExamFromBank(): void {
-  if (!selectedBank.value) return;
-  healthOpen.value = false;
-  examForm.courseId = courses.value[0]?.id ?? '';
-  examForm.title = selectedBank.value.name;
-  examForm.durationMinutes = 60;
-  examForm.passScore = 60;
-  examForm.publish = true;
-  examOpen.value = true;
-}
-
-async function createExamFromBank(): Promise<void> {
-  const bank = selectedBank.value;
-  if (!bank) return;
-  if (examForm.courseId === '') {
-    toast.warning('请选择要挂到哪门课程');
-    return;
-  }
-  examSaving.value = true;
-  try {
-    const res = await api.post<{ examId: number; questions: number }>(`/banks/${bank.id}/exam`, {
-      courseId: examForm.courseId,
-      title: examForm.title,
-      durationMinutes: examForm.durationMinutes,
-      passScore: examForm.passScore,
-      publish: examForm.publish,
-    });
-    toast.success(`已生成考试（${res.questions} 题），可到「考试管理」查看`);
-    examOpen.value = false;
-  } catch (e) {
-    toast.error(errorMessage(e));
-  } finally {
-    examSaving.value = false;
-  }
-}
-
-/* ---------------- 题库体检（标准化与质量） ---------------- */
-const healthOpen = ref(false);
-const healthLoading = ref(false);
-const health = ref<BankHealth | null>(null);
-const KIND_LABEL: Record<string, string> = { lesson: '课时配套', chapter: '章节题库', paper: '整卷试卷' };
-
-async function loadHealth(silent = false): Promise<void> {
-  healthLoading.value = true;
-  try {
-    health.value = await api.get<BankHealth>('/banks/health', { limit: 10 });
-  } catch (e) {
-    if (!silent) toast.error(errorMessage(e));
-  } finally {
-    healthLoading.value = false;
-  }
-}
-
-function toggleHealth(): void {
-  healthOpen.value = !healthOpen.value;
-  if (healthOpen.value) void loadHealth();
-}
-
-async function selectBank(bank: Bank): Promise<void> {
-  if (selectedBankId.value === bank.id) return;
-  selectedBankId.value = bank.id;
-  typeFilter.value = '';
-  difficultyFilter.value = '';
-  keyword.value = '';
-  page.value = 1;
-  await loadQuestions();
-}
-
-/* ---------------- 题库表单 ---------------- */
-const bankFormOpen = ref(false);
-const bankSaving = ref(false);
-const bankEditingId = ref<number | null>(null);
-const bankForm = reactive<{ name: string; lessonId: number | '' }>({ name: '', lessonId: '' });
-
-function openCreateBank(): void {
-  bankEditingId.value = null;
-  bankForm.name = '';
-  bankForm.lessonId = '';
-  bankFormOpen.value = true;
-}
-
-function openEditBank(bank: Bank): void {
-  bankEditingId.value = bank.id;
-  bankForm.name = bank.name;
-  bankForm.lessonId = bank.lesson_id === null ? '' : bank.lesson_id;
-  bankFormOpen.value = true;
-}
-
-async function saveBank(): Promise<void> {
-  const name = bankForm.name.trim();
-  if (!name) {
-    toast.warning('请填写题库名称');
-    return;
-  }
-  const payload = { name, lessonId: bankForm.lessonId === '' ? null : Number(bankForm.lessonId) };
-  bankSaving.value = true;
-  try {
-    if (bankEditingId.value === null) {
-      const res = await api.post<OkIdResponse>('/banks', payload);
-      toast.success(`题库「${name}」已创建`);
-      bankFormOpen.value = false;
-      selectedBankId.value = res.id;
-      await loadBanks();
-    } else {
-      await api.put<OkResponse>(`/banks/${bankEditingId.value}`, payload);
-      toast.success(`题库「${name}」已保存`);
-      bankFormOpen.value = false;
-      await loadBanks();
-    }
-  } catch (e) {
-    toast.error(errorMessage(e));
-  } finally {
-    bankSaving.value = false;
-  }
-}
-
-async function removeBank(bank: Bank): Promise<void> {
-  if (
-    !window.confirm(`确定删除题库「${bank.name}」吗？其中的 ${bank.question_count} 道题目会被一并删除，且不可恢复。`)
-  ) {
-    return;
-  }
-  try {
-    await api.del<OkResponse>(`/banks/${bank.id}`);
-    toast.success(`题库「${bank.name}」已删除`);
-    if (selectedBankId.value === bank.id) selectedBankId.value = null;
-    await loadBanks(false);
-  } catch (e) {
-    toast.error(errorMessage(e));
-  }
-}
-
-/* ---------------- 题目列表 ---------------- */
-const questions = ref<QuestionView[]>([]);
-const questionsLoading = ref(false);
-const typeFilter = ref<'' | QuestionType>('');
-const difficultyFilter = ref<'' | 'easy' | 'medium' | 'hard'>('');
-const keyword = ref('');
-/** 只看「解析只有图片」的题（图片里是解析文字：搜不到、改不了，得先把它们找出来） */
-const mediaOnlyFilter = ref(false);
-/** 「更多筛选」展开开关：低频筛选项默认收起，避免一屏塞三行筛选 */
-const showMoreFilters = ref(false);
-const page = ref(1);
-const total = ref(0);
-
-/**
- * 关键词**输入即搜**（400ms 防抖）。
- * 原来要手动点"搜索"按钮：老师输完习惯性回车/直接看结果，容易以为没搜到。
- */
-let keywordTimer: ReturnType<typeof setTimeout> | undefined;
-watch(keyword, () => {
-  if (keywordTimer) clearTimeout(keywordTimer);
-  keywordTimer = setTimeout(() => {
-    page.value = 1;
-    void loadQuestions();
-  }, 400);
-});
-
-/** 每页条数：老师看 100 条/页很常见，给 20/50/100 三档 */
-const pageSize = ref(DEFAULT_PAGE_SIZE);
-const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)));
-
-function goPageTo(target: number): void {
-  page.value = Math.min(Math.max(1, target), totalPages.value);
-  void loadQuestions();
-}
-
-function changePageSize(): void {
-  page.value = 1;
-  void loadQuestions();
-}
-
-/** 题型/难度筛选（chip 组用）：设值后立即查询 */
-function setTypeFilter(value: '' | QuestionType): void {
-  typeFilter.value = value;
-  search();
-}
-
-function setDifficultyFilter(value: '' | 'easy' | 'medium' | 'hard'): void {
-  difficultyFilter.value = value;
-  search();
-}
-
-/** 悬停看细节：评分 / 来源 / 样本数（原来直接堆在行里，太吵） */
-function difficultyTitle(question: {
-  difficulty?: string | null;
-  difficulty_score?: number | null;
-  difficulty_source?: string | null;
-  difficulty_n?: number | null;
-}): string {
-  const parts = [`难度 ${difficultyLabel(question.difficulty)}`];
-  if ((question.difficulty_score ?? -1) > 0) parts.push(`${Math.round(question.difficulty_score ?? 0)}/100`);
-  if (question.difficulty_source) parts.push(difficultySourceLabel(question.difficulty_source));
-  if (question.difficulty_n) parts.push(`${question.difficulty_n} 次作答`);
-  return parts.join(' · ');
-}
-
-const DIFFICULTY_OPTIONS: { value: 'easy' | 'medium' | 'hard'; label: string }[] = [
-  { value: 'easy', label: '基础' },
-  { value: 'medium', label: '中等' },
-  { value: 'hard', label: '较难' },
-];
-
-/** 多选：当前页选中的题目 id */
-const selectedIds = ref<Set<number>>(new Set());
-const selectedCount = computed(() => selectedIds.value.size);
-const allOnPageSelected = computed(
-  () => questions.value.length > 0 && questions.value.every((q) => selectedIds.value.has(q.id)),
-);
-function toggleSelect(id: number): void {
-  const next = new Set(selectedIds.value);
-  if (next.has(id)) next.delete(id);
-  else next.add(id);
-  selectedIds.value = next;
-}
-function toggleSelectAllOnPage(): void {
-  if (allOnPageSelected.value) {
-    selectedIds.value = new Set();
-    return;
-  }
-  selectedIds.value = new Set(questions.value.map((q) => q.id));
-}
-function clearSelection(): void {
-  if (selectedIds.value.size > 0) selectedIds.value = new Set();
-}
-
-/** 批量改难度的菜单项（复用题型的难度档位定义） */
-const bulkDifficultyItems = DIFFICULTY_OPTIONS.map((d) => ({ key: d.value, label: d.label }));
-
-const bulkBusy = ref(false);
-
-/** 批量改难度：人工标注（重算难度不会覆盖），一次请求处理一页以内 */
-async function bulkSetDifficulty(difficulty: 'easy' | 'medium' | 'hard'): Promise<void> {
-  const bankId = selectedBankId.value;
-  const ids = [...selectedIds.value];
-  if (bankId === null || ids.length === 0) return;
-  bulkBusy.value = true;
-  try {
-    const res = await api.post<{ updated: number; skipped: number }>(`/banks/${bankId}/questions/bulk-difficulty`, {
-      ids,
-      difficulty,
-    });
-    toast.success(`已把 ${res.updated} 道题标为「${difficultyLabel(difficulty)}」`);
-    clearSelection();
-    await loadQuestions();
-  } catch (e) {
-    toast.error(errorMessage(e));
-  } finally {
-    bulkBusy.value = false;
-  }
-}
-
-/** 批量删除：不可恢复，二次确认 */
-async function bulkDelete(): Promise<void> {
-  const bankId = selectedBankId.value;
-  const ids = [...selectedIds.value];
-  if (bankId === null || ids.length === 0) return;
-  if (!window.confirm(`确定删除选中的 ${ids.length} 道题吗？删除后不可恢复。`)) return;
-  bulkBusy.value = true;
-  try {
-    const res = await api.post<{ deleted: number; skipped: number }>(`/banks/${bankId}/questions/bulk-delete`, { ids });
-    toast.success(`已删除 ${res.deleted} 道题`);
-    clearSelection();
-    await loadQuestions();
-    await loadBanks();
-  } catch (e) {
-    toast.error(errorMessage(e));
-  } finally {
-    bulkBusy.value = false;
-  }
-}
-
-/** 按册次批量挂课程：选中的册次与目标课程 */
-const bindBookTarget = ref<{ book: string; bankCount: number } | null>(null);
-const bindCourseId = ref<number | ''>('');
-const bindingBook = ref(false);
-
-function openBindBook(item: { book: string; bankCount: number }): void {
-  bindBookTarget.value = item;
-  bindCourseId.value = '';
-}
-
-function closeBindBook(): void {
-  bindBookTarget.value = null;
-  bindCourseId.value = '';
-}
-
-async function confirmBindBook(): Promise<void> {
-  const target = bindBookTarget.value;
-  if (!target || bindCourseId.value === '') return;
-  bindingBook.value = true;
-  try {
-    const res = await api.post<{ updated: number; courseName: string }>('/banks/bind-by-book', {
-      book: target.book,
-      courseId: Number(bindCourseId.value),
-    });
-    toast.success(`已把 ${res.updated} 个题库挂到「${res.courseName}」`);
-    closeBindBook();
-    await loadCatalog();
-    await loadBanks(false);
-  } catch (e) {
-    toast.error(errorMessage(e));
-  } finally {
-    bindingBook.value = false;
-  }
-}
-
-/**
- * 题库管理显示偏好（localStorage 记住）：
- *   行密度 与 是否显示题目元信息 —— 老师审题喜欢紧凑、录题喜欢信息全，两种人都要照顾。
- */
-const PREFS_KEY = 'mc.bank.prefs';
-const density = ref<'comfortable' | 'compact'>('comfortable');
-const showMeta = ref(true);
-function loadPrefs(): void {
-  try {
-    const raw = JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}') as {
-      density?: 'comfortable' | 'compact';
-      showMeta?: boolean;
-    };
-    if (raw.density === 'compact' || raw.density === 'comfortable') density.value = raw.density;
-    if (typeof raw.showMeta === 'boolean') showMeta.value = raw.showMeta;
-  } catch {
-    /* 隐私模式读不到 localStorage：用默认值 */
-  }
-}
-function savePrefs(): void {
-  try {
-    localStorage.setItem(PREFS_KEY, JSON.stringify({ density: density.value, showMeta: showMeta.value }));
-  } catch {
-    /* 忽略 */
-  }
-}
-watch([density, showMeta], savePrefs);
-
-/** 「显示」菜单项：一次点击切换一项 */
-const viewMenuItems = computed(() => [
-  {
-    key: 'density',
-    label: density.value === 'compact' ? '行高：紧凑（点击切换为舒适）' : '行高：舒适（点击切换为紧凑）',
-  },
-  { key: 'meta', label: showMeta.value ? '隐藏题目难度/知识点' : '显示题目难度/知识点' },
-]);
-function onViewMenu(key: string): void {
-  if (key === 'density') density.value = density.value === 'compact' ? 'comfortable' : 'compact';
-  else if (key === 'meta') showMeta.value = !showMeta.value;
-}
-
-/** 表格容器引用：点表格任意处让它获得焦点，↑↓ 就能直接用 */
-const tableWrap = ref<HTMLElement | null>(null);
+/* 模板绑定：只解构模板真正用到的状态与操作 */
+const {
+  catalog,
+  catalogCourseId,
+  onlyUnbound,
+  bankKeyword,
+  bankSort,
+  showAllBanks,
+  visibleBanks,
+  sortedBanks,
+  visibleCourses,
+  searchActive,
+  browseLevel,
+  activeCourseName,
+  courseLessonOptions,
+  banks,
+  banksLoading,
+  selectedBankId,
+  selectedBank,
+  kindFilter,
+  rebinding,
+  loadBanks,
+  pickCourse,
+  pickUnbound,
+  bindBankCourse,
+  rebind,
+} = catalogApi;
+
+const {
+  questions,
+  questionsLoading,
+  typeFilter,
+  difficultyFilter,
+  keyword,
+  mediaOnlyFilter,
+  showMoreFilters,
+  page,
+  total,
+  pageSize,
+  totalPages,
+  selectedIds,
+  selectedCount,
+  allOnPageSelected,
+  toggleSelect,
+  toggleSelectAllOnPage,
+  clearSelection,
+  bulkDifficultyItems,
+  bulkBusy,
+  bulkSetDifficulty,
+  bulkDelete,
+  isStemExpanded,
+  toggleStem,
+  tableWrap,
+  activeRow,
+  keywordInput,
+  onTableKeydown,
+  difficultyTitle,
+  DIFFICULTY_OPTIONS,
+  answerText,
+  density,
+  showMeta,
+  viewMenuItems,
+  onViewMenu,
+  loadPrefs,
+  selectBank,
+  search,
+  resetFilters,
+  showMediaOnlyQuestions,
+  setTypeFilter,
+  setDifficultyFilter,
+  goPage,
+  goPageTo,
+  changePageSize,
+  qOpen,
+  qSaving,
+  qEditingId,
+  qImagePath,
+  qForm,
+  openCreateQuestion,
+  openEditQuestion,
+  saveQuestion,
+  removeQuestion,
+  pickQuestionImage,
+  onQuestionImagePicked,
+} = questionApi;
+
+const { importing, importResult, pickImportFile, onImportFilePicked } = importApi;
+
+const {
+  bankFormOpen,
+  bankSaving,
+  bankEditingId,
+  bankForm,
+  openCreateBank,
+  saveBank,
+  dedupeBusy,
+  dedupeResult,
+  applyDedupe,
+  diffOpen,
+  diffBusy,
+  diffPreview,
+  diffScopeAll,
+  openDifficulty,
+  loadDifficultyPreview,
+  applyDifficulty,
+  calibrateDifficulty,
+  examOpen,
+  examSaving,
+  examForm,
+  courses,
+  loadCourses,
+  createExamFromBank,
+  healthOpen,
+  healthLoading,
+  health,
+  loadHealth,
+  toggleHealth,
+  bindBookTarget,
+  bindCourseId,
+  bindingBook,
+  openBindBook,
+  closeBindBook,
+  confirmBindBook,
+  bankMenuItems,
+  bankRowMenuItems,
+  onBankRowMenu,
+  onBankMenuSelect,
+} = actionsApi;
 
 /** 文档级快捷键：/ 聚焦题干搜索（在输入框里打字时不拦截） */
 function onGlobalKeydown(event: KeyboardEvent): void {
@@ -928,399 +199,6 @@ function onGlobalKeydown(event: KeyboardEvent): void {
   keywordInput.value?.focus();
 }
 
-/** 键盘流：当前高亮的题目下标（-1 = 未选） */
-const activeRow = ref(-1);
-/** 搜索框引用：按 "/" 直接聚焦 */
-const keywordInput = ref<HTMLInputElement | null>(null);
-
-function onTableKeydown(event: KeyboardEvent): void {
-  const target = event.target as HTMLElement | null;
-  const typing = target !== null && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
-  if (typing && event.key !== 'Escape') return;
-  const count = questions.value.length;
-  if (count === 0) return;
-  if (event.key === 'ArrowDown') {
-    event.preventDefault();
-    activeRow.value = activeRow.value < 0 ? 0 : Math.min(count - 1, activeRow.value + 1);
-    return;
-  }
-  if (event.key === 'ArrowUp') {
-    event.preventDefault();
-    activeRow.value = activeRow.value <= 0 ? 0 : activeRow.value - 1;
-    return;
-  }
-  if (event.key === 'Enter' && activeRow.value >= 0) {
-    event.preventDefault();
-    const row = questions.value[activeRow.value];
-    if (row) openEditQuestion(row);
-    return;
-  }
-  if (event.key === 'Escape') activeRow.value = -1;
-}
-
-async function loadQuestions(): Promise<void> {
-  clearSelection();
-  activeRow.value = -1;
-  const bankId = selectedBankId.value;
-  if (bankId === null) {
-    questions.value = [];
-    total.value = 0;
-    return;
-  }
-  questionsLoading.value = true;
-  try {
-    const res = await api.get<QuestionPageResponse>(`/banks/${bankId}/questions`, {
-      ...(typeFilter.value ? { type: typeFilter.value } : {}),
-      ...(difficultyFilter.value ? { difficulty: difficultyFilter.value } : {}),
-      ...(keyword.value.trim() ? { keyword: keyword.value.trim() } : {}),
-      ...(mediaOnlyFilter.value ? { mediaOnlyAnalysis: 1 } : {}),
-      page: page.value,
-      pageSize: pageSize.value,
-    });
-    questions.value = res.questions;
-    total.value = res.total;
-    page.value = res.page;
-  } catch (e) {
-    toast.error(errorMessage(e));
-    questions.value = [];
-    total.value = 0;
-  } finally {
-    questionsLoading.value = false;
-  }
-}
-
-function search(): void {
-  page.value = 1;
-  void loadQuestions();
-}
-
-function resetFilters(): void {
-  keyword.value = '';
-  typeFilter.value = '';
-  difficultyFilter.value = '';
-  mediaOnlyFilter.value = false;
-  showMoreFilters.value = false;
-  search();
-}
-
-/** 体检面板「解析纯图片」点一下 → 左侧题库列表按这个条件筛出来 */
-function showMediaOnlyQuestions(): void {
-  mediaOnlyFilter.value = true;
-  search();
-  void nextTick(() => document.querySelector('.bank-panel__listhead')?.scrollIntoView({ behavior: 'smooth' }));
-}
-
-function goPage(delta: number): void {
-  const next = page.value + delta;
-  if (next < 1 || next > totalPages.value) return;
-  page.value = next;
-  void loadQuestions();
-}
-
-function letter(index: number): string {
-  return String.fromCharCode(65 + index);
-}
-
-/** 存储的答案既可能是下标串（"0,2"），也可能是旧的字母串（"AC" / "A,C"） */
-function answerIndexes(raw: string | undefined): number[] {
-  const s = (raw ?? '').trim();
-  if (!s) return [];
-  if (/^[A-Fa-f](,?[A-Fa-f])*$/.test(s)) {
-    const letters: number[] = [];
-    for (const ch of s.toUpperCase()) {
-      const code = ch.charCodeAt(0);
-      if (code >= 65 && code <= 70) letters.push(code - 65);
-    }
-    return [...new Set(letters)].sort((a, b) => a - b);
-  }
-  return s
-    .split(',')
-    .map((x) => Number.parseInt(x.trim(), 10))
-    .filter((n) => !Number.isNaN(n) && n >= 0);
-}
-
-function answerText(question: QuestionView): string {
-  if (question.type === 'judge') return question.answer === 'T' ? '对' : '错';
-  if (question.type === 'single' || question.type === 'multiple') {
-    const letters = answerIndexes(question.answer).map(letter).join('');
-    return letters || '—';
-  }
-  return question.answer ?? '—';
-}
-
-/* ---------------- 题目编辑器 ---------------- */
-const qOpen = ref(false);
-const qSaving = ref(false);
-const qEditingId = ref<number | null>(null);
-const qImagePath = ref('');
-const qImageInput = ref<HTMLInputElement | null>(null);
-/** 题目编辑表单的字段契约（与 QuestionEditor 的 props 对齐） */
-interface QuestionFormDraft {
-  type: QuestionType;
-  stem: string;
-  options: OptionDraft[];
-  singleAnswer: number;
-  multipleAnswer: number[];
-  judgeAnswer: string;
-  textAnswer: string;
-  analysis: string;
-  sort: number;
-  difficulty: string;
-}
-
-const qForm = reactive<QuestionFormDraft>({
-  type: 'single',
-  stem: '',
-  options: [{ text: '' }, { text: '' }] as OptionDraft[],
-  singleAnswer: 0,
-  multipleAnswer: [] as number[],
-  judgeAnswer: 'T',
-  textAnswer: '',
-  analysis: '',
-  sort: 0,
-  /** 难度：空串 = 交给难度模型自动判定；选了三档就记为人工标注 */
-  difficulty: '',
-});
-
-const isChoice = computed(() => qForm.type === 'single' || qForm.type === 'multiple');
-
-function resetQuestionForm(): void {
-  qEditingId.value = null;
-  qImagePath.value = '';
-  qForm.type = 'single';
-  qForm.stem = '';
-  qForm.options = [{ text: '' }, { text: '' }];
-  qForm.singleAnswer = 0;
-  qForm.multipleAnswer = [];
-  qForm.judgeAnswer = 'T';
-  qForm.textAnswer = '';
-  qForm.analysis = '';
-  qForm.sort = 0;
-  qForm.difficulty = '';
-}
-
-function openCreateQuestion(): void {
-  if (selectedBankId.value === null) {
-    toast.warning('请先选择或创建一个题库');
-    return;
-  }
-  resetQuestionForm();
-  qForm.sort = total.value;
-  qOpen.value = true;
-}
-
-function openEditQuestion(question: QuestionView): void {
-  resetQuestionForm();
-  qEditingId.value = question.id;
-  qImagePath.value = question.image_path;
-  qForm.type = question.type;
-  qForm.stem = question.stem;
-  qForm.analysis = question.analysis ?? '';
-  qForm.sort = question.sort;
-  qForm.options =
-    question.options.length > 0 ? question.options.map((text) => ({ text })) : [{ text: '' }, { text: '' }];
-  const picked = answerIndexes(question.answer);
-  if (question.type === 'single') qForm.singleAnswer = picked[0] ?? 0;
-  if (question.type === 'multiple') qForm.multipleAnswer = picked;
-  if (question.type === 'judge') qForm.judgeAnswer = question.answer === 'F' ? 'F' : 'T';
-  if (question.type === 'fill' || question.type === 'short') qForm.textAnswer = question.answer ?? '';
-  // 已经人工标注过的才回填三档；模型算出来的不预填，避免老师一保存就被当成人工标注
-  qForm.difficulty =
-    question.difficulty_source === 'manual' &&
-    (question.difficulty === 'easy' || question.difficulty === 'medium' || question.difficulty === 'hard')
-      ? question.difficulty
-      : '';
-  qOpen.value = true;
-}
-
-/** 保存时丢弃空选项，并把答案下标重映射到过滤后的位置 */
-function compactOptions(): { texts: string[]; map: number[] } {
-  const texts: string[] = [];
-  const map: number[] = [];
-  qForm.options.forEach((option, index) => {
-    const text = option.text.trim();
-    if (!text) return;
-    texts.push(text);
-    map.push(index);
-  });
-  return { texts, map };
-}
-
-async function saveQuestion(): Promise<void> {
-  const bankId = selectedBankId.value;
-  if (bankId === null) return;
-  const stem = qForm.stem.trim();
-  if (!stem) {
-    toast.warning('请填写题干');
-    return;
-  }
-
-  const { texts, map } = compactOptions();
-  let answer = '';
-  if (isChoice.value) {
-    if (texts.length < 2) {
-      toast.warning('选择题至少需要 2 个非空选项');
-      return;
-    }
-    const picked = qForm.type === 'single' ? [qForm.singleAnswer] : [...qForm.multipleAnswer].sort((a, b) => a - b);
-    const indexes: number[] = [];
-    for (const index of picked) {
-      const mapped = map.indexOf(index);
-      if (mapped >= 0) indexes.push(mapped);
-    }
-    if (indexes.length === 0) {
-      toast.warning('请勾选正确答案');
-      return;
-    }
-    answer = [...new Set(indexes)].sort((a, b) => a - b).join(',');
-  } else if (qForm.type === 'judge') {
-    answer = qForm.judgeAnswer;
-  } else {
-    answer = qForm.textAnswer.trim();
-    if (!answer) {
-      toast.warning(qForm.type === 'fill' ? '请填写填空题答案' : '请填写参考答案');
-      return;
-    }
-  }
-
-  const payload = {
-    bankId,
-    lessonId: selectedBank.value?.lesson_id ?? null,
-    type: qForm.type,
-    stem,
-    options: isChoice.value ? texts : [],
-    answer,
-    analysis: qForm.analysis.trim(),
-    sort: Number(qForm.sort) || 0,
-    // 非空表示老师手动指定（后端记 difficulty_source = 'manual'，之后自动重算不会覆盖）
-    difficulty: qForm.difficulty,
-  };
-
-  qSaving.value = true;
-  try {
-    if (qEditingId.value === null) {
-      await api.post<OkIdResponse>(`/banks/${bankId}/questions`, payload);
-      toast.success('题目已添加');
-    } else {
-      await api.put<OkResponse>(`/questions/${qEditingId.value}`, payload);
-      toast.success('题目已保存');
-    }
-    qOpen.value = false;
-    await loadQuestions();
-    await loadBanks();
-  } catch (e) {
-    toast.error(errorMessage(e));
-  } finally {
-    qSaving.value = false;
-  }
-}
-
-async function removeQuestion(question: QuestionView): Promise<void> {
-  const preview = question.stem.length > 20 ? `${question.stem.slice(0, 20)}…` : question.stem;
-  if (!window.confirm(`确定删除题目「${preview}」吗？该题目会从题库和已组试卷中移除。`)) return;
-  try {
-    await api.del<OkResponse>(`/questions/${question.id}`);
-    toast.success('题目已删除');
-    if (questions.value.length === 1 && page.value > 1) page.value -= 1;
-    await loadQuestions();
-    await loadBanks();
-  } catch (e) {
-    toast.error(errorMessage(e));
-  }
-}
-
-function pickQuestionImage(): void {
-  if (qEditingId.value === null) {
-    toast.info('请先保存题目，再上传配图');
-    return;
-  }
-  qImageInput.value?.click();
-}
-
-async function onQuestionImagePicked(event: Event): Promise<void> {
-  const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
-  input.value = '';
-  const id = qEditingId.value;
-  if (!file || id === null) return;
-  const fd = new FormData();
-  fd.append('file', file);
-  try {
-    const res = await api.upload<ImageResponse>(`/questions/${id}/image`, fd);
-    qImagePath.value = res.imagePath;
-    toast.success('配图已上传');
-    await loadQuestions();
-  } catch (e) {
-    toast.error(errorMessage(e));
-  }
-}
-
-/* ---------------- 导入导出：CSV / Markdown / Word ---------------- */
-const fileInput = ref<HTMLInputElement | null>(null);
-const importing = ref(false);
-const importResult = ref<{ inserted: number; errors: string[]; warnings: string[] } | null>(null);
-
-async function downloadTemplate(kind: 'csv' | 'md'): Promise<void> {
-  try {
-    await api.download(kind === 'csv' ? '/banks/template.csv' : '/banks/template.md');
-    toast.success(`${kind === 'csv' ? 'CSV' : 'Markdown'} 模板已开始下载`);
-  } catch (e) {
-    toast.error(errorMessage(e));
-  }
-}
-
-/** 导出：CSV（Excel 继续编辑）/ Markdown（笔记软件、版本库）/ Word（打印、发给学生） */
-async function exportBank(format: 'csv' | 'md' | 'docx', withAnswers = true): Promise<void> {
-  const bank = selectedBank.value;
-  if (!bank) {
-    toast.warning('请先选择题库');
-    return;
-  }
-  try {
-    const path =
-      format === 'csv'
-        ? `/banks/${bank.id}/export.csv`
-        : format === 'md'
-          ? `/banks/${bank.id}/export.md`
-          : `/banks/${bank.id}/export.docx`;
-    await api.download(path, format === 'csv' ? undefined : { answers: withAnswers ? '1' : '0' });
-    toast.success(`题库「${bank.name}」已开始下载`, format === 'docx' ? 'Word 可直接打印，配图已内嵌' : '');
-  } catch (e) {
-    toast.error(errorMessage(e));
-  }
-}
-
-function pickImportFile(): void {
-  if (selectedBankId.value === null) {
-    toast.warning('请先选择题库');
-    return;
-  }
-  fileInput.value?.click();
-}
-
-async function onImportFilePicked(event: Event): Promise<void> {
-  const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
-  input.value = '';
-  const bankId = selectedBankId.value;
-  if (!file || bankId === null) return;
-  const fd = new FormData();
-  fd.append('file', file);
-  importing.value = true;
-  try {
-    const res = await api.upload<ImportResponse>(`/banks/${bankId}/import`, fd);
-    importResult.value = { inserted: res.inserted, errors: res.errors, warnings: res.warnings ?? [] };
-    toast.success(`成功导入 ${res.inserted} 道题目`, res.errors.length > 0 ? `有 ${res.errors.length} 题未导入` : '');
-    page.value = 1;
-    await loadQuestions();
-    await loadBanks();
-  } catch (e) {
-    toast.error(errorMessage(e));
-  } finally {
-    importing.value = false;
-  }
-}
-
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', onGlobalKeydown);
 });
@@ -1329,7 +207,7 @@ onMounted(() => {
   document.addEventListener('keydown', onGlobalKeydown);
   loadPrefs();
   void loadCourses();
-  void loadCatalog();
+  void catalogApi.loadCatalog();
   void loadBanks(false);
   // 指标卡片要用体检数据（服务端已预热 + 5 分钟缓存，约 20ms；失败不影响页面）
   void loadHealth(true);
