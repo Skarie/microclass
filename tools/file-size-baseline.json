@@ -4,7 +4,6 @@
   "apps/api/src/db/repositories/bankRepository.ts": 452,
   "apps/api/src/db/repositories/examRepository.ts": 873,
   "apps/api/src/db/repositories/questionConflictRepository.ts": 304,
-  "apps/api/src/db/repositories/questionRepository.ts": 900,
   "apps/api/src/domain/difficulty.ts": 330,
   "apps/api/src/domain/paperHtml.ts": 381,
   "apps/api/src/domain/question.ts": 381,
