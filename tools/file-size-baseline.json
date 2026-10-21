@@ -13,7 +13,6 @@
   "apps/api/src/routes/lessons.ts": 330,
   "apps/api/src/services/analyticsService.ts": 356,
   "apps/api/src/services/difficultyService.ts": 385,
-  "apps/api/src/services/exam-paper.ts": 1049,
   "apps/api/src/services/examService.ts": 583,
   "apps/api/src/services/questionConflictService.ts": 339,
   "apps/api/src/utils/docx.ts": 351,
