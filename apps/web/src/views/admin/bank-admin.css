@@ -328,6 +328,9 @@
 }
 
 .bank-item {
+  /* 行不允许收缩：容器是 max-height + overflow 的 flex 列，
+     默认 flex-shrink 会把两行题库名压成一行高度，导致文字溢出压到下一行 */
+  flex: none;
   padding: var(--mc-space-3) var(--mc-space-3);
   border-radius: var(--mc-radius);
   min-height: 44px;
@@ -355,6 +358,7 @@
 }
 
 .nav-item {
+  flex: none;
   min-height: 42px;
   padding: var(--mc-space-3) var(--mc-space-3);
   border-radius: var(--mc-radius);
