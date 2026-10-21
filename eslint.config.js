@@ -3,7 +3,16 @@ import pluginVue from 'eslint-plugin-vue';
 
 export default tseslint.config(
   {
-    ignores: ['**/dist/**', '**/node_modules/**', '**/coverage/**', 'apps/web/dist/**', '**/*.d.ts'],
+    ignores: [
+      '**/dist/**',
+      '**/node_modules/**',
+      '**/coverage/**',
+      'apps/web/dist/**',
+      '**/*.d.ts',
+      'build/**',
+      'test-results/**',
+      'playwright-report/**',
+    ],
   },
   ...tseslint.configs.recommendedTypeChecked,
   {
