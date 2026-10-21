@@ -89,3 +89,64 @@ const emit = defineEmits<{
     </template>
   </AppModal>
 </template>
+
+<style scoped>
+.bindbook {
+  gap: var(--mc-space-3);
+}
+
+.bindbook__lead {
+  margin: 0;
+  font-size: var(--mc-text-base);
+}
+
+.bindbook__hint {
+  margin: 0;
+  font-size: var(--mc-text-xs);
+}
+
+.kpi {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--mc-space-4);
+}
+
+.kpi__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mc-space-1);
+  padding: var(--mc-space-4) var(--mc-space-5);
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius-lg);
+  background: var(--mc-bg-elev, var(--mc-surface-2));
+  box-shadow: var(--mc-shadow-xs);
+  text-align: left;
+}
+
+.kpi__card--action {
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.kpi__card--action:hover {
+  border-color: var(--mc-primary-border);
+  background: var(--mc-primary-soft);
+}
+
+.kpi__label {
+  font-size: var(--mc-text-sm);
+  color: var(--mc-text-muted);
+}
+
+.kpi__value {
+  font-size: var(--mc-text-2xl);
+  font-weight: var(--mc-font-semibold);
+  line-height: var(--mc-leading-display);
+  font-variant-numeric: tabular-nums;
+}
+
+.kpi__sub {
+  font-size: var(--mc-text-xs);
+}
+</style>

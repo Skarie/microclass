@@ -19,12 +19,12 @@
 
 ## 二、规范（新代码必须遵守）
 
-1. **单文件上限 500 行**（Vue 单文件组件指 `<script setup>` + `<template>` 合计；超过就要拆）。
+1. **单文件目标 100~200 行、硬上限 300 行**（Vue 单文件组件指 `<script setup>` + `<template>` 合计；超过就要拆）。已有超限文件登记在 `tools/file-size-baseline.json`，只能减不能增，详见 `docs/code-standards.md`。
 2. **一个文件一个职责**：服务按领域拆（组卷 ≠ 判分 ≠ 成绩单 ≠ 打印）；组件按「一块可独立刷新的界面」拆。
 3. **命名与职责一致**：例如 `mediaOptimizeService`（faststart + HLS），不再叫 faststart —— 名字只描述一半功能，接手的人会误判。
 4. **共享逻辑收敛到 `utils/`**：同一种格式化/校验只写一次。
 5. **类型就近集中**：模块内类型放在文件顶部或 `types.ts`，跨模块共享才进 `packages/shared`。
-6. **提交前跑校验**：`npx prettier --check . && npx eslint . && npm run typecheck`（仓库已装 pre-push 钩子，CI 再兜底）。
+6. **提交前跑校验**：`npx prettier --check . && npx eslint . && npm run typecheck && node tools/check-file-size.mjs`（仓库已装 pre-push 钩子，CI 再兜底）。
 7. **行为改动配测试**：动判分/权限/计分逻辑，先在 `apps/api/test` 补用例。
 
 ## 三、拆分顺序（每步独立可验证）

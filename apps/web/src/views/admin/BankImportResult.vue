@@ -71,4 +71,12 @@ const emit = defineEmits<{ close: [] }>();
   background: var(--mc-warning-soft);
   color: var(--mc-warning-fg);
 }
+
+/* 提示类（可以导入、但需要老师留意，如被忽略的图片链接） */
+.import-help code {
+  background: var(--mc-bg-sunken);
+  border-radius: var(--mc-radius);
+  padding: 0 4px;
+  font-size: var(--mc-text-xs);
+}
 </style>

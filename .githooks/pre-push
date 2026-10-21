@@ -5,4 +5,5 @@ echo "[pre-push] prettier / eslint / typecheck ..."
 npx prettier --check . >/dev/null
 npx eslint . >/dev/null
 npm run typecheck >/dev/null
+node tools/check-file-size.mjs
 echo "[pre-push] ??"

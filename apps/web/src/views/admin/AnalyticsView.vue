@@ -717,4 +717,38 @@ function syncQuery(): void {
   flex-wrap: wrap;
   font-size: var(--mc-text-xs);
 }
+
+/* 卡片内边距：这几张卡片直接在 .mc-card 里放内容，没有走 __header/__body，必须自己留白 */
+.ana__mastery,
+.ana__panel {
+  padding: var(--mc-space-6);
+}
+
+/* 标题行：标题 + 灰度说明，宽屏同行，窄屏换行，绝不再贴边 */
+.mc-card__title-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--mc-space-1) var(--mc-space-3);
+  margin-bottom: var(--mc-space-3);
+}
+
+.mc-card__title-row .mc-card__title {
+  font-size: var(--mc-text-md);
+  font-weight: var(--mc-font-semibold);
+  line-height: var(--mc-leading-snug);
+}
+
+/* 标题旁说明文字：次要色、小一号、可换行 */
+.ana__titlehint {
+  font-size: var(--mc-text-sm);
+  line-height: var(--mc-leading-snug);
+}
+
+@media (max-width: 720px) {
+  .ana__mastery,
+  .ana__panel {
+    padding: var(--mc-space-4);
+  }
+}
 </style>

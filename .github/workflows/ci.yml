@@ -36,6 +36,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: File size guard
+        run: node tools/check-file-size.mjs
+
       - name: Typecheck
         run: npm run typecheck
 

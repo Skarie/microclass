@@ -29,7 +29,8 @@
     "migrate": "npm run migrate -w @microclass/api",
     "backup": "node ops/scripts/backup.mjs",
     "restore": "node ops/scripts/restore.mjs",
-    "start": "npm run start -w @microclass/api"
+    "start": "npm run start -w @microclass/api",
+    "verify:size": "node tools/check-file-size.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

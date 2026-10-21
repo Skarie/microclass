@@ -142,4 +142,15 @@ const emit = defineEmits<{ close: []; apply: []; 'toggle-scope': [] }>();
 .loading__row {
   height: 44px;
 }
+
+.diff-preview__samples li {
+  display: flex;
+  gap: var(--mc-space-2);
+  align-items: baseline;
+}
+
+.diff-preview__sample--hard .diff-preview__score {
+  color: var(--mc-danger-fg);
+  font-weight: var(--mc-font-semibold);
+}
 </style>

@@ -158,4 +158,9 @@ function pct(part: number, total: number): string {
   max-height: 52vh;
   overflow: auto;
 }
+
+/* 需要教师处理的数据质量问题，给一点提示色 */
+.metric--warn .metric__value {
+  color: var(--mc-warning-fg);
+}
 </style>
