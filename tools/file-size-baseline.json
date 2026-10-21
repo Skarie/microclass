@@ -15,7 +15,6 @@
   "apps/api/src/services/difficultyService.ts": 385,
   "apps/api/src/services/exam-paper.ts": 1049,
   "apps/api/src/services/examService.ts": 583,
-  "apps/api/src/services/lessonService.ts": 1014,
   "apps/api/src/services/questionConflictService.ts": 339,
   "apps/api/src/utils/docx.ts": 351,
   "apps/web/src/api/types.ts": 322,
