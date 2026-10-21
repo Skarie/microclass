@@ -2,7 +2,6 @@
   "apps/api/src/app.ts": 382,
   "apps/api/src/db/repositories/analyticsRepository.ts": 346,
   "apps/api/src/db/repositories/bankRepository.ts": 452,
-  "apps/api/src/db/repositories/examRepository.ts": 873,
   "apps/api/src/db/repositories/questionConflictRepository.ts": 304,
   "apps/api/src/domain/difficulty.ts": 330,
   "apps/api/src/domain/paperHtml.ts": 381,
@@ -45,7 +44,6 @@
   "apps/web/src/views/LoginView.vue": 483,
   "apps/web/src/views/ProfileView.vue": 457,
   "apps/web/src/views/QuizView.vue": 545,
-  "apps/web/src/views/WatchView.vue": 975,
   "apps/web/src/views/WrongBookView.vue": 433,
   "packages/shared/src/latex.ts": 358
 }

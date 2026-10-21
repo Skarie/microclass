@@ -5,6 +5,7 @@
  * 需要的数据（考试、卷面、作答行）由 `ExamService` 取好传进来，方便单独验证版式与字段。
  */
 import type { Exam, QuestionType, User } from '@microclass/shared';
+import { summarizeAttempts } from '../db/repositories/exam-attempts.js';
 import type { ExamAttempt } from '../db/repositories/examRepository.js';
 import { buildDocx, type DocxBlock, type DocxImage } from '../utils/docx.js';
 import { inlineImagesToDocx } from '../utils/questionDocxImages.js';
@@ -224,23 +225,7 @@ export function buildScoreSheet(
     used_seconds: a.used_seconds,
     created_at: a.created_at,
   }));
-  const scores = rows.map((r) => r.score);
-  const passedCount = rows.filter((r) => r.passed === 1).length;
-  const avg = scores.length > 0 ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10 : 0;
-  const avgSeconds = rows.length > 0 ? Math.round(rows.reduce((a, r) => a + r.used_seconds, 0) / rows.length) : 0;
-  return {
-    exam,
-    rows,
-    summary: {
-      attempts: rows.length,
-      passed: passedCount,
-      pass_rate: rows.length > 0 ? Math.round((passedCount / rows.length) * 1000) / 10 : 0,
-      avg,
-      best: scores.length > 0 ? Math.max(...scores) : 0,
-      worst: scores.length > 0 ? Math.min(...scores) : 0,
-      avg_seconds: avgSeconds,
-    },
-  };
+  return { exam, rows, summary: summarizeAttempts(rows) };
 }
 
 /** 成绩单 CSV */
