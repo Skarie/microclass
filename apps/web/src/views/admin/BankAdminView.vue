@@ -286,12 +286,7 @@ onMounted(() => {
             aria-label="搜索题库名"
             @keyup.enter="loadBanks(false)"
           />
-          <select
-            v-model="kindFilter"
-            class="mc-select tree__kind"
-            aria-label="按题库类型筛选"
-            @change="loadBanks(false)"
-          >
+          <select v-model="kindFilter" class="mc-select tree__kind" aria-label="按题库类型筛选">
             <option value="">全部类型</option>
             <option value="lesson">课时配套</option>
             <option value="chapter">章节题库</option>

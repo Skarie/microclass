@@ -1,21 +1,16 @@
 /**
  * 题库目录与左栏导航（课程 → 章节 → 小节 → 题库）。
  *
- * 从 BankAdminView 抽出：课程树、册次、未归属、题库搜索/排序/分页，
- * 以及 loadBanks 的请求参数拼装。跨组合式函数的依赖（题目列表与清空题目）
- * 由参数传入，模块内不保存任何全局单例。
+ * 从 BankAdminView 抽出：课程树、册次、未归属与目录层级；
+ * 题库列表本身（搜索/排序/分页/选中）在 use-bank-list 里。
+ * 跨组合式函数的依赖（题目列表与清空题目）由参数传入，模块内不保存任何全局单例。
  */
 import { computed, ref, watch } from 'vue';
 import { api } from '@/api/client';
 import { errorMessage } from '@/composables/useAsync';
 import { useToastStore } from '@/stores/toast';
+import { useBankList, type BankKindFilter, type BankListDeps } from '@/composables/use-bank-list';
 import type { Bank } from '@/api/types';
-
-interface BankListResponse {
-  banks: Bank[];
-  /** 当前筛选条件下的题库总数（服务端分页用） */
-  total?: number;
-}
 
 interface OkResponse {
   ok: boolean;
@@ -61,35 +56,24 @@ interface CatalogDetail {
 /** 题库类型中文名（左栏题库行用） */
 export const KIND_LABEL: Record<string, string> = { lesson: '课时配套', chapter: '章节题库', paper: '整卷试卷' };
 
-/** 服务端分页：一次最多取 300 个题库（全库有 1.2 万个，之前一次全拉会拖垮页面） */
-const BANKS_PAGE = 300;
-
-/**
- * 题库列表先只渲染前 50 条（可展开）。
- * 左栏一次最多 300 条，每条都带一个下拉菜单组件，DOM 会到 4000+ 节点；
- * 绝大多数情况下老师会先搜索，先给 50 条既够用又轻。
- */
-const BANK_LIST_PAGE = 50;
-
-/** 题库列表要用的外部能力：题目列表的加载与清空（由父组件注入，运行时才调用） */
-export interface BankCatalogDeps {
-  loadQuestions: () => Promise<void>;
-  clearQuestions: () => void;
-}
+/** 题库列表要用的外部能力：保留旧名，BankAdminView 从这里导入 */
+export type BankCatalogDeps = BankListDeps;
 
 export function useBankCatalog(deps: BankCatalogDeps) {
   const toast = useToastStore();
 
-  /* ---------------- 题库列表（范围由目录树决定） ---------------- */
-  /** 目录树里选中的小节（课时）id；null = 整个课程 */
-  const kindFilter = ref<'' | 'lesson' | 'chapter' | 'paper'>('');
-  const banks = ref<Bank[]>([]);
-  /** 当前筛选条件下题库总数（服务端分页，页面只取前 N 个，避免一次拉 1 万多条） */
-  const banksTotal = ref(0);
-  const banksLoading = ref(false);
-  const selectedBankId = ref<number | null>(null);
+  /* ---------------- 筛选与目录范围 ---------------- */
+  const kindFilter = ref<BankKindFilter>('');
+  const bankKeyword = ref('');
+  /** 「未归属课程」里选中的册次（细分导航） */
+  const unboundBook = ref('');
+  const onlyUnbound = ref(false);
+  /** 目录树里选中的课程 id；null = 课程列表层级 */
+  const catalogCourseId = ref<number | null>(null);
 
-  const selectedBank = computed(() => banks.value.find((b) => b.id === selectedBankId.value) ?? null);
+  /** 题库列表（搜索/排序/分页/选中）由独立组合式函数持有，这里只提供筛选范围 */
+  const bankList = useBankList({ kindFilter, bankKeyword, unboundBook, onlyUnbound, catalogCourseId }, deps);
+  const { loadBanks } = bankList;
 
   /* ---------------- 题库目录树（课程 → 章节 → 小节 → 题库） ---------------- */
   const catalog = ref<CatalogResponse>({
@@ -99,29 +83,11 @@ export function useBankCatalog(deps: BankCatalogDeps) {
     binding: { bound: 0, unbound: 0, banks: 0 },
   });
   const catalogLoading = ref(false);
-  const catalogCourseId = ref<number | null>(null);
   const catalogCourseDetail = ref<CatalogDetail | null>(null);
   const catalogCourseLoading = ref<number | null>(null);
-  const onlyUnbound = ref(false);
   const rebinding = ref(false);
-  /** 「未归属课程」里选中的册次（细分导航） */
-  const unboundBook = ref('');
   /** 自动匹配后仍未归属的册次（提示老师手工挂） */
   const unmatchedBooks = ref<{ book: string; banks: number }[]>([]);
-  const bankKeyword = ref('');
-  const showAllBanks = ref(false);
-  /** 排序：默认沿用服务端顺序（最新创建在前），可切题量/名称 */
-  const bankSort = ref<'default' | 'questions' | 'name'>('default');
-  const sortedBanks = computed(() => {
-    if (bankSort.value === 'default') return banks.value;
-    const copy = [...banks.value];
-    if (bankSort.value === 'questions') copy.sort((a, b) => b.question_count - a.question_count);
-    else copy.sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'));
-    return copy;
-  });
-  const visibleBanks = computed(() =>
-    showAllBanks.value ? sortedBanks.value : sortedBanks.value.slice(0, BANK_LIST_PAGE),
-  );
 
   /**
    * 「关联课时」下拉的选项：只列**当前选中课程**的课时（含章节分组）。
@@ -163,59 +129,37 @@ export function useBankCatalog(deps: BankCatalogDeps) {
     return course?.name ?? '全部课程';
   });
 
-  /**
-   * 题库名**输入即搜**（300ms 防抖）。
-   * 左栏搜索原来只认回车，老师输完常常以为"没搜到"；与题目关键词搜索保持一致。
-   */
-  let bankKeywordTimer: ReturnType<typeof setTimeout> | undefined;
-  watch(bankKeyword, () => {
-    if (bankKeywordTimer) clearTimeout(bankKeywordTimer);
-    bankKeywordTimer = setTimeout(() => void loadBanks(false), 300);
-  });
-
-  async function loadBanks(keepSelection = true): Promise<void> {
-    banksLoading.value = true;
-    try {
-      const res = await api.get<BankListResponse>('/banks', {
-        ...(kindFilter.value === '' ? {} : { kind: kindFilter.value }),
-        ...(bankKeyword.value ? { keyword: bankKeyword.value } : {}),
-        ...(unboundBook.value ? { book: unboundBook.value } : {}),
-        ...(onlyUnbound.value
-          ? { courseId: 'unbound' }
-          : catalogCourseId.value === null
-            ? {}
-            : { courseId: catalogCourseId.value }),
-        // 服务端分页：一次最多取 300 个题库（全库有 1.2 万个，之前一次全拉会拖垮页面）
-        limit: BANKS_PAGE,
-        offset: 0,
-      });
-      banks.value = res.banks;
-      banksTotal.value = res.total ?? res.banks.length;
-      const stillThere = banks.value.some((b) => b.id === selectedBankId.value);
-      if (!keepSelection || !stillThere) {
-        selectedBankId.value = banks.value[0]?.id ?? null;
-      }
-      if (selectedBankId.value === null) deps.clearQuestions();
-      else await deps.loadQuestions();
-    } catch (e) {
-      toast.error(errorMessage(e));
-      banks.value = [];
-      selectedBankId.value = null;
-    } finally {
-      banksLoading.value = false;
-    }
-  }
-
   async function loadCatalog(): Promise<void> {
     catalogLoading.value = true;
     try {
-      catalog.value = await api.get<CatalogResponse>('/banks/catalog');
+      catalog.value = await api.get<CatalogResponse>(`/banks/catalog?kind=${kindFilter.value}`);
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
       catalogLoading.value = false;
     }
   }
+
+  /**
+   * 切换题库类型后：当前选中的课程/册次若在新类型下已经没有内容，
+   * 退回上一层级（课程列表 / 册次列表），不把用户留在空白页。
+   */
+  function fallbackLevel(): void {
+    if (catalogCourseId.value !== null && !catalog.value.courses.some((c) => c.id === catalogCourseId.value)) {
+      catalogCourseId.value = null;
+      catalogCourseDetail.value = null;
+    }
+    if (unboundBook.value !== '' && !catalog.value.unboundBooks.some((b) => b.book === unboundBook.value)) {
+      unboundBook.value = '';
+    }
+  }
+
+  /** 类型筛选变化：目录与列表一起刷新，先对齐层级再加载列表 */
+  watch(kindFilter, async () => {
+    await loadCatalog();
+    fallbackLevel();
+    await loadBanks(false);
+  });
 
   async function pickCourse(courseId: number | null): Promise<void> {
     catalogCourseId.value = courseId;
@@ -277,13 +221,8 @@ export function useBankCatalog(deps: BankCatalogDeps) {
   }
 
   return {
-    // 状态
+    // 筛选与目录范围
     kindFilter,
-    banks,
-    banksTotal,
-    banksLoading,
-    selectedBankId,
-    selectedBank,
     catalog,
     catalogLoading,
     catalogCourseId,
@@ -294,16 +233,14 @@ export function useBankCatalog(deps: BankCatalogDeps) {
     unboundBook,
     unmatchedBooks,
     bankKeyword,
-    showAllBanks,
-    bankSort,
-    sortedBanks,
-    visibleBanks,
-    courseLessonOptions,
     courseKeyword,
     visibleCourses,
     searchActive,
     browseLevel,
     activeCourseName,
+    courseLessonOptions,
+    // 题库列表（use-bank-list，保持原有对外形状）
+    ...bankList,
     // 操作
     loadBanks,
     loadCatalog,

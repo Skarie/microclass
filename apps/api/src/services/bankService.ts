@@ -174,7 +174,7 @@ export class BankService {
    * 原来题库只能按「课时 / 类型 / 书册」平铺筛，7,000+ 个章节题库与整卷试卷
    * 因为不挂课时而根本筛不出来；现在统一按「课程 → 章节 → 小节 → 题库」组织。
    */
-  catalog(): {
+  catalog(kind: BankKind | '' = ''): {
     courses: ReturnType<BankRepository['catalogCourses']>;
     unbound: { bankCount: number; questionCount: number };
     /** 未归属课程按册次分组（复习类/未建课程的册次仍能分类导航） */
@@ -182,10 +182,10 @@ export class BankService {
     binding: { bound: number; unbound: number; banks: number };
   } {
     return {
-      courses: this.banks.catalogCourses(),
-      unbound: this.banks.catalogUnbound(),
-      unboundBooks: this.banks.catalogUnboundBooks(),
-      binding: this.banks.courseBindingStats()[0] ?? { bound: 0, unbound: 0, banks: 0 },
+      courses: this.banks.catalogCourses(kind),
+      unbound: this.banks.catalogUnbound(kind),
+      unboundBooks: this.banks.catalogUnboundBooks(kind),
+      binding: this.banks.courseBindingStats(kind)[0] ?? { bound: 0, unbound: 0, banks: 0 },
     };
   }
 

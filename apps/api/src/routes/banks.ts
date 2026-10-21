@@ -5,6 +5,7 @@ import type { FastifyInstance } from 'fastify';
 import fs from 'node:fs';
 import { AppError, type QuestionType } from '@microclass/shared';
 import { requireTeacherOrAdmin, requireUser } from '../http/guards.js';
+import { parseBankKind } from './bankQuery.js';
 import { sendFileWithRange } from '../utils/range.js';
 import { mimeFor } from '../utils/mime.js';
 import { csvHeaders } from '../utils/csv.js';
@@ -97,11 +98,7 @@ export async function registerBankRoutes(app: FastifyInstance, deps: Deps): Prom
       if (Number.isNaN(lessonId)) throw AppError.badRequest('lesson 参数非法');
       filter.lessonId = lessonId;
     }
-    if (q.kind) {
-      if (!['lesson', 'chapter', 'paper'].includes(q.kind))
-        throw AppError.badRequest('kind 只能是 lesson/chapter/paper');
-      filter.kind = q.kind as 'lesson' | 'chapter' | 'paper';
-    }
+    if (q.kind) filter.kind = parseBankKind(q.kind);
     if (q.subject) filter.subject = q.subject;
     if (q.book) filter.book = q.book;
     if (q.keyword) filter.keyword = q.keyword;
@@ -128,13 +125,14 @@ export async function registerBankRoutes(app: FastifyInstance, deps: Deps): Prom
    */
   app.get('/banks/catalog', async (req, reply) => {
     requireUser(req, reply);
-    const q = req.query as { courseId?: string };
+    const q = req.query as { courseId?: string; kind?: string };
+    const kind = parseBankKind(q.kind);
     if (q.courseId) {
       const courseId = Number.parseInt(q.courseId, 10);
       if (Number.isNaN(courseId)) throw AppError.badRequest('courseId 参数非法');
       return deps.bankService.catalogCourse(courseId);
     }
-    return deps.bankService.catalog();
+    return deps.bankService.catalog(kind);
   });
 
   /** 一键回填题库归属课程（课时推导 + 册次匹配），匹配不上的留在「未归属」 */
