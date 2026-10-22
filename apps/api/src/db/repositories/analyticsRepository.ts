@@ -116,7 +116,6 @@ export class AnalyticsRepository {
       WHERE json_extract(je.value, '$.correct') IN (1, 0)${eWhere}
     )`;
   }
-
   /** 总览：作答条目、学员、题目、知识点、练习/考试提交次数 */
   totals(scope: AnalyticsScope): GradedTotals {
     const params: unknown[] = [];
