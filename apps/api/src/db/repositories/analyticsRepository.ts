@@ -86,7 +86,6 @@ export class AnalyticsRepository {
   private gradedCte(scope: AnalyticsScope, params: unknown[]): string {
     const practice: string[] = [];
     const exam: string[] = [];
-    // 参数按 SQL 占位符顺序：练习分支参数在前、考试分支参数在后
     const courseArgs = scope.courseId !== undefined ? [scope.courseId] : [];
     const sinceArgs =
       scope.days !== undefined && scope.days > 0 ? [Math.floor(Date.now() / 1000) - scope.days * 86400] : [];
