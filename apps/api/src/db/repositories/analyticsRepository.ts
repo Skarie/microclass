@@ -86,27 +86,19 @@ export class AnalyticsRepository {
   private gradedCte(scope: AnalyticsScope, params: unknown[]): string {
     const practice: string[] = [];
     const exam: string[] = [];
-    /**
-     * 参数顺序必须与 SQL 占位符顺序一致：CTE 里练习分支在前、考试分支在后。
-     * 之前把课程/时间参数各自成对 push，课程与天数同时存在时就会变成
-     * 「课程、课程、时间、时间」，考试分支拿到的是课程 id 去比时间戳，被过滤成 0。
-     */
-    const practiceParams: unknown[] = [];
-    const examParams: unknown[] = [];
+    // 参数按 SQL 占位符顺序：练习分支参数在前、考试分支参数在后
+    const courseArgs = scope.courseId !== undefined ? [scope.courseId] : [];
+    const sinceArgs =
+      scope.days !== undefined && scope.days > 0 ? [Math.floor(Date.now() / 1000) - scope.days * 86400] : [];
     if (scope.courseId !== undefined) {
       practice.push('a.lesson_id IN (SELECT id FROM lessons WHERE course_id = ?)');
       exam.push('ea.exam_id IN (SELECT id FROM exams WHERE course_id = ?)');
-      practiceParams.push(scope.courseId);
-      examParams.push(scope.courseId);
     }
-    if (scope.days !== undefined && scope.days > 0) {
-      const since = Math.floor(Date.now() / 1000) - scope.days * 86400;
+    if (sinceArgs.length > 0) {
       practice.push('a.created_at >= ?');
       exam.push('ea.created_at >= ?');
-      practiceParams.push(since);
-      examParams.push(since);
     }
-    params.push(...practiceParams, ...examParams);
+    params.push(...courseArgs, ...sinceArgs, ...courseArgs, ...sinceArgs);
     const pWhere = practice.length > 0 ? ` AND ${practice.join(' AND ')}` : '';
     const eWhere = exam.length > 0 ? ` AND ${exam.join(' AND ')}` : '';
     return `WITH graded AS (
