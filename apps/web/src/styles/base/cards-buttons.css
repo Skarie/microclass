@@ -1,0 +1,137 @@
+/*
+ * 卡片与按钮（原 base.css 99-231 行）：.mc-card* 与 .mc-btn* 基础样式。
+ * 必须排在 reset 之后；2.0 层的按钮变体仍在后面分组中保持原位置。
+ */
+
+/* ---------- 卡片 ---------- */
+.mc-card {
+  background: var(--mc-bg-elevated);
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius-xl);
+  box-shadow: var(--mc-shadow-sm);
+  transition: var(--mc-transition-all);
+}
+
+.mc-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mc-space-3);
+  padding: var(--mc-space-4) var(--mc-space-5);
+  /* 第 24 条：分隔"线"改成分隔"面"，版面更干净 */
+  background: var(--mc-bg-sunken);
+}
+
+.mc-card__title {
+  font-size: var(--mc-text-md);
+  font-weight: var(--mc-font-semibold);
+  letter-spacing: 0.01em;
+}
+
+.mc-card__body {
+  /* 第 17 条：文案多时靠留白分组，主次分明 */
+  padding: var(--mc-space-6);
+}
+
+.mc-card__footer {
+  padding: var(--mc-space-3) var(--mc-space-5);
+  border-top: 1px solid var(--mc-border);
+  background: var(--mc-bg-sunken);
+  border-radius: var(--mc-radius) var(--mc-radius) var(--mc-radius-2xl) var(--mc-radius-2xl);
+}
+
+/* ---------- 按钮 ---------- */
+.mc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--mc-space-2);
+  min-height: 34px;
+  padding: 0 var(--mc-space-4);
+  border: 1px solid var(--mc-border-strong);
+  border-radius: var(--mc-radius-md);
+  background: var(--mc-bg-elevated);
+  color: var(--mc-text);
+  font: inherit;
+  font-size: var(--mc-text-sm);
+  font-weight: var(--mc-font-medium);
+  cursor: pointer;
+  transition: var(--mc-transition-all);
+  white-space: nowrap;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mc-btn:hover:not(:disabled) {
+    background: var(--mc-bg-hover);
+    border-color: var(--mc-border-strong);
+  }
+}
+
+.mc-btn:active:not(:disabled) {
+  background: var(--mc-bg-sunken);
+}
+
+.mc-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.mc-btn--primary {
+  /* 第 15 条：主按钮要一眼看出优先级；第 26 条：极弱同色渐变提升质感 */
+  background-color: var(--mc-primary);
+  background-image: var(--mc-gradient-primary);
+  border-color: transparent;
+  color: var(--mc-text-inverse);
+  box-shadow: var(--mc-shadow-brand);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mc-btn--primary:hover:not(:disabled) {
+    background-color: var(--mc-primary-hover);
+    background-image: var(--mc-gradient-primary);
+    border-color: transparent;
+    box-shadow: var(--mc-shadow-brand-strong);
+  }
+}
+
+.mc-btn--primary:active:not(:disabled) {
+  background-color: var(--mc-primary-active);
+  border-color: var(--mc-primary-active);
+}
+
+.mc-btn--danger {
+  color: var(--mc-danger-fg);
+  border-color: var(--mc-danger);
+  background: transparent;
+  transition: var(--mc-transition-all);
+}
+
+.mc-btn--danger:hover:not(:disabled) {
+  background: var(--mc-danger-soft);
+}
+
+.mc-btn--ghost {
+  border-color: transparent;
+  background: transparent;
+}
+
+.mc-btn--ghost:hover:not(:disabled) {
+  background: var(--mc-bg-hover);
+  border-color: transparent;
+}
+
+.mc-btn--sm {
+  min-height: 32px;
+  padding: 0 var(--mc-space-3);
+  font-size: var(--mc-text-xs);
+}
+
+.mc-btn--lg {
+  min-height: 42px;
+  padding: 0 var(--mc-space-6);
+  font-size: var(--mc-text-md);
+}
+
+.mc-btn--block {
+  width: 100%;
+}

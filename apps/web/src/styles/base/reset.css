@@ -1,0 +1,103 @@
+/*
+ * 基础重置与排版（原 base.css 1-98 行）：盒模型、根节点、正文、标题、链接、焦点、跳过链接。
+ * 导入顺序固定：本文件必须第一个被 base.css 引入，禁止调整。
+ */
+
+/**
+ * 基础样式与通用组件类：只使用 tokens.css 中的语义变量。
+ * 组件内尽量用 scoped 样式，这里只放跨页面复用的原子类。
+ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  /* 第 12/26 条：纯色背景单调 → 极淡的品牌氛围渐变 + 细网格线（克制，不抢内容） */
+  background-color: var(--mc-bg);
+  background-image: var(--mc-bg-art);
+  background-attachment: fixed;
+  color: var(--mc-text);
+  /* 第 23 条：英文与数字用拉丁字体，中文回退到中文字体（数字不再偏松） */
+  font-family: var(--mc-font-num);
+  font-size: var(--mc-text-base);
+  line-height: var(--mc-leading);
+  letter-spacing: 0.005em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--mc-primary) 26%, transparent);
+  color: var(--mc-text);
+}
+
+/* 自查清单 #3：禁止浏览器自动行高 —— 所有承载文本的元素显式给定行高 */
+p,
+li,
+dd,
+dt,
+figcaption,
+blockquote,
+label,
+legend,
+td,
+th,
+input,
+select,
+textarea,
+button,
+a {
+  line-height: var(--mc-leading);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: var(--mc-font-semibold);
+  line-height: var(--mc-leading-snug);
+  color: var(--mc-text);
+}
+
+a {
+  color: var(--mc-primary-fg);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--mc-primary-hover);
+}
+
+:focus-visible {
+  outline: 2px solid var(--mc-primary);
+  outline-offset: 2px;
+  border-radius: var(--mc-radius-sm);
+}
+
+/* 跳过导航：键盘用户可直达主内容 */
+.mc-skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: var(--mc-z-toast);
+  padding: var(--mc-space-2) var(--mc-space-4);
+  background: var(--mc-bg-elevated);
+  border: 1px solid var(--mc-primary);
+  border-radius: var(--mc-radius);
+}
+
+.mc-skip-link:focus {
+  left: var(--mc-space-4);
+  top: var(--mc-space-4);
+}

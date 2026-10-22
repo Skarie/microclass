@@ -1,0 +1,161 @@
+/*
+ * 2.0 追加层（原 base.css 570-726 行）：按钮变体、卡片交互、控件尺寸、表格细化、焦点、长文、滚动条、异常条。
+ * 必须排在全部 1.x 基础分组之后，确保覆盖顺序与原文件完全一致。
+ */
+
+/* ================= 2.0 追加（组件层能力，不改既有类的行为） ================= */
+
+/* ---- 按钮：软色 / 图标 / 危险实心 ---- */
+/* 软色按钮：浅底 + 主色文字，用于"非首要动作"，避免一屏全是纯蓝主按钮 */
+.mc-btn--soft {
+  background: var(--mc-primary-soft);
+  border-color: transparent;
+  color: var(--mc-primary-fg);
+  font-weight: var(--mc-font-semibold);
+}
+
+.mc-btn--soft:hover:not(:disabled) {
+  background: var(--mc-primary-100);
+  border-color: transparent;
+  color: var(--mc-primary-hover);
+}
+
+.mc-btn--danger-solid {
+  background: var(--mc-danger);
+  border-color: var(--mc-danger);
+  color: var(--mc-text-inverse);
+}
+
+.mc-btn--danger-solid:hover:not(:disabled) {
+  filter: brightness(0.94);
+  background: var(--mc-danger);
+  border-color: var(--mc-danger);
+}
+
+/* 图标按钮：固定方形命中区，保证可点面积 ≥ 32px */
+.mc-btn--icon {
+  width: var(--mc-control-h);
+  min-height: var(--mc-control-h);
+  padding: 0;
+}
+
+.mc-btn--icon.mc-btn--sm {
+  width: var(--mc-control-h-sm);
+  min-height: var(--mc-control-h-sm);
+}
+
+/* ---- 卡片：可交互态（悬停抬升） ---- */
+.mc-card--interactive {
+  transition:
+    box-shadow var(--mc-duration) var(--mc-ease),
+    border-color var(--mc-duration) var(--mc-ease),
+    transform var(--mc-duration) var(--mc-ease-out);
+}
+
+.mc-card--interactive:hover {
+  box-shadow: var(--mc-elev-hover);
+  border-color: var(--mc-primary-border);
+  transform: translateY(-2px);
+}
+
+/* ---- 工具条里的输入控件：统一高度与宽度语义 ---- */
+.mc-input--search {
+  min-width: 220px;
+}
+
+.mc-input,
+.mc-select {
+  min-height: var(--mc-control-h);
+}
+
+.mc-input--sm,
+.mc-select--sm {
+  min-height: var(--mc-control-h-sm);
+  font-size: var(--mc-text-xs);
+}
+
+/* ---- 表格：表头层次 + 行悬停 + 数字对齐 ---- */
+.mc-table thead th {
+  background: var(--mc-bg-sunken);
+  color: var(--mc-text-secondary);
+  font-weight: var(--mc-font-semibold);
+  font-size: var(--mc-text-xs);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.mc-table tbody tr {
+  transition: background var(--mc-duration-fast) var(--mc-ease);
+}
+
+.mc-table tbody tr:hover {
+  background: var(--mc-bg-hover);
+}
+
+.mc-table .mc-num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ---- 键盘可达性：可视焦点说明（配合全局 :focus-visible） ---- */
+.mc-focusable:focus-visible {
+  outline: 2px solid var(--mc-primary);
+  outline-offset: 2px;
+}
+
+/* ---- 长文本排版：题面/解析阅读宽度 ---- */
+.mc-prose {
+  max-width: 82ch;
+  line-height: var(--mc-leading-relaxed);
+}
+
+/* ============ 滚动条：系统默认（Windows）又粗又带箭头，改成细圆角、随主题 ============ */
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--mc-border-strong) transparent;
+}
+
+/* WebKit / Blink */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  /* 用 border + background-clip 做出"细条居中"的效果 */
+  border: 3px solid transparent;
+  border-radius: var(--mc-radius-pill);
+  background: var(--mc-border-strong);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--mc-text-muted);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ============ 全局异常提示条（main.ts 的渲染兜底使用） ============ */
+.mc-error-banner {
+  position: fixed;
+  left: 50%;
+  bottom: var(--mc-space-6);
+  z-index: 9999;
+  max-width: 90vw;
+  padding: var(--mc-space-2) var(--mc-space-4);
+  transform: translateX(-50%);
+  border: 1px solid var(--mc-warning-border, var(--mc-border));
+  border-radius: var(--mc-radius);
+  background: var(--mc-warning-soft, var(--mc-surface-2));
+  color: var(--mc-warning-fg, var(--mc-text));
+  box-shadow: var(--mc-shadow-md);
+  font-size: var(--mc-text-sm);
+}

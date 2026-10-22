@@ -1,0 +1,177 @@
+/*
+ * 表单、表格与徽章（原 base.css 232-404 行）：.mc-field/.mc-input/.mc-select/.mc-textarea、.mc-table*、.mc-badge*。
+ * 保持原顺序；2.0 层的控件高度与表头细化位于 component-extensions.css。
+ */
+
+/* ---------- 表单 ---------- */
+.mc-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mc-space-1);
+}
+
+.mc-label {
+  font-size: var(--mc-text-sm);
+  color: var(--mc-text-secondary);
+  font-weight: var(--mc-font-medium);
+  /* 标签在窄容器里会被压成竖排（真机题库页出现过"题/库"两行），这里禁止换行、不许被压缩 */
+  white-space: nowrap;
+  flex: none;
+}
+
+.mc-label--required::after {
+  content: ' *';
+  color: var(--mc-danger-fg);
+}
+
+.mc-input,
+.mc-select,
+.mc-textarea {
+  width: 100%;
+  min-height: 36px;
+  padding: var(--mc-space-2) var(--mc-space-3);
+  border: 1px solid var(--mc-border-strong);
+  border-radius: var(--mc-radius);
+  background: var(--mc-bg-elevated);
+  color: var(--mc-text);
+  font: inherit;
+  font-size: var(--mc-text-base);
+  transition:
+    border-color var(--mc-duration-fast) var(--mc-ease),
+    box-shadow var(--mc-duration) var(--mc-ease-out),
+    background-color var(--mc-duration-fast) var(--mc-ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mc-input:hover:not(:focus),
+  .mc-select:hover:not(:focus),
+  .mc-textarea:hover:not(:focus) {
+    border-color: var(--mc-primary-border);
+  }
+}
+
+.mc-textarea {
+  min-height: 88px;
+  resize: vertical;
+  line-height: var(--mc-leading);
+}
+
+.mc-input:focus,
+.mc-select:focus,
+.mc-textarea:focus {
+  outline: none;
+  border-color: var(--mc-primary);
+  box-shadow: var(--mc-focus-ring);
+}
+
+.mc-input[aria-invalid='true'] {
+  border-color: var(--mc-danger);
+}
+
+.mc-hint {
+  font-size: var(--mc-text-xs);
+  color: var(--mc-text-muted);
+}
+
+.mc-error-text {
+  font-size: var(--mc-text-xs);
+  color: var(--mc-danger-fg);
+}
+
+/* 复选框外层 label：全体内联元素的高度至少 24px（WCAG 2.2 最小点击目标） */
+.mc-checkbox {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  gap: var(--mc-space-2);
+  font-size: var(--mc-text-sm);
+  cursor: pointer;
+}
+
+/* ---------- 表格 ---------- */
+.mc-table-wrap {
+  overflow-x: auto;
+}
+
+.mc-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--mc-text-sm);
+}
+
+.mc-table th,
+.mc-table td {
+  padding: var(--mc-space-3) var(--mc-space-4);
+  text-align: left;
+  border-bottom: 0;
+  vertical-align: middle;
+}
+
+/* 第 22 条：少用线，用"面"与留白分隔；斑马纹提升横向扫读 */
+.mc-table tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--mc-bg-sunken) 55%, transparent);
+}
+
+.mc-table th {
+  background: var(--mc-bg-sunken);
+  border-bottom: 1px solid var(--mc-border);
+  color: var(--mc-text-secondary);
+  font-weight: var(--mc-font-semibold);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.mc-table tbody tr td {
+  transition: background-color var(--mc-duration-fast) var(--mc-ease);
+}
+
+.mc-table tbody tr:hover td {
+  background: color-mix(in srgb, var(--mc-primary) 6%, var(--mc-bg-hover));
+}
+
+.mc-table--compact th,
+.mc-table--compact td {
+  padding: var(--mc-space-2) var(--mc-space-3);
+}
+
+/* ---------- 徽标 / 标签 ---------- */
+.mc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mc-space-1);
+  padding: 4px var(--mc-space-2);
+  border-radius: var(--mc-radius-sm);
+  font-size: var(--mc-text-xs);
+  font-weight: var(--mc-font-medium);
+  background: var(--mc-bg-sunken);
+  color: var(--mc-text-secondary);
+  border: 1px solid var(--mc-border);
+  white-space: nowrap;
+}
+
+.mc-badge--primary {
+  background: var(--mc-primary-soft);
+  color: var(--mc-primary-fg);
+  border-color: var(--mc-primary-border);
+}
+
+.mc-badge--success {
+  background: var(--mc-success-soft);
+  color: var(--mc-success-fg);
+  border-color: transparent;
+}
+
+.mc-badge--warning {
+  background: var(--mc-warning-soft);
+  color: var(--mc-warning-fg);
+  border-color: transparent;
+}
+
+.mc-badge--danger {
+  background: var(--mc-danger-soft);
+  color: var(--mc-danger-fg);
+  border-color: transparent;
+}

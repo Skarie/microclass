@@ -1,0 +1,155 @@
+/*
+ * 2.1 现代视觉工具层（原 base.css 727-877 行）：动态卡片、品牌卡、渐变/蒙版/毛玻璃、骨架微光、入场动效。
+ * 必须最后导入；其中重复定义的 .mc-card--interactive/.mc-skeleton 依赖此处靠后的级联位置。
+ */
+
+/* ================= 2.1 现代视觉工具层 ================= */
+
+/**
+ * 动态卡片：悬浮抬升 + 阴影加深 + 描边微染 + 掠过式高光。
+ * 只在支持 hover 的设备上生效（触屏不产生"卡住的高亮"）。
+ */
+.mc-card--interactive {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.mc-card--interactive::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--mc-gradient-sheen);
+  opacity: 0;
+  transform: translateX(-35%);
+  transition:
+    opacity var(--mc-duration) var(--mc-ease),
+    transform var(--mc-duration-slow) var(--mc-ease-out);
+  pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mc-card--interactive:hover {
+    transform: translateY(var(--mc-hover-lift));
+    box-shadow: var(--mc-shadow-md);
+    border-color: var(--mc-border-strong);
+  }
+}
+
+.mc-card--interactive:active {
+  background: var(--mc-bg-hover);
+}
+
+/* 卡片顶部渐变描边（"旗帜鲜明"的强调卡） */
+.mc-card--brand {
+  position: relative;
+}
+
+.mc-card--brand::before {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 3px;
+  background-image: var(--mc-gradient-brand);
+  border-radius: var(--mc-radius-xl) var(--mc-radius-xl) 0 0;
+}
+
+/* 渐变文字：用于大标题、数字看板 */
+.mc-gradient-text {
+  /* 墨卷不用渐变字：改为深主色强调 */
+  color: var(--mc-primary-fg);
+  font-weight: var(--mc-font-semibold);
+}
+
+/* 渐变横幅：登录页/首页/课程封面缺图时的兜底 */
+.mc-gradient-surface {
+  background-image: var(--mc-gradient-brand);
+}
+
+.mc-gradient-soft {
+  background-image: var(--mc-gradient-brand-soft);
+}
+
+/* 第 30 条：图片上压文字时加渐变蒙版，保证可读性 */
+.mc-veil::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--mc-gradient-veil);
+  pointer-events: none;
+}
+
+/* 毛玻璃：顶栏、悬浮面板、模态遮罩之上 */
+.mc-glass {
+  background: var(--mc-glass-bg);
+  border-color: var(--mc-glass-border);
+  -webkit-backdrop-filter: var(--mc-glass-blur);
+  backdrop-filter: var(--mc-glass-blur);
+}
+
+/* 骨架屏：加载中的微光扫过 */
+.mc-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--mc-surface-2);
+  border-radius: var(--mc-radius-sm);
+}
+
+.mc-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--mc-gradient-sheen-sweep);
+  transform: translateX(-100%);
+  animation: mc-shimmer 1.4s var(--mc-ease) infinite;
+}
+
+@keyframes mc-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* 入场动效：列表项/面板依次浮现 */
+.mc-rise {
+  animation: mc-rise var(--mc-duration-slow) var(--mc-ease-out) both;
+}
+
+@keyframes mc-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.mc-fade-in {
+  animation: mc-fade-in var(--mc-duration) var(--mc-ease-out) both;
+}
+
+@keyframes mc-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* 按下回弹：给任意自定义控件加个"手感" */
+.mc-press {
+  transition: var(--mc-transition-transform);
+}
+
+.mc-press:active {
+  transform: scale(0.97);
+}
+
+/* 尊重系统"减弱动效"设置：关掉动画与过渡，只保留即时状态变化 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -46,7 +46,6 @@
 .nav-item:focus-within .nav-item__bind {
   opacity: 1;
 }
-
 @media (hover: none) {
   .nav-item__bind {
     opacity: 1;
@@ -111,7 +110,7 @@
 
 /* 最近打开的题库：一键回到常去的库 */
 
-/* 课程树折叠开关：默认收起，让左栏把空间留给"可搜索的题库列表" */
+/* 课程树折叠开关：默认收起，把空间留给可搜索的题库列表 */
 
 /* ============ 版式设计：指标卡 + 卡片化面板 + 表格排版 ============ */
 
@@ -235,15 +234,13 @@
   color: var(--mc-text-muted);
 }
 
-/* 行内操作：**默认可见**（触摸屏/键盘必须能触达），只有在支持悬停的精确指针设备上
-   才收起、悬停或聚焦时显现——审计发现触摸环境下 opacity 恒为 0，编辑/删除根本点不到 */
+/* 行内操作默认可见（触摸/键盘可达），仅精确指针设备悬停时收起 */
 .row-actions {
   display: flex;
   gap: var(--mc-space-1);
   opacity: 1;
   transition: opacity 0.12s ease;
 }
-
 @media (hover: hover) and (pointer: fine) {
   .row-actions {
     opacity: 0;
@@ -287,7 +284,7 @@
   font-size: var(--mc-text-sm);
 }
 
-/* 左栏：卡片化导航，头部吸附、行高统一 */
+/* 左栏导航：头部吸附、行高统一 */
 .bank-panel {
   display: flex;
   flex-direction: column;
@@ -328,8 +325,7 @@
 }
 
 .bank-item {
-  /* 行不允许收缩：容器是 max-height + overflow 的 flex 列，
-     默认 flex-shrink 会把两行题库名压成一行高度，导致文字溢出压到下一行 */
+  /* flex 列可滚动时行默认允许收缩，会压扁两行题库名；禁止收缩 */
   flex: none;
   padding: var(--mc-space-3) var(--mc-space-3);
   border-radius: var(--mc-radius);
@@ -341,7 +337,7 @@
   border-left-color: var(--mc-primary);
 }
 
-/* 题库名两行显示：审计发现长名字被单行截断且没有 title，信息等于丢失 */
+/* 题库名最多两行，避免长名字被单行截断 */
 .bank-item__name {
   font-size: var(--mc-text-base);
   font-weight: var(--mc-font-medium);
@@ -589,7 +585,6 @@
   gap: var(--mc-space-5);
   align-items: start;
 }
-
 @media (max-width: 1180px) {
   .layout {
     grid-template-columns: minmax(0, 1fr);
@@ -709,7 +704,6 @@
   padding: 0 4px;
   font-size: var(--mc-text-xs);
 }
-
 @media (max-width: 1080px) {
   .layout {
     grid-template-columns: 1fr;
