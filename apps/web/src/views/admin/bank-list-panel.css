@@ -1,0 +1,105 @@
+.bank-panel__list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0 var(--mc-space-3) var(--mc-space-3);
+  overflow: auto;
+}
+
+.bank-panel__listhead {
+  align-items: center;
+  gap: var(--mc-space-2);
+  padding: var(--mc-space-2) var(--mc-space-3);
+  border-bottom: 1px solid var(--mc-border);
+  font-size: var(--mc-text-xs);
+}
+
+.bank-panel__listhead .mc-muted {
+  flex: 1;
+  min-width: 0;
+}
+
+.bank-panel__sort {
+  max-width: 108px;
+  height: 28px;
+  padding: 0 var(--mc-space-2);
+  font-size: var(--mc-text-xs);
+}
+
+.bank-panel__loading,
+.bank-list {
+  margin: 0;
+  padding: var(--mc-space-2);
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--mc-space-1);
+  max-height: 64vh;
+  overflow-y: auto;
+}
+
+.bank-item {
+  /* flex 列可滚动时行默认允许收缩，会压扁两行题库名；禁止收缩 */
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--mc-space-2);
+  min-height: 44px;
+  padding: var(--mc-space-2) var(--mc-space-3);
+  border-radius: var(--mc-radius);
+  cursor: pointer;
+  transition: background var(--mc-transition);
+}
+
+.bank-item:hover {
+  background: var(--mc-bg-hover);
+}
+
+.bank-item--active {
+  background: var(--mc-primary-soft);
+  border-left-color: var(--mc-primary);
+}
+
+.bank-item__main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+/* 题库名最多两行，避免长名字被单行截断 */
+.bank-item__name {
+  font-size: var(--mc-text-sm);
+  font-weight: var(--mc-font-medium);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+  line-height: var(--mc-leading-snug);
+}
+
+.bank-item__meta {
+  font-size: var(--mc-text-xs);
+}
+
+.bank-item__actions {
+  display: none;
+  gap: var(--mc-space-1);
+}
+
+.bank-item:hover .bank-item__actions,
+.bank-item--active .bank-item__actions {
+  display: flex;
+}
+
+.bank-item__bind {
+  max-width: 130px;
+  font-size: var(--mc-text-xs);
+}
+
+.bank-panel__more {
+  width: 100%;
+  margin-top: 8px;
+}

@@ -1,0 +1,180 @@
+/* 复选框列：窄列 + 居中；整个单元格都是点击区（触屏也能点准） */
+.col-check {
+  width: 40px;
+  text-align: center;
+  cursor: pointer;
+}
+
+/* 复选框本体只有 18px：用 label 撑出 32×32 的命中区，触屏也能点准 */
+.check-hit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  cursor: pointer;
+}
+
+.col-check input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.row--selected td {
+  background: var(--mc-primary-soft);
+}
+
+/* 键盘流高亮：↑↓ 移动时能看清当前在哪一题 */
+.row--active td {
+  box-shadow: inset 3px 0 0 var(--mc-primary);
+  background: var(--mc-surface-2);
+}
+
+/* 行密度偏好：紧凑模式压掉内边距，一屏多看几题 */
+.table-wrap--compact td {
+  padding-top: var(--mc-space-1);
+  padding-bottom: var(--mc-space-1);
+}
+
+/* 难度：可读文字 + 颜色分级（原来显示 ★★★☆☆ 56 模型，用户根本不知道是什么） */
+.diff-text {
+  padding: 1px 8px;
+  border-radius: var(--mc-radius-pill);
+  background: var(--mc-surface-2);
+  color: var(--mc-text-secondary);
+  font-size: var(--mc-text-xs);
+  white-space: nowrap;
+}
+
+.diff-text--easy {
+  background: var(--mc-success-soft, var(--mc-surface-2));
+  color: var(--mc-success, var(--mc-text-secondary));
+}
+
+.diff-text--hard {
+  background: var(--mc-warning-soft, var(--mc-surface-2));
+  color: var(--mc-warning, var(--mc-text-secondary));
+}
+
+.diff-text--none {
+  color: var(--mc-text-muted);
+}
+
+/* 答案列：长答案（填空/解答）限 2 行，悬停看全文 */
+.answer-clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+/* 行内操作默认可见（触摸/键盘可达），仅精确指针设备悬停时收起 */
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--mc-space-2);
+  opacity: 1;
+  transition: opacity 0.12s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .row-actions {
+    opacity: 0;
+  }
+
+  .question-table .mc-table tbody tr:hover .row-actions,
+  .question-table .mc-table tbody tr:focus-within .row-actions {
+    opacity: 1;
+  }
+}
+
+/* 题干限 3 行（可展开）：一屏能多看几道题，长材料题也不至于把表格撑爆 */
+.stem--clamped .stem__text {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.stem__toggle {
+  margin-top: 4px;
+  min-height: 24px;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--mc-primary-fg);
+  font-size: var(--mc-text-xs);
+  cursor: pointer;
+}
+
+/* 题干下方的次要信息行（难度 / 知识点 / 册次 / 选项数） */
+.stem__meta {
+  margin-top: 4px;
+  gap: 8px;
+  font-size: var(--mc-text-xs);
+}
+
+.stem__meta-item {
+  white-space: nowrap;
+}
+
+/* 题目表列宽：题干吃满剩余宽度，其余列紧凑 */
+.col-no {
+  width: 44px;
+}
+
+.col-type {
+  width: 92px;
+  white-space: nowrap;
+}
+
+.col-answer {
+  width: 148px;
+  font-size: var(--mc-text-base);
+  font-weight: var(--mc-font-semibold);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.col-ops {
+  width: 124px;
+  white-space: nowrap;
+}
+
+.stem {
+  display: flex;
+  align-items: center;
+  gap: var(--mc-space-2);
+  min-width: 260px;
+  max-width: 520px;
+}
+
+.question-table .mc-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: var(--mc-space-3) var(--mc-space-3);
+  background: var(--mc-bg-elev, var(--mc-surface-2));
+  border-bottom: 1px solid var(--mc-border-strong);
+  font-size: var(--mc-text-xs);
+  font-weight: var(--mc-font-semibold);
+  color: var(--mc-text-muted);
+  letter-spacing: 0.02em;
+  text-align: left;
+}
+
+.question-table .mc-table tbody td {
+  padding: var(--mc-space-3);
+  border-bottom: 1px solid var(--mc-border);
+  vertical-align: top;
+}
+
+.question-table .mc-table tbody tr:hover {
+  background: var(--mc-surface-2);
+}
+
+.question-table .mc-table tbody tr:last-child td {
+  border-bottom: 0;
+}
