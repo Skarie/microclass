@@ -3,6 +3,7 @@ import { computed, nextTick, ref } from 'vue';
 import BarList from '@/components/charts/BarList.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import Icon from '@/components/Icon.vue';
+import RichText from '@/components/RichText.vue';
 import Tag from '@/components/Tag.vue';
 import type { BarItem } from '@/components/charts/types';
 import { MASTERY_ICON, MASTERY_LABEL, MASTERY_TONE, pct, type PointsResponse } from './analytics-types';
