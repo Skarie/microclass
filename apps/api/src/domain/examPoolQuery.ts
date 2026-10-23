@@ -9,7 +9,7 @@
  *
  * 选题树 / 知识点 / 细目表范围见 `examTaxonomyQuery.ts`。
  */
-import { EXAM_LEVELS, listParam, queryNumber, type ExamLevel } from './examRequest.js';
+import { EXAM_LEVELS, EXAM_TYPES, listParam, queryNumber, type ExamLevel } from './examRequest.js';
 
 /** 题池多选筛选（与 ExamRepository.pick 的参数同名） */
 export interface PoolFilters {
@@ -39,7 +39,7 @@ export interface PoolPickOptions extends PoolFilters {
   exclude?: number[];
 }
 
-const TYPE_SET: ReadonlySet<string> = new Set(['single', 'multiple', 'judge', 'fill', 'short']);
+const TYPE_SET: ReadonlySet<string> = new Set(EXAM_TYPES);
 const LEVEL_SET: ReadonlySet<string> = new Set(EXAM_LEVELS);
 const ORDER_BY_SET: ReadonlySet<string> = new Set(['difficulty_asc', 'difficulty_desc', 'error_desc']);
 

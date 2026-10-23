@@ -10,7 +10,7 @@
  * - `exams-shared`   共用的请求体 schema 与路径参数提取
  *
  * 纯逻辑（参数解析 / 题池响应拼装）在 `domain/examRequest`、`domain/examPoolQuery`、
- * `domain/examPoolView`，可单测；路由层不再出现长段参数校验。
+ * `domain/examTaxonomyQuery`、`domain/examPoolView`，可单测；路由层不再出现长段参数校验。
  * 所有路由路径、方法、请求体 schema、返回结构均与拆分前一致。
  */
 import type { FastifyInstance } from 'fastify';
