@@ -37,7 +37,7 @@ defineProps<{ overview: AnalyticsOverview; trendSeries: number[]; accuracySeries
     >
       <template #visual>
         <Sparkline :values="trendSeries" tone="primary" />
-        <span class="mc-muted ana__sparkhint">近 30 天走势</span>
+        <span class="mc-muted ana__sparkhint">近 30 天</span>
       </template>
     </StatCard>
     <StatCard
@@ -60,7 +60,7 @@ defineProps<{ overview: AnalyticsOverview; trendSeries: number[]; accuracySeries
       label="题目覆盖"
       :value="`${overview.kpi.questionCoverage}%`"
       icon="bank"
-      :hint="`${overview.kpi.questionsWithData} / ${overview.kpi.totalQuestions} 题有作答数据`"
+      :hint="`${overview.kpi.questionsWithData.toLocaleString()} / ${overview.kpi.totalQuestions.toLocaleString()} 题有作答数据`"
     >
       <template #visual>
         <ProgressRing
@@ -75,7 +75,7 @@ defineProps<{ overview: AnalyticsOverview; trendSeries: number[]; accuracySeries
       label="知识点覆盖"
       :value="`${overview.kpi.pointCoverage}%`"
       icon="target"
-      :hint="`${overview.kpi.pointsWithData} / ${overview.kpi.totalPoints} 个知识点`"
+      :hint="`${overview.kpi.pointsWithData.toLocaleString()} / ${overview.kpi.totalPoints.toLocaleString()} 个知识点`"
     >
       <template #visual>
         <ProgressRing
@@ -90,6 +90,15 @@ defineProps<{ overview: AnalyticsOverview; trendSeries: number[]; accuracySeries
 </template>
 
 <style scoped>
+/* 迷你图下方的走势说明：之前没有样式，窄列里被挤成三行 */
+.ana__sparkhint {
+  display: block;
+  font-size: var(--mc-text-xs);
+  line-height: var(--mc-leading-snug);
+  text-align: center;
+  white-space: nowrap;
+}
+
 .ana__kpis {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

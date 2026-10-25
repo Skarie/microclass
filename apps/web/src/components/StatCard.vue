@@ -48,6 +48,14 @@ withDefaults(
 </template>
 
 <style scoped>
+/* 指标卡说明文字：之前没有定义，靠继承字号导致宽度不够时断行难看 */
+.stat__hint {
+  font-size: var(--mc-text-xs);
+  line-height: var(--mc-leading-snug);
+  color: var(--mc-text-muted);
+  text-wrap: pretty;
+}
+
 .stat {
   display: flex;
   align-items: flex-start;
