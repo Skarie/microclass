@@ -100,9 +100,10 @@ const emit = defineEmits<{ open: [group: ConflictGroup] }>();
 
 .item__stem {
   display: block;
-  overflow: hidden;
+  overflow-x: auto;
   text-overflow: ellipsis;
   white-space: nowrap;
+  overflow-y: hidden;
 }
 
 .item__answers {

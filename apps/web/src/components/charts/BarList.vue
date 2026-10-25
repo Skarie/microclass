@@ -54,8 +54,8 @@ const widthOf = (item: BarItem): number => {
     >
       <span class="bars__label">
         <Icon v-if="item.icon" :name="item.icon" :size="15" class="bars__icon" />
-        <RichText v-if="item.richText" inline class="bars__text" :text="item.label" />
-        <span v-else class="bars__text">{{ item.label }}</span>
+        <RichText v-if="item.richText" inline class="bars__text" :text="item.label" :title="item.label" />
+        <span v-else class="bars__text" :title="item.label">{{ item.label }}</span>
       </span>
       <span class="bars__track">
         <span
@@ -70,7 +70,7 @@ const widthOf = (item: BarItem): number => {
         />
       </span>
       <span class="bars__value">{{ item.valueText ?? item.value }}</span>
-      <span v-if="item.hint" class="bars__hint">{{ item.hint }}</span>
+      <span v-if="item.hint" class="bars__hint" :title="item.hint">{{ item.hint }}</span>
     </component>
   </div>
 </template>

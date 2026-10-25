@@ -178,3 +178,10 @@
 .question-table .mc-table tbody tr:last-child td {
   border-bottom: 0;
 }
+
+@media (max-width: 640px) {
+  /* 手指点展开/收起时 24px 太窄 */
+  .stem__toggle {
+    min-height: 32px;
+  }
+}

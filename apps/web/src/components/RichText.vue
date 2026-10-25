@@ -81,6 +81,9 @@ watch(html, () => void nextTick(classifyImages));
 .rich {
   white-space: pre-wrap;
   word-break: break-word;
+  /* 宽公式/长图在窄容器里允许滚动，避免被裁成半截 */
+  overflow-x: auto;
+  max-width: 100%;
 }
 
 .rich--inline {

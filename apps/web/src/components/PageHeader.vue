@@ -153,4 +153,12 @@ withDefaults(
   flex-wrap: wrap;
   gap: var(--mc-space-3);
 }
+
+@media (max-width: 640px) {
+  /* 移动端面包屑点击区域不足 32px，手指容易点空 */
+  .ph__crumb {
+    min-height: 32px;
+    padding: 0 4px;
+  }
+}
 </style>

@@ -53,4 +53,13 @@ defineProps<{ courses: Course[]; progressOf: (course: Course) => number }>();
   padding: 0;
   list-style: none;
 }
+
+@media (max-width: 640px) {
+  /* 移动端「最近学习 ›」点击高度不足 */
+  .recent__more {
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+  }
+}
 </style>

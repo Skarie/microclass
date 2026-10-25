@@ -167,3 +167,22 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+@media (max-width: 640px) {
+  /* 移动端触控目标：可点文字/小按钮补足高度，勾选框放大到 16px，避免误触 */
+  .course-card__name,
+  .course__name,
+  .mc-link {
+    padding-block: 4px;
+  }
+
+  .stem__toggle {
+    min-height: 32px;
+  }
+
+  input[type='checkbox'],
+  input[type='radio'] {
+    min-width: 16px;
+    min-height: 16px;
+  }
+}
