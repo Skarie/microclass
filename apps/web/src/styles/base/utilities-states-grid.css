@@ -91,6 +91,10 @@
 }
 
 /* 骨架屏高度：避免模板里写 style="height: 200px"（尺寸应集中管理） */
+.mc-skeleton--h72 {
+  height: 72px;
+}
+
 .mc-skeleton--h160 {
   height: 160px;
 }

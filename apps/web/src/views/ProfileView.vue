@@ -189,7 +189,7 @@ async function logout(): Promise<void> {
       </div>
       <div class="mc-card__body mc-col">
         <div v-if="summaryLoading && !summary" class="mc-grid mc-grid--stats">
-          <div v-for="n in 4" :key="n" class="mc-skeleton" style="height: 72px" />
+          <div v-for="n in 4" :key="n" class="mc-skeleton mc-skeleton--h72" />
         </div>
         <template v-else>
           <div class="mc-grid mc-grid--stats">

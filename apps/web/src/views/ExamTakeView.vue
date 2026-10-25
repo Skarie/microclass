@@ -39,7 +39,7 @@ function toggleAnswer(qid: number, value: string): void {
 <template>
   <section v-if="take.loading && !take.data" class="mc-col">
     <div class="mc-skeleton mc-skeleton--h160" />
-    <div class="mc-skeleton" style="height: 320px" />
+    <div class="mc-skeleton mc-skeleton--h320" />
   </section>
 
   <ExamTakeLoadFail v-else-if="!take.data" :loading="take.loading" @retry="take.run()" />
