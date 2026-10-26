@@ -53,3 +53,8 @@
     transform: none;
   }
 }
+
+/* 表格行：键盘 Tab 到行内操作时与鼠标悬停一样有高亮，避免"光标在哪看不出来" */
+.mc-table tbody tr:focus-within td {
+  background: var(--mc-bg-hover);
+}
