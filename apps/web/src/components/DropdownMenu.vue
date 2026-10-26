@@ -140,23 +140,25 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick));
       </slot>
     </button>
 
-    <div v-if="open" ref="menu" class="dd__menu" :class="`dd__menu--${align}`" role="menu" tabindex="-1">
-      <button
-        v-for="item in items"
-        :key="item.key"
-        class="dd__item"
-        :class="{ 'dd__item--danger': item.danger }"
-        type="button"
-        role="menuitem"
-        :disabled="item.disabled"
-        :title="item.hint"
-        @click="choose(item)"
-      >
-        <Icon v-if="item.icon" :name="item.icon" :size="15" class="dd__item-icon" />
-        <span class="dd__item-label">{{ item.label }}</span>
-        <span v-if="item.hint" class="dd__item-hint">{{ item.hint }}</span>
-      </button>
-    </div>
+    <Transition name="dd">
+      <div v-if="open" ref="menu" class="dd__menu" :class="`dd__menu--${align}`" role="menu" tabindex="-1">
+        <button
+          v-for="item in items"
+          :key="item.key"
+          class="dd__item"
+          :class="{ 'dd__item--danger': item.danger }"
+          type="button"
+          role="menuitem"
+          :disabled="item.disabled"
+          :title="item.hint"
+          @click="choose(item)"
+        >
+          <Icon v-if="item.icon" :name="item.icon" :size="15" class="dd__item-icon" />
+          <span class="dd__item-label">{{ item.label }}</span>
+          <span v-if="item.hint" class="dd__item-hint">{{ item.hint }}</span>
+        </button>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -230,6 +232,19 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick));
 
 .dd__item-label {
   flex: 1;
+}
+
+.dd-enter-active,
+.dd-leave-active {
+  transition:
+    opacity var(--mc-duration) var(--mc-ease-out),
+    transform var(--mc-duration) var(--mc-ease-out);
+}
+
+.dd-enter-from,
+.dd-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 
 .dd__item-hint {
