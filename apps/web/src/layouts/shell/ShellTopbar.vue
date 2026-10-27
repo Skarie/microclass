@@ -5,7 +5,6 @@ import Icon from '@/components/Icon.vue';
 import ShellNav from './ShellNav.vue';
 import ShellPanelSwitch from './ShellPanelSwitch.vue';
 import { useShellMenus } from '@/composables/use-shell-menus';
-import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { usePanelStore } from '@/stores/panel';
 import { useThemeStore } from '@/stores/theme';
@@ -19,16 +18,6 @@ defineProps<{ summary: Summary | null; mobileOpen: boolean }>();
 const emit = defineEmits<{ toggleDrawer: []; dismissDrawer: [] }>();
 
 const auth = useAuthStore();
-/** 页面滚动后给顶栏加一层阴影，粘性头才有"浮起来"的层次感 */
-const scrolled = ref(false);
-const onScroll = (): void => {
-  scrolled.value = window.scrollY > 4;
-};
-onMounted(() => {
-  onScroll();
-  window.addEventListener('scroll', onScroll, { passive: true });
-});
-onBeforeUnmount(() => window.removeEventListener('scroll', onScroll));
 const theme = useThemeStore();
 const panel = usePanelStore();
 const { userName, manageMenuItems, userMenuItems, onUserSelect, onManageSelect } = useShellMenus({
@@ -37,7 +26,7 @@ const { userName, manageMenuItems, userMenuItems, onUserSelect, onManageSelect }
 </script>
 
 <template>
-  <header class="topbar" :class="{ 'topbar--scrolled': scrolled }">
+  <header class="topbar">
     <RouterLink class="brand" :to="{ name: 'home' }" aria-label="回到首页">
       <span class="brand__logo" aria-hidden="true">微</span>
       <span class="brand__name">{{ auth.siteName }}</span>
@@ -99,10 +88,6 @@ const { userName, manageMenuItems, userMenuItems, onUserSelect, onManageSelect }
 
 <style scoped>
 /* ---------- 顶栏 ---------- */
-.topbar--scrolled {
-  box-shadow: var(--mc-shadow-sm);
-}
-
 .topbar {
   position: sticky;
   top: 0;
