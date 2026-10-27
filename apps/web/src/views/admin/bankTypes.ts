@@ -1,3 +1,40 @@
+/** 左侧目录视图：按课程（原有）/ 按册次（册次 → 章节 → 题库） */
+export type BankNavView = 'course' | 'book';
+
+/** 按册次视图的层级：册次列表 / 章节列表 / 题库列表 */
+export type BookNavLevel = 'books' | 'sections' | 'banks';
+
+/** 一个章节下的题库与题量（`section: ''` = 未分章） */
+export interface SectionCount {
+  section: string;
+  bankCount: number;
+  questionCount: number;
+}
+
+/** `GET /banks/catalog-sections?view=book` 的一个册次分组（`book: ''` = 未归类册次） */
+export interface BankSectionBook {
+  book: string;
+  /** 该册次下存在未归属课程的题库 */
+  isUnbound: boolean;
+  bankCount: number;
+  questionCount: number;
+  sections: SectionCount[];
+}
+
+export interface BankSectionCatalog {
+  view: 'book';
+  books: BankSectionBook[];
+}
+
+/** 批量回填章节的预览 / 执行结果 */
+export interface BackfillSectionsResult {
+  dryRun: boolean;
+  filled: number;
+  skipped: number;
+  samples: { id: number; name: string; section: string }[];
+  skippedSamples: { id: number; name: string }[];
+}
+
 /** 题库体检的返回结构（体检弹窗与父页面共用） */
 export interface BankHealth {
   scope: { bankId: number | null; name: string };

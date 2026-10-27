@@ -56,7 +56,8 @@ export function parseBankListQuery(q: BankListQuery): BankListFilter {
   }
   if (q.kind) filter.kind = parseBankKind(q.kind);
   if (q.subject) filter.subject = q.subject;
-  if (q.book) filter.book = q.book;
+  // 空串也要保留：`?book=` 表示「未归类册次」，没传才是全部
+  if (q.book !== undefined) filter.book = q.book;
   // 空串也要保留：`?section=` 表示「只看未分章」，没传才是全部
   if (q.section !== undefined) filter.section = q.section;
   if (q.keyword) filter.keyword = q.keyword;

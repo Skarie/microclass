@@ -30,8 +30,9 @@ const actionsState = reactive(actionsApi);
   <!-- 三级：题库列表（搜索结果 / 某课程 / 某册次），带面包屑可返回 -->
   <div class="bank-panel__list">
     <BankNavCrumbs
-      :label="`/ ${catalogState.searchActive ? catalogState.bankKeyword : catalogState.activeCourseName}`"
-      @back="catalogState.pickCourse(null)"
+      :label="catalogState.crumbPath"
+      :back-label="catalogState.crumbBackLabel"
+      @back="catalogState.backFromBanks"
     />
     <div class="mc-row bank-panel__listhead">
       <span class="mc-muted">题库</span>

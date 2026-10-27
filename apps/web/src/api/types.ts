@@ -194,8 +194,8 @@ export interface Bank {
   kind?: 'lesson' | 'chapter' | 'paper';
   subject?: string;
   book?: string;
+  section?: string;
 }
-
 export interface GradedItem {
   qid: number;
   type: QuestionType;

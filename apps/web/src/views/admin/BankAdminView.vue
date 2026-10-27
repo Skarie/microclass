@@ -47,6 +47,7 @@ const actionsApi = useBankActions({
   loadBanks: catalogApi.loadBanks,
   loadQuestions: questionApi.loadQuestions,
   loadCatalog: catalogApi.loadCatalog,
+  loadBookCatalog: catalogApi.loadBookCatalog,
   downloadTemplate: importApi.downloadTemplate,
   exportBank: importApi.exportBank,
 });
@@ -70,6 +71,8 @@ onMounted(() => {
   questionApi.loadPrefs();
   void actionsApi.loadCourses();
   void catalogApi.loadCatalog();
+  // 表单章节候选与「按册次」目录都来自 catalog-sections
+  void catalogApi.loadBookCatalog();
   void catalogApi.loadBanks(false);
   // 指标卡片要用体检数据（服务端已预热 + 5 分钟缓存，约 20ms；失败不影响页面）
   void actionsApi.loadHealth(true);

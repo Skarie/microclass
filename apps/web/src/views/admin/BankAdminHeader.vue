@@ -2,8 +2,10 @@
 import { reactive } from 'vue';
 import PageHeader from '@/components/PageHeader.vue';
 import Icon from '@/components/Icon.vue';
+import DropdownMenu from '@/components/DropdownMenu.vue';
 import BankOverviewHeader from './BankOverviewHeader.vue';
 import BankHealthPanel from './BankHealthPanel.vue';
+import type { MenuItem } from '@/components/DropdownMenu.vue';
 import type { useBankCatalog } from '@/composables/use-bank-catalog';
 import type { useQuestionList } from '@/composables/use-question-list';
 import type { useBankActions } from '@/composables/use-bank-actions';
@@ -25,6 +27,20 @@ const actionsApi = props.actions;
 const catalogState = reactive(catalogApi);
 const questionsState = reactive(questionApi);
 const actionsState = reactive(actionsApi);
+
+/** 工具栏低频操作：放在「工具」菜单里，不跟「新建题库」抢主按钮 */
+const toolItems: MenuItem[] = [
+  {
+    key: 'backfill-sections',
+    label: '批量回填章节',
+    icon: 'book-open',
+    hint: '只补章节为空的题库',
+  },
+];
+
+function onToolSelect(key: string): void {
+  if (key === 'backfill-sections') catalogApi.openBackfill();
+}
 </script>
 
 <template>
@@ -44,6 +60,7 @@ const actionsState = reactive(actionsApi);
         <Icon name="shield" :size="15" />
         {{ actionsState.healthOpen ? '收起体检' : '题库体检' }}
       </button>
+      <DropdownMenu label="工具" icon="settings" :items="toolItems" aria-label="题库工具" @select="onToolSelect" />
       <button
         class="mc-btn mc-btn--sm"
         type="button"

@@ -3,9 +3,14 @@
  * 左栏二级/三级导航的返回条：← 全部课程 / 当前课程或册次。
  * 课程/册次层与题库列表层共用同一套样式，避免两处各写一份。
  */
-defineProps<{
-  label: string;
-}>();
+withDefaults(
+  defineProps<{
+    label: string;
+    /** 返回目标文案：课程视图是「全部课程」，册次视图是「全部册次 / 章节」 */
+    backLabel?: string;
+  }>(),
+  { backLabel: '← 全部课程' },
+);
 
 const emit = defineEmits<{
   back: [];
@@ -14,8 +19,8 @@ const emit = defineEmits<{
 
 <template>
   <div class="nav-crumb">
-    <button class="nav-crumb__back" type="button" @click="emit('back')">← 全部课程</button>
-    <span class="mc-muted mc-truncate">{{ label }}</span>
+    <button class="nav-crumb__back" type="button" @click="emit('back')">{{ backLabel }}</button>
+    <span class="mc-muted mc-truncate" :title="label">{{ label }}</span>
   </div>
 </template>
 
@@ -29,6 +34,8 @@ const emit = defineEmits<{
 }
 
 .nav-crumb__back {
+  flex: none;
+  white-space: nowrap;
   min-height: 32px;
   padding: 4px 8px;
   border: 1px solid var(--mc-border);

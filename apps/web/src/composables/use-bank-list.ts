@@ -9,6 +9,7 @@ import { api } from '@/api/client';
 import { errorMessage } from '@/composables/useAsync';
 import { useToastStore } from '@/stores/toast';
 import type { Bank } from '@/api/types';
+import type { BankNavView } from '@/views/admin/bankTypes';
 
 interface BankListResponse {
   banks: Bank[];
@@ -26,6 +27,10 @@ export interface BankListScope {
   unboundBook: Ref<string>;
   onlyUnbound: Ref<boolean>;
   catalogCourseId: Ref<number | null>;
+  /** 目录视图：按册次时用 bookPick / sectionPick 过滤，忽略课程范围 */
+  navView: Ref<BankNavView>;
+  bookPick: Ref<string | null>;
+  sectionPick: Ref<string | null>;
 }
 
 /** 题库列表要用的外部能力：题目列表的加载与清空（由父组件注入，运行时才调用） */
@@ -82,21 +87,33 @@ export function useBankList(scope: BankListScope, deps: BankListDeps) {
   async function loadBanks(keepSelection = true): Promise<void> {
     banksLoading.value = true;
     try {
-      const res = await api.get<BankListResponse>('/banks', {
-        ...(scope.kindFilter.value === '' ? {} : { kind: scope.kindFilter.value }),
-        ...(scope.bankKeyword.value ? { keyword: scope.bankKeyword.value } : {}),
-        ...(scope.unboundBook.value ? { book: scope.unboundBook.value } : {}),
-        ...(scope.onlyUnbound.value
-          ? { courseId: 'unbound' }
-          : scope.catalogCourseId.value === null
-            ? {}
-            : { courseId: scope.catalogCourseId.value }),
-        // 服务端分页：一次最多取 300 个题库（全库有 1.2 万个，之前一次全拉会拖垮页面）
-        limit: BANKS_PAGE,
-        offset: 0,
-      });
-      banks.value = res.banks;
-      banksTotal.value = res.total ?? res.banks.length;
+      /**
+       * 手工拼查询串而不是走 api.get 的 query：空串是有效筛选值
+       *（`?section=` = 未分章），而 query 序列化会丢掉空串。
+       * `/banks` 的 book 过滤目前不认空串（后端 `if (q.book)`），
+       * 「未归类册次」改为先按 section 拉取、再在前端按 book === '' 过滤。
+       */
+      const params = new URLSearchParams();
+      const kind = scope.kindFilter.value;
+      if (kind !== '') params.set('kind', kind);
+      if (scope.bankKeyword.value !== '') params.set('keyword', scope.bankKeyword.value);
+      const bookView = scope.navView.value === 'book';
+      const emptyBook = bookView && scope.bookPick.value === '';
+      if (bookView) {
+        if (scope.bookPick.value !== null && !emptyBook) params.set('book', scope.bookPick.value);
+        if (scope.sectionPick.value !== null) params.set('section', scope.sectionPick.value);
+      } else {
+        if (scope.unboundBook.value !== '') params.set('book', scope.unboundBook.value);
+        if (scope.onlyUnbound.value) params.set('courseId', 'unbound');
+        else if (scope.catalogCourseId.value !== null) params.set('courseId', String(scope.catalogCourseId.value));
+      }
+      // 服务端分页：一次最多取 300 个题库（全库有 1.2 万个，之前一次全拉会拖垮页面）
+      params.set('limit', String(BANKS_PAGE));
+      params.set('offset', '0');
+      const res = await api.get<BankListResponse>(`/banks?${params.toString()}`);
+      const rows = emptyBook ? res.banks.filter((bank) => (bank.book ?? '') === '') : res.banks;
+      banks.value = rows;
+      banksTotal.value = emptyBook ? rows.length : (res.total ?? res.banks.length);
       const stillThere = banks.value.some((b) => b.id === selectedBankId.value);
       if (!keepSelection || !stillThere) {
         selectedBankId.value = banks.value[0]?.id ?? null;

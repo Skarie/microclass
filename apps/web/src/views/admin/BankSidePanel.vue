@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { reactive } from 'vue';
 import CourseBankNav from './CourseBankNav.vue';
+import BookBankNav from './BookBankNav.vue';
 import BankListPanel from './BankListPanel.vue';
+import BankNavViewSwitch from './BankNavViewSwitch.vue';
 import type { useBankCatalog } from '@/composables/use-bank-catalog';
 import type { useQuestionList } from '@/composables/use-question-list';
 import type { useBankActions } from '@/composables/use-bank-actions';
@@ -27,13 +29,7 @@ const catalogState = reactive(catalogApi);
   <aside class="mc-card bank-panel">
     <div class="mc-card__header">
       <span class="mc-card__title">题库导航</span>
-      <span class="mc-muted">
-        {{
-          catalogState.browseLevel === 'courses'
-            ? catalogState.catalog.courses.length + ' 门课程'
-            : catalogState.banks.length + ' 个题库'
-        }}
-      </span>
+      <span class="mc-muted">{{ catalogState.navCountLabel }}</span>
     </div>
 
     <!-- 搜索与类型筛选：属于「题库列表」，从课程树里提出来放到显眼位置 -->
@@ -54,8 +50,22 @@ const catalogState = reactive(catalogApi);
       </select>
     </div>
 
+    <div class="tree__views">
+      <BankNavViewSwitch :model-value="catalogState.navView" @update:model-value="catalogState.switchNavView" />
+    </div>
+
+    <BookBankNav
+      v-if="
+        catalogState.navView === 'book' &&
+        (catalogState.browseLevel === 'books' || catalogState.browseLevel === 'sections')
+      "
+      :catalog="catalogApi"
+    />
     <CourseBankNav
-      v-if="catalogState.browseLevel === 'courses' || catalogState.browseLevel === 'books'"
+      v-else-if="
+        catalogState.navView === 'course' &&
+        (catalogState.browseLevel === 'courses' || catalogState.browseLevel === 'books')
+      "
       :catalog="catalogApi"
       :actions="actionsApi"
     />
@@ -105,6 +115,10 @@ const catalogState = reactive(catalogApi);
 .tree__kind {
   flex: 1 1 120px;
   max-width: 100%;
+}
+
+.tree__views {
+  padding: 0 var(--mc-space-4) var(--mc-space-2);
 }
 
 @media (max-width: 1080px) {

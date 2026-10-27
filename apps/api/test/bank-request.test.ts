@@ -48,6 +48,12 @@ describe('parseBankListQuery：题库列表筛选 + 分页', () => {
     expect(parseBankListQuery({})).toEqual({ limit: 300, offset: 0 });
   });
 
+  it('book / section 空串是有效筛选值（未归类册次 / 未分章）', () => {
+    expect(parseBankListQuery({ book: '' })).toMatchObject({ book: '' });
+    expect(parseBankListQuery({ section: '' })).toMatchObject({ section: '' });
+    expect(parseBankListQuery({})).not.toHaveProperty('book');
+  });
+
   it('lesson / courseId 的 orphan / unbound 哨兵映射成 null', () => {
     expect(parseBankListQuery({ lesson: 'orphan', courseId: 'unbound' })).toMatchObject({
       lessonId: null,
