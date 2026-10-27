@@ -57,6 +57,7 @@ export type BankSectionView = 'book' | 'course';
 export interface BankMissingSectionRow {
   id: number;
   name: string;
+  book: string;
   lessonId: number | null;
   groupName: string;
 }
@@ -152,15 +153,13 @@ export function catalogSectionsByCourse(db: Db, kind: BankKind | '' = ''): BankC
 
 /** 回填候选：section 为空（可按 kind 过滤），带课时 group_name 供优先继承 */
 export function banksMissingSection(db: Db, kind: BankKind | '' = ''): BankMissingSectionRow[] {
-  return db
-    .all<{ id: number; name: string; lessonId: number | null; groupName: string }>(
-      `SELECT b.id, b.name, b.lesson_id AS lessonId, COALESCE(l.group_name, '') AS groupName
+  return db.all<BankMissingSectionRow>(
+    `SELECT b.id, b.name, COALESCE(b.book, '') AS book, b.lesson_id AS lessonId, COALESCE(l.group_name, '') AS groupName
        FROM banks b LEFT JOIN lessons l ON l.id = b.lesson_id
        WHERE b.section = '' AND (?1 = '' OR b.kind = ?1)
        ORDER BY b.id`,
-      [kind],
-    )
-    .map((row) => ({ id: row.id, name: row.name, lessonId: row.lessonId, groupName: row.groupName }));
+    [kind],
+  );
 }
 
 /** 批量写入回填结果；只改仍然为空的题库（避免覆盖老师刚手工填的章节），返回改动条数 */

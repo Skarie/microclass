@@ -124,15 +124,12 @@ afterAll(async () => {
 describe('回填章节：dryRun 与过滤', () => {
   it('dryRun 只预览不写库，samples / skippedSamples 如实返回', async () => {
     const res = await backfill({ dryRun: true });
-    expect(res).toMatchObject({ dryRun: true, filled: 5, skipped: 2 });
-    expect(res.samples.map((s) => s.id)).toEqual([1, 2, 5, 7, 8]);
+    expect(res).toMatchObject({ dryRun: true, filled: 6, skipped: 1 });
+    expect(res.samples.map((s) => s.id)).toEqual([1, 2, 3, 5, 7, 8]);
     expect(res.samples[0]).toEqual({ id: 1, name: '课时库 · 子集', section: '第一章 集合' });
     expect(res.samples[1]).toEqual({ id: 2, name: '第二章 函数 · 定义域', section: '第二章 函数' });
-    expect(res.skippedSamples).toEqual([
-      { id: 3, name: '三年级上册 · 第一章 分数' },
-      { id: 4, name: '未归类题库' },
-    ]);
-    for (const id of [1, 2, 5, 7, 8]) expect(sectionOf(id)).toBe('');
+    expect(res.skippedSamples).toEqual([{ id: 4, name: '未归类题库' }]);
+    for (const id of [1, 2, 3, 5, 7, 8]) expect(sectionOf(id)).toBe('');
   });
 
   it('kind 过滤只回填对应类型', async () => {
@@ -148,10 +145,10 @@ describe('回填章节：dryRun 与过滤', () => {
 describe('回填章节：真实写入', () => {
   it('课时继承优先，其次题库名解析，解析不出的跳过', async () => {
     const res = await backfill({});
-    expect(res).toMatchObject({ dryRun: false, filled: 5, skipped: 2 });
+    expect(res).toMatchObject({ dryRun: false, filled: 6, skipped: 1 });
     expect(sectionOf(1)).toBe('第一章 集合');
     expect(sectionOf(2)).toBe('第二章 函数');
-    expect(sectionOf(3)).toBe('');
+    expect(sectionOf(3)).toBe('第一章 分数');
     expect(sectionOf(4)).toBe('');
     expect(sectionOf(5)).toBe('1. 集合的含义');
     expect(sectionOf(6)).toBe('第一章 集合');
@@ -161,10 +158,10 @@ describe('回填章节：真实写入', () => {
 
   it('再次执行幂等（只剩无法解析的题库，不再写入）', async () => {
     const res = await backfill({});
-    expect(res).toMatchObject({ dryRun: false, filled: 0, skipped: 2 });
+    expect(res).toMatchObject({ dryRun: false, filled: 0, skipped: 1 });
     expect(res.samples).toEqual([]);
-    expect(res.skippedSamples.map((s) => s.id)).toEqual([3, 4]);
-    for (const id of [3, 4]) expect(sectionOf(id)).toBe('');
+    expect(res.skippedSamples.map((s) => s.id)).toEqual([4]);
+    for (const id of [4]) expect(sectionOf(id)).toBe('');
   });
 
   it('body 可以省略（默认 dryRun=false、kind=全部）', async () => {
@@ -174,7 +171,7 @@ describe('回填章节：真实写入', () => {
       headers: { cookie },
     });
     expect(res.statusCode).toBe(200);
-    expect(json<BackfillResult>(res)).toMatchObject({ dryRun: false, filled: 0, skipped: 2 });
+    expect(json<BackfillResult>(res)).toMatchObject({ dryRun: false, filled: 0, skipped: 1 });
   });
 
   it('权限：学生不能回填，未登录拒绝', async () => {
@@ -202,7 +199,7 @@ describe('题库名解析章节的规则', () => {
     expect(backfillSectionOf({ name: '一、准备课 · 习题', groupName: '' })).toBe('一、准备课');
     expect(backfillSectionOf({ name: '12. 复习 · 习题', groupName: '' })).toBe('12. 复习');
     expect(backfillSectionOf({ name: '模块一 数与式 · 练习', groupName: '' })).toBe('模块一 数与式');
-    expect(backfillSectionOf({ name: '三年级上册 · 第一章 分数', groupName: '' })).toBe('');
+    expect(backfillSectionOf({ name: '三年级上册 · 第一章 分数', groupName: '' })).toBe('第一章 分数');
     expect(backfillSectionOf({ name: '未归类题库', groupName: '' })).toBe('');
   });
 

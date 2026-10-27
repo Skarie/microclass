@@ -38,10 +38,10 @@ export function resolveSection(raw: string | undefined, groupName: string | unde
  * 回填单个题库的章节：课时 group_name 优先；没有则解析题库名第一段；
  * 都不像章节时返回空串（跳过）。
  */
-export function backfillSectionOf(row: { name: string; groupName: string }): string {
+export function backfillSectionOf(row: { name: string; groupName: string; book?: string }): string {
   const fromLesson = (row.groupName ?? '').trim().slice(0, SECTION_MAX_LENGTH);
   if (fromLesson !== '') return fromLesson;
-  return sectionFromBankName(row.name);
+  return sectionFromBankName(row.name, row.book ?? '');
 }
 
 export class BankSectionService {

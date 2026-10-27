@@ -79,11 +79,20 @@ export function isSectionLikeName(raw: string): boolean {
 }
 
 /**
- * 从题库名解析章节：取 ` · ` 分隔的第一段，像章节才采用，否则返回空串。
- * 导入命名形如「三年级上册 · 第一章 集合 · 子集」，第一段是册次 → 不采用；
- * 「第一章 集合 · 子集」第一段是章节 → 采用。
+ * 从题库名解析章节：按 `·` 切段，取第一个「像章节」的段，否则返回空串。
+ *
+ * 导入命名有好几种形态：
+ *   第一章 集合 · 子集                      → 第一章 集合
+ *   必修1 · 第三章 函数 · 定义域            → 第三章 函数
+ *   七年级上册·第一章 有理数（样题）        → 第一章 有理数（样题）
+ *   拓展训练 · 有理数的四则运算-规律探究    → 空（「拓展训练」不是章节）
+ * 与册次字段相同的那一段会跳过，避免把册次当成章节。
  */
-export function sectionFromBankName(name: string): string {
-  const first = bankNameParts(name)[0] ?? '';
-  return isSectionLikeName(first) ? first.slice(0, 120) : '';
+export function sectionFromBankName(name: string, book = ''): string {
+  const bookKey = String(book ?? '').trim();
+  for (const part of bankNameParts(name)) {
+    if (bookKey !== '' && part === bookKey) continue;
+    if (isSectionLikeName(part)) return part.slice(0, 120);
+  }
+  return '';
 }
