@@ -19,6 +19,11 @@ export const bankBodySchema = {
     kind: { type: 'string', enum: ['lesson', 'chapter', 'paper', ''] },
     subject: { type: 'string', maxLength: 40 },
     book: { type: 'string', maxLength: 80 },
+    /**
+     * 章节（迁移 0023）：服务端 trim 并截断到 120 字（超长不报错，按 120 存）。
+     * 这里不设 maxLength，避免入口就 400、让「自动截断」永远走不到。
+     */
+    section: { type: 'string' },
     /** 归属课程（目录树/组卷题池用）；`null` = 移出课程 */
     courseId: { type: ['integer', 'null'] },
   },

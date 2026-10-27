@@ -28,6 +28,8 @@ export interface BankListQuery {
   kind?: string;
   subject?: string;
   book?: string;
+  /** 章节精确筛选；空串 = 只看未分章（注意与「不传」不同） */
+  section?: string;
   keyword?: string;
   courseId?: string;
   limit?: string;
@@ -55,6 +57,8 @@ export function parseBankListQuery(q: BankListQuery): BankListFilter {
   if (q.kind) filter.kind = parseBankKind(q.kind);
   if (q.subject) filter.subject = q.subject;
   if (q.book) filter.book = q.book;
+  // 空串也要保留：`?section=` 表示「只看未分章」，没传才是全部
+  if (q.section !== undefined) filter.section = q.section;
   if (q.keyword) filter.keyword = q.keyword;
   if (q.courseId === 'unbound') filter.courseId = null;
   else if (q.courseId) {

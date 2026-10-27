@@ -10,6 +10,8 @@ export interface BankDto {
   kind?: string;
   subject?: string;
   book?: string;
+  /** 章节（迁移 0023）：trim，最长 120；为空且绑了课时则继承 group_name */
+  section?: string;
   /** 归属课程（手工把「未归属」的题库挂到某门课）；`null` = 移出课程 */
   courseId?: number | null;
 }

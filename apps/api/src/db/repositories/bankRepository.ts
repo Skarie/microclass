@@ -1,13 +1,48 @@
 /**
- * 题库（banks）仓储。
+ * 题库（banks）仓储：题库自身的增删改查、列表筛选与详情取数。
+ *
+ * 目录聚合（课程 → 章节 → 小节 → 题库）在 `bankCatalogQueries`，
+ * 归属课程的批量操作在 `bankBindingQueries`，章节目录与回填在 `bankSectionQueries`；
+ * 这里保留同名方法转发，调用方（服务层）无需感知拆分。
  */
 import type { Bank } from '@microclass/shared';
 import type { Db } from '../client.js';
-import { bankSectionOfName, bookKeyOfCourseName, chapterKeyFromBankName } from './bankNaming.js';
+import {
+  catalogCourse,
+  catalogCourses,
+  catalogUnbound,
+  catalogUnboundBooks,
+  type CatalogCourse,
+  type CatalogNode,
+} from './bankCatalogQueries.js';
+import {
+  bindCourseByLesson,
+  bindUnboundByBook,
+  courseBindingStats,
+  courseBookKeys,
+  setCourseBindings,
+  unboundWithBook,
+} from './bankBindingQueries.js';
+import {
+  banksMissingSection,
+  catalogSectionsByBook,
+  catalogSectionsByCourse,
+  setBankSections,
+  type BankBookCatalog,
+  type BankCourseCatalog,
+  type BankMissingSectionRow,
+} from './bankSectionQueries.js';
 
 export * from './bankNaming.js';
+export type { CatalogCourse, CatalogNode } from './bankCatalogQueries.js';
 
-export interface BankWithStats extends Bank {
+/** 题库行：`banks` 表全量字段（迁移 0023 新增 section） */
+export interface BankRow extends Bank {
+  /** 章节；空串 = 未分章（前端归到「未分章」） */
+  section: string;
+}
+
+export interface BankWithStats extends BankRow {
   lesson_title: string;
   question_count: number;
 }
@@ -22,6 +57,8 @@ export interface BankInput {
   kind?: BankKind;
   subject?: string;
   book?: string;
+  /** 章节（迁移 0023）：手填或从课时 group_name 继承 */
+  section?: string;
   /** 归属课程（迁移 0017；课时配套题库由 lesson 推导，章节/整卷按册次匹配） */
   courseId?: number | null;
 }
@@ -35,48 +72,16 @@ export interface BankListFilter {
   keyword?: string;
   /** 归属课程（含「未归属」用 `courseId: null`） */
   courseId?: number | null;
+  /** 章节精确筛选；传空串 = 只看未分章（与「不传」区分） */
+  section?: string;
   /** 分页：全库有 1.2 万个题库，一次全拉会把页面拖死 */
   limit?: number;
   offset?: number;
 }
 
-/** 目录树节点：课程 → 章节 → 小节 → 题库 */
-export interface CatalogCourse {
-  id: number;
-  name: string;
-  bankCount: number;
-  questionCount: number;
-  /** 有题库的章节数（`lessons.group_name` 去重；章节题库的分组在目录接口里算） */
-  chapterCount: number;
-}
-
-export interface CatalogNode {
-  /** 课程下的章节（group_name），空章节归到「未分章」 */
-  name: string;
-  lessonCount: number;
-  bankCount: number;
-  questionCount: number;
-  lessons: {
-    id: number;
-    title: string;
-    bankCount: number;
-    questionCount: number;
-    banks: { id: number; name: string; kind: string; questionCount: number }[];
-  }[];
-  /** 章节下不挂课时的题库（章节题库 / 整卷试卷） */
-  banks: { id: number; name: string; kind: string; point: string; questionCount: number }[];
-}
-
 export class BankRepository {
   constructor(private readonly db: Db) {}
-  /**
-   * 题库列表（带题量）。
-   *
-   * 题量用**一次分组统计**再 JOIN，而不是每个题库一个相关子查询：
-   * 全库 1.2 万个题库时，相关子查询会造成 1.2 万次随机索引查找
-   * （真机上冷缓存实测把整个请求拖到 **100 秒级**，期间 node:sqlite 同步执行会卡住整个站点）。
-   * 另外支持分页：页面一次只取 N 个。
-   */
+
   private bankWhere(options?: BankListFilter): { where: string; params: unknown[] } {
     const clauses: string[] = [];
     const params: unknown[] = [];
@@ -105,6 +110,11 @@ export class BankRepository {
     else if (typeof options?.courseId === 'number') {
       clauses.push('b.course_id = ?');
       params.push(options.courseId);
+    }
+    // 注意：空串是有意义的筛选值（未分章），不能用 if (value) 判断
+    if (options?.section !== undefined) {
+      clauses.push('b.section = ?');
+      params.push(options.section);
     }
     return { where: clauses.length > 0 ? ` WHERE ${clauses.join(' AND ')}` : '', params };
   }
@@ -137,199 +147,75 @@ export class BankRepository {
 
   /* ---------------- 课程 → 章节 → 小节 → 题库 目录（筛选与组卷挑题用） ---------------- */
 
-  /** 课程列表 + 每门课的题库数/题量（筛选树第一层；`kind` 为空表示全部类型） */
   catalogCourses(kind: BankKind | '' = ''): CatalogCourse[] {
-    return this.db.all<CatalogCourse>(
-      `SELECT c.id, c.name,
-              COUNT(DISTINCT b.id) AS bankCount,
-              COALESCE(SUM(b.question_count), 0) AS questionCount,
-              COUNT(DISTINCT CASE WHEN l.group_name <> '' THEN l.group_name END) AS chapterCount
-       FROM courses c
-       LEFT JOIN banks b ON b.course_id = c.id AND (?1 = '' OR b.kind = ?1)
-       LEFT JOIN lessons l ON l.id = b.lesson_id
-       GROUP BY c.id
-       HAVING bankCount > 0
-       ORDER BY c.name`,
-      [kind],
-    );
+    return catalogCourses(this.db, kind);
   }
 
-  /** 未归属课程的题库（含「课时库没挂课时」这种历史数据；`kind` 为空表示全部类型） */
   catalogUnbound(kind: BankKind | '' = ''): { bankCount: number; questionCount: number } {
-    return (
-      this.db.get<{ bankCount: number; questionCount: number }>(
-        `SELECT COUNT(*) AS bankCount, COALESCE(SUM(b.question_count), 0) AS questionCount
-         FROM banks b WHERE b.course_id IS NULL AND (?1 = '' OR b.kind = ?1)`,
-        [kind],
-      ) ?? { bankCount: 0, questionCount: 0 }
-    );
+    return catalogUnbound(this.db, kind);
   }
 
-  /** 未归属课程按册次分组（目录树里仍能分类导航，而不是一大坨；`kind` 为空表示全部类型） */
   catalogUnboundBooks(kind: BankKind | '' = ''): { book: string; bankCount: number; questionCount: number }[] {
-    return this.db.all<{ book: string; bankCount: number; questionCount: number }>(
-      `SELECT COALESCE(NULLIF(b.book, ''), '(无册次信息)') AS book,
-              COUNT(*) AS bankCount,
-              COALESCE(SUM(b.question_count), 0) AS questionCount
-       FROM banks b WHERE b.course_id IS NULL AND (?1 = '' OR b.kind = ?1)
-       GROUP BY book ORDER BY bankCount DESC`,
-      [kind],
-    );
+    return catalogUnboundBooks(this.db, kind);
   }
 
-  /**
-   * 某门课的目录：章节（group_name）→ 小节（lesson）→ 题库；
-   * 不挂课时的章节题库/整卷试卷按「知识点前缀」归到「未分章」分组里。
-   */
   catalogCourse(courseId: number): { course: { id: number; name: string } | undefined; chapters: CatalogNode[] } {
-    const course = this.db.get<{ id: number; name: string }>('SELECT id, name FROM courses WHERE id = ?', [courseId]);
-    const lessons = this.db.all<{ id: number; title: string; group_name: string; sort: number }>(
-      'SELECT id, title, group_name, sort FROM lessons WHERE course_id = ? ORDER BY sort, id',
-      [courseId],
-    );
-    const banks = this.db.all<{
-      id: number;
-      name: string;
-      kind: string;
-      lesson_id: number | null;
-      question_count: number;
-    }>(
-      `SELECT b.id, b.name, COALESCE(b.kind, '') AS kind, b.lesson_id, b.question_count
-       FROM banks b WHERE b.course_id = ? ORDER BY b.id`,
-      [courseId],
-    );
-
-    const byLesson = new Map<number, typeof banks>();
-    const free: typeof banks = [];
-    for (const bank of banks) {
-      if (bank.lesson_id === null) {
-        free.push(bank);
-        continue;
-      }
-      const list = byLesson.get(bank.lesson_id) ?? [];
-      list.push(bank);
-      byLesson.set(bank.lesson_id, list);
-    }
-
-    const chapters = new Map<string, CatalogNode>();
-    const chapterOf = (name: string): CatalogNode => {
-      const key = name || '未分章';
-      let node = chapters.get(key);
-      if (!node) {
-        node = { name: key, lessonCount: 0, bankCount: 0, questionCount: 0, lessons: [], banks: [] };
-        chapters.set(key, node);
-      }
-      return node;
-    };
-
-    for (const lesson of lessons) {
-      const owned = byLesson.get(lesson.id) ?? [];
-      if (owned.length === 0) continue; // 没有题库的课时不进树，避免几千个空节点
-      const node = chapterOf(lesson.group_name);
-      node.lessonCount += 1;
-      node.bankCount += owned.length;
-      node.questionCount += owned.reduce((s, b) => s + b.question_count, 0);
-      node.lessons.push({
-        id: lesson.id,
-        title: lesson.title,
-        bankCount: owned.length,
-        questionCount: owned.reduce((s, b) => s + b.question_count, 0),
-        banks: owned.map((b) => ({ id: b.id, name: b.name, kind: b.kind, questionCount: b.question_count })),
-      });
-    }
-
-    // 不挂课时的题库：按题库名里的章节段归章（导入命名形如「三年级上册 · 1 时、分、秒 · 时间的推算」）
-    for (const bank of free) {
-      const key = chapterKeyFromBankName(bank.name);
-      const node = chapterOf(key);
-      node.bankCount += 1;
-      node.questionCount += bank.question_count;
-      node.banks.push({
-        id: bank.id,
-        name: bank.name,
-        kind: bank.kind,
-        point: bankSectionOfName(bank.name),
-        questionCount: bank.question_count,
-      });
-    }
-
-    return { course, chapters: [...chapters.values()] };
+    return catalogCourse(this.db, courseId);
   }
+
+  /* ---------------- 章节目录（册次 → 章节）与批量回填 ---------------- */
+
+  sectionCatalogByBook(kind: BankKind | '' = ''): BankBookCatalog {
+    return catalogSectionsByBook(this.db, kind);
+  }
+
+  sectionCatalogByCourse(kind: BankKind | '' = ''): BankCourseCatalog {
+    return catalogSectionsByCourse(this.db, kind);
+  }
+
+  banksWithoutSection(kind: BankKind | '' = ''): BankMissingSectionRow[] {
+    return banksMissingSection(this.db, kind);
+  }
+
+  applyBankSections(updates: { id: number; section: string }[]): number {
+    return setBankSections(this.db, updates);
+  }
+
+  /* ---------------- 归属课程（转发 bankBindingQueries） ---------------- */
 
   /** 一键回填归属课程：课时配套题库由课时推导（返回条数） */
   bindCourseByLesson(): number {
-    return this.db.run(
-      `UPDATE banks SET course_id = (SELECT l.course_id FROM lessons l WHERE l.id = banks.lesson_id)
-       WHERE lesson_id IS NOT NULL
-         AND (course_id IS NULL OR course_id <> (SELECT l.course_id FROM lessons l WHERE l.id = banks.lesson_id))`,
-    ).changes;
+    return bindCourseByLesson(this.db);
   }
 
-  /**
-   * 按册次批量挂课程：只影响**未归属**的题库。
-   * 匹配口径与 catalogUnboundBooks 的分组完全一致（空册次统一按 "(无册次信息)"），
-   * 保证界面上看到 131 个，这里就正好改 131 个。
-   */
+  /** 按册次批量挂课程（只影响未归属题库） */
   bindUnboundByBook(book: string, courseId: number | null): number {
-    const res = this.db.run(
-      'UPDATE banks SET course_id = ?' +
-        ' WHERE course_id IS NULL' +
-        " AND COALESCE(NULLIF(book, ''), '(无册次信息)') = ?",
-      [courseId, book],
-    );
-    return res.changes;
+    return bindUnboundByBook(this.db, book, courseId);
   }
 
-  /** 按册次匹配回填归属课程（返回条数；匹配规则由服务层给出 courseId） */
   setCourseBindings(updates: { bankId: number; courseId: number | null }[]): number {
-    if (updates.length === 0) return 0;
-    let changed = 0;
-    this.db.transaction(() => {
-      for (const item of updates) {
-        changed += this.db.run('UPDATE banks SET course_id = ? WHERE id = ? AND course_id IS NOT ?', [
-          item.courseId,
-          item.bankId,
-          item.courseId,
-        ]).changes;
-      }
-    });
-    return changed;
+    return setCourseBindings(this.db, updates);
   }
 
-  /** 未归属课程但带册次信息的题库（供册次匹配用） */
   unboundWithBook(): { id: number; book: string; subject: string; kind: string }[] {
-    return this.db.all<{ id: number; book: string; subject: string; kind: string }>(
-      "SELECT id, book, subject, COALESCE(kind, '') AS kind FROM banks WHERE course_id IS NULL AND book <> ''",
-    );
+    return unboundWithBook(this.db);
   }
 
-  /** 课程名册次候选（课程名形如「小学数学·二年级上册（新）」→「二年级上册（新）」） */
   courseBookKeys(): { id: number; name: string; key: string }[] {
-    return this.db.all<{ id: number; name: string }>('SELECT id, name FROM courses').map((c) => ({
-      id: c.id,
-      name: c.name,
-      key: bookKeyOfCourseName(c.name),
-    }));
+    return courseBookKeys(this.db);
   }
 
-  /** 题库分布：按课程归属统计（体检/运维用；`kind` 为空表示全部类型） */
   courseBindingStats(kind: BankKind | '' = ''): { bound: number; unbound: number; banks: number }[] {
-    return this.db.all<{ bound: number; unbound: number; banks: number }>(
-      `SELECT COALESCE(SUM(CASE WHEN course_id IS NOT NULL THEN 1 ELSE 0 END), 0) AS bound,
-              COALESCE(SUM(CASE WHEN course_id IS NULL THEN 1 ELSE 0 END), 0) AS unbound,
-              COUNT(*) AS banks
-       FROM banks b WHERE (?1 = '' OR b.kind = ?1)`,
-      [kind],
-    );
+    return courseBindingStats(this.db, kind);
   }
 
-  findById(id: number): Bank | undefined {
-    return this.db.get<Bank>('SELECT * FROM banks WHERE id = ?', [id]);
+  findById(id: number): BankRow | undefined {
+    return this.db.get<BankRow>('SELECT * FROM banks WHERE id = ?', [id]);
   }
 
   /** 按名字精确查（没有课时归属的题库——章节题库 / 整卷试卷——用它做幂等键） */
-  findByName(name: string): Bank | undefined {
-    return this.db.get<Bank>('SELECT * FROM banks WHERE name = ? ORDER BY id LIMIT 1', [name]);
+  findByName(name: string): BankRow | undefined {
+    return this.db.get<BankRow>('SELECT * FROM banks WHERE name = ? ORDER BY id LIMIT 1', [name]);
   }
 
   /** 题库类型/归属统计（管理端大题库总览） */
@@ -342,14 +228,18 @@ export class BankRepository {
   }
 
   create(input: BankInput): number {
-    return this.db.run('INSERT INTO banks (name, lesson_id, kind, subject, book, course_id) VALUES (?,?,?,?,?,?)', [
-      input.name,
-      input.lessonId ?? null,
-      input.kind ?? 'lesson',
-      input.subject ?? '',
-      input.book ?? '',
-      input.courseId ?? null,
-    ]).lastInsertRowid;
+    return this.db.run(
+      'INSERT INTO banks (name, lesson_id, kind, subject, book, section, course_id) VALUES (?,?,?,?,?,?,?)',
+      [
+        input.name,
+        input.lessonId ?? null,
+        input.kind ?? 'lesson',
+        input.subject ?? '',
+        input.book ?? '',
+        input.section ?? '',
+        input.courseId ?? null,
+      ],
+    ).lastInsertRowid;
   }
 
   update(id: number, input: BankInput): void {
@@ -358,13 +248,16 @@ export class BankRepository {
     // 写 COALESCE(?, course_id) 的话永远解绑不了，所以按需拼列。
     const setCourse = input.courseId !== undefined;
     this.db.run(
-      `UPDATE banks SET name = ?, lesson_id = ?, kind = ?, subject = ?, book = ?${setCourse ? ', course_id = ?' : ''} WHERE id = ?`,
+      `UPDATE banks SET name = ?, lesson_id = ?, kind = ?, subject = ?, book = ?, section = ?${
+        setCourse ? ', course_id = ?' : ''
+      } WHERE id = ?`,
       [
         input.name,
         input.lessonId ?? null,
         input.kind ?? existing?.kind ?? 'lesson',
         input.subject ?? existing?.subject ?? '',
         input.book ?? existing?.book ?? '',
+        input.section ?? existing?.section ?? '',
         ...(setCourse ? [input.courseId ?? null] : []),
         id,
       ],

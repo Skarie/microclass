@@ -1,9 +1,10 @@
 /**
- * 题库命名解析：册次归一化、课程名 → 册次、题库名分段与归章。
+ * 题库命名解析：册次归一化、课程名 → 册次、题库名分段与归章、章节名解析。
  *
  * 从 bankRepository 抽出：这些是纯字符串函数，与 SQL 访问无关，
  * 单独成文件后仓储只保留数据访问职责。
  */
+import { chapterOrderOf } from '../../domain/lessonChapterOrder.js';
 
 /**
  * 册次写法归一化：把「必修一 / 新必修1 / 必修第二册 / 选修3-1」这类写法收敛成同一种形式，
@@ -64,4 +65,25 @@ export function chapterKeyFromBankName(name: string): string {
 export function bankSectionOfName(name: string): string {
   const parts = bankNameParts(name);
   return parts.length >= 3 ? (parts[parts.length - 1] ?? '') : '';
+}
+
+/** 「模块一 / 模块1」也当章节名（chapterOrderOf 不覆盖这种写法） */
+const MODULE_SECTION = /^模块\s*[一二三四五六七八九十百零〇两\d]/;
+
+/** 名称是否像章节：第一章 / 第二单元 / 一、… / 1.… / 模块… */
+export function isSectionLikeName(raw: string): boolean {
+  const name = String(raw ?? '').trim();
+  if (name === '') return false;
+  if (MODULE_SECTION.test(name)) return true;
+  return chapterOrderOf(name) !== null;
+}
+
+/**
+ * 从题库名解析章节：取 ` · ` 分隔的第一段，像章节才采用，否则返回空串。
+ * 导入命名形如「三年级上册 · 第一章 集合 · 子集」，第一段是册次 → 不采用；
+ * 「第一章 集合 · 子集」第一段是章节 → 采用。
+ */
+export function sectionFromBankName(name: string): string {
+  const first = bankNameParts(name)[0] ?? '';
+  return isSectionLikeName(first) ? first.slice(0, 120) : '';
 }
