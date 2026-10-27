@@ -1,3 +1,4 @@
+import { sortLessonsByChapter } from '../domain/lessonChapterOrder.js';
 /**
  * 课时服务入口：课时列表/详情、增删改、刷题解锁与领域编排。
  * 其它职责已拆到同目录服务，对外方法签名与返回结构不变。
@@ -66,7 +67,9 @@ export class LessonService {
 
   listForViewer(viewer: User, courseId?: number | null): LessonWithProgress[] {
     const rows = courseId === undefined ? this.lessons.listAll() : this.lessons.listByCourse(courseId);
-    return this.lessons.withProgress(rows, viewer.id);
+    // 单课程视图按章节序号排（导入顺序常常是文件名字典序，会出现「一、三、二」这种乱序）
+    const ordered = typeof courseId === 'number' ? sortLessonsByChapter(rows) : rows;
+    return this.lessons.withProgress(ordered, viewer.id);
   }
 
   detail(viewer: User, id: number): { lesson: LessonWithProgress; knowledge: unknown[] } {
