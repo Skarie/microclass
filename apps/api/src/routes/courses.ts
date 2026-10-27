@@ -90,7 +90,8 @@ export async function registerCourseRoutes(app: FastifyInstance, deps: Deps): Pr
     const course = deps.courseService.detail(user, id).course;
     return {
       course,
-      lessons: deps.lessonService.listForViewer(user, id),
+      // 管理端保持老师拖拽后的手动顺序，不按章节序号重排
+      lessons: deps.lessonService.listForViewer(user, id, { chapterOrder: false }),
       folder: deps.lessonService.courseFolderInfo(id),
     };
   });

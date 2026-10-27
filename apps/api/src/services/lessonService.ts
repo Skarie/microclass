@@ -65,10 +65,17 @@ export class LessonService {
     this.order = new LessonOrderService(lessons, courses, audit);
   }
 
-  listForViewer(viewer: User, courseId?: number | null): LessonWithProgress[] {
+  listForViewer(
+    viewer: User,
+    courseId?: number | null,
+    options: { chapterOrder?: boolean } = {},
+  ): LessonWithProgress[] {
     const rows = courseId === undefined ? this.lessons.listAll() : this.lessons.listByCourse(courseId);
-    // 单课程视图按章节序号排（导入顺序常常是文件名字典序，会出现「一、三、二」这种乱序）
-    const ordered = typeof courseId === 'number' ? sortLessonsByChapter(rows) : rows;
+    /**
+     * 单课程视图按章节序号排（导入顺序常是文件名字典序，会出现「一、三、二」这种乱序）。
+     * 管理端要保留老师拖拽后的手动顺序，所以传 chapterOrder: false 关掉。
+     */
+    const ordered = typeof courseId === 'number' && options.chapterOrder !== false ? sortLessonsByChapter(rows) : rows;
     return this.lessons.withProgress(ordered, viewer.id);
   }
 
