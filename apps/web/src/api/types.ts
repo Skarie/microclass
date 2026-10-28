@@ -29,45 +29,9 @@ export interface Page<T> {
   pageSize: number;
 }
 
-export interface Course {
-  id: number;
-  name: string;
-  description: string;
-  sort: number;
-  created_at: number;
-  category_id: number | null;
-  cover: string;
-  published: 0 | 1;
-  category_name?: string;
-  total?: number;
-  finished?: number;
-  quiz?: number;
-  fav?: boolean;
-  /** 课程绑定的媒体根目录 id（课程文件夹），未绑定为 null */
-  folder_root_id?: string | null;
-  /** 媒体根目录下的相对路径（空串表示根目录本身） */
-  folder_path?: string | null;
-  /** 上次扫描导入时间（秒），未扫描过为 null */
-  last_scan_at?: number | null;
-}
-
-/** 媒体文件夹（服务器上的视频目录） */
-export interface MediaRoot {
-  id: string;
-  name: string;
-  path: string;
-  available?: boolean;
-  /** 使用该目录的课时数 */
-  lessons?: number;
-  /** 系统内置目录（站内上传），不可移除 */
-  internal?: boolean;
-}
-
-export interface Category {
-  id: number;
-  name: string;
-  sort: number;
-}
+/** 课程 / 媒体目录 / 分类见 `./course`（历史超限文件只减不增） */
+import type { Course } from './course';
+export type { Category, Course, MediaRoot } from './course';
 
 export interface LessonProgress {
   position: number;
@@ -183,19 +147,9 @@ export interface QuestionView {
   analysis?: string;
 }
 
-export interface Bank {
-  id: number;
-  name: string;
-  lesson_id: number | null;
-  created_at: number;
-  lesson_title: string;
-  question_count: number;
-  /** 题库类型：lesson 课时配套 / chapter 章节题库 / paper 整卷试卷 */
-  kind?: 'lesson' | 'chapter' | 'paper';
-  subject?: string;
-  book?: string;
-  section?: string;
-}
+/** 题库视图模型见 `./bank`（历史超限文件只减不增，新增字段放独立文件） */
+export type { Bank } from './bank';
+
 export interface GradedItem {
   qid: number;
   type: QuestionType;

@@ -25,7 +25,7 @@ export class ApiError extends Error {
   }
 }
 
-type Method = 'GET' | 'POST' | 'PUT' | 'DELETE';
+type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 export interface RequestOptions {
   method?: Method;
@@ -168,6 +168,7 @@ export const api = {
     request<T>(path, { method: 'GET', ...(query ? { query } : {}), ...(signal ? { signal } : {}) }),
   post: <T>(path: string, body?: unknown): Promise<T> => request<T>(path, { method: 'POST', body }),
   put: <T>(path: string, body?: unknown): Promise<T> => request<T>(path, { method: 'PUT', body }),
+  patch: <T>(path: string, body?: unknown): Promise<T> => request<T>(path, { method: 'PATCH', body }),
   del: <T>(path: string): Promise<T> => request<T>(path, { method: 'DELETE' }),
   upload: <T>(path: string, formData: FormData): Promise<T> => request<T>(path, { method: 'POST', formData }),
 

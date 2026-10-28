@@ -1,13 +1,14 @@
 /**
- * 题库新建 / 编辑表单（名称、册次、章节、关联课时）。
+ * 题库新建 / 编辑表单（名称、所属文件夹、关联课时）。
  *
- * 从 use-bank-actions 抽出：保存后要同时刷新题库列表、课程目录与按册次章节目录；
- * 章节留空时由服务端按关联课时的 group_name 自动继承，显式清空则重新继承。
+ * 保存后要同时刷新题库列表、左栏文件夹/课程计数（refreshNav）；
+ * 文件夹传 null 表示移到「未分类」。
  */
 import { reactive, ref, type Ref } from 'vue';
 import { api } from '@/api/client';
 import { errorMessage } from '@/composables/useAsync';
 import { useToastStore } from '@/stores/toast';
+import { bankFolderId } from '@/views/admin/bankTypes';
 import type { Bank } from '@/api/types';
 
 interface OkIdResponse {
@@ -21,16 +22,15 @@ interface OkResponse {
 
 export interface BankFormState {
   name: string;
-  book: string;
-  section: string;
+  folderId: number | '';
   lessonId: number | '';
 }
 
 export interface BankFormDeps {
   selectedBankId: Ref<number | null>;
   loadBanks: (keepSelection?: boolean) => Promise<void>;
-  loadCatalog: () => Promise<void>;
-  loadBookCatalog: () => Promise<void>;
+  /** 文件夹 / 课程关联计数变了，左栏要跟着刷 */
+  refreshNav: () => Promise<void>;
 }
 
 export function useBankForm(deps: BankFormDeps) {
@@ -39,13 +39,13 @@ export function useBankForm(deps: BankFormDeps) {
   const bankFormOpen = ref(false);
   const bankSaving = ref(false);
   const bankEditingId = ref<number | null>(null);
-  const bankForm = reactive<BankFormState>({ name: '', book: '', section: '', lessonId: '' });
+  const bankForm = reactive<BankFormState>({ name: '', folderId: '', lessonId: '' });
 
-  function openCreateBank(): void {
+  /** 新建时默认选中当前浏览的文件夹（未分类 / 全部题库则留空） */
+  function openCreateBank(folderId: number | null = null): void {
     bankEditingId.value = null;
     bankForm.name = '';
-    bankForm.book = '';
-    bankForm.section = '';
+    bankForm.folderId = folderId ?? '';
     bankForm.lessonId = '';
     bankFormOpen.value = true;
   }
@@ -53,8 +53,7 @@ export function useBankForm(deps: BankFormDeps) {
   function openEditBank(bank: Bank): void {
     bankEditingId.value = bank.id;
     bankForm.name = bank.name;
-    bankForm.book = bank.book ?? '';
-    bankForm.section = bank.section ?? '';
+    bankForm.folderId = bankFolderId(bank) ?? '';
     bankForm.lessonId = bank.lesson_id === null ? '' : bank.lesson_id;
     bankFormOpen.value = true;
   }
@@ -65,11 +64,9 @@ export function useBankForm(deps: BankFormDeps) {
       toast.warning('请填写题库名称');
       return;
     }
-    // 显式传空串：服务端会按 lessonId 重新继承章节，而不是保留旧值
     const payload = {
       name,
-      book: bankForm.book.trim(),
-      section: bankForm.section.trim(),
+      folderId: bankForm.folderId === '' ? null : Number(bankForm.folderId),
       lessonId: bankForm.lessonId === '' ? null : Number(bankForm.lessonId),
     };
     bankSaving.value = true;
@@ -84,7 +81,7 @@ export function useBankForm(deps: BankFormDeps) {
         toast.success(`题库「${name}」已保存`);
         bankFormOpen.value = false;
       }
-      await Promise.all([deps.loadBanks(), deps.loadCatalog(), deps.loadBookCatalog()]);
+      await Promise.all([deps.loadBanks(), deps.refreshNav()]);
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {

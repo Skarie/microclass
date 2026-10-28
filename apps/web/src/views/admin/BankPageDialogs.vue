@@ -2,9 +2,9 @@
 import { reactive } from 'vue';
 import QuestionEditor from './QuestionEditor.vue';
 import BankFormDialog from './BankFormDialog.vue';
+import BankFolderDialog from './BankFolderDialog.vue';
 import BankQuickDialogs from './BankQuickDialogs.vue';
 import BankDifficultyCalcDialog from './BankDifficultyCalcDialog.vue';
-import BankBackfillDialog from './BankBackfillDialog.vue';
 import BankImportResult from './BankImportResult.vue';
 import type { useBankCatalog } from '@/composables/use-bank-catalog';
 import type { useQuestionList } from '@/composables/use-question-list';
@@ -73,20 +73,21 @@ const importsState = reactive(importApi);
     :saving="actionsState.bankSaving"
     :form="actionsState.bankForm"
     :lesson-options="catalogState.courseLessonOptions"
-    :book-options="catalogState.bookOptions"
-    :section-options="catalogState.sectionOptions"
-    :catalog-course-id="catalogState.catalogCourseId"
+    :folder-options="catalogState.folderOptions"
     @close="actionsState.bankFormOpen = false"
     @save="actionsState.saveBank"
   />
 
-  <!-- 批量回填章节（dryRun 预览 → 确认执行） -->
-  <BankBackfillDialog
-    :open="catalogState.backfillOpen"
-    :busy="catalogState.backfillBusy"
-    :preview="catalogState.backfillPreview"
-    @close="catalogState.closeBackfill"
-    @confirm="catalogState.applyBackfill"
+  <!-- 文件夹新建 / 重命名 -->
+  <BankFolderDialog
+    :open="catalogState.folderDialogOpen"
+    v-model:name="catalogState.folderDialogName"
+    :title="catalogState.folderDialogTitle"
+    :mode="catalogState.folderDialogMode"
+    :parent-name="catalogState.folderDialogParentName"
+    :saving="catalogState.folderSaving"
+    @close="catalogState.closeFolderDialog"
+    @save="catalogState.saveFolder"
   />
 
   <!-- 题目编辑器 -->

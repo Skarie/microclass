@@ -1,27 +1,18 @@
 <script setup lang="ts">
 import { reactive } from 'vue';
-import CourseBankNav from './CourseBankNav.vue';
-import BookBankNav from './BookBankNav.vue';
-import BankListPanel from './BankListPanel.vue';
+import BankFolderNav from './BankFolderNav.vue';
+import BankCourseNav from './BankCourseNav.vue';
 import BankNavViewSwitch from './BankNavViewSwitch.vue';
 import type { useBankCatalog } from '@/composables/use-bank-catalog';
-import type { useQuestionList } from '@/composables/use-question-list';
-import type { useBankActions } from '@/composables/use-bank-actions';
 
 /**
- * 左栏题库导航卡片（从 BankAdminView 抽出）：
- * 卡片头 + 题库搜索/类型筛选 + 课程/册次/题库三级导航。
- * 页面层级（browseLevel）由目录组合式函数决定，这里只按层级挂载子组件。
+ * 左栏题库导航（从 BankAdminView 抽出）：
+ * 卡片头 + 题库搜索/类型筛选 + 「题库 / 课程关联」分段控件 + 文件夹树 / 课程列表。
+ * 题库列表是它右侧的独立卡片（BankListPanel），不在这里重复渲染。
  */
-const props = defineProps<{
-  catalog: ReturnType<typeof useBankCatalog>;
-  questions: ReturnType<typeof useQuestionList>;
-  actions: ReturnType<typeof useBankActions>;
-}>();
+const props = defineProps<{ catalog: ReturnType<typeof useBankCatalog> }>();
 
 const catalogApi = props.catalog;
-const questionApi = props.questions;
-const actionsApi = props.actions;
 const catalogState = reactive(catalogApi);
 </script>
 
@@ -29,10 +20,10 @@ const catalogState = reactive(catalogApi);
   <aside class="mc-card bank-panel">
     <div class="mc-card__header">
       <span class="mc-card__title">题库导航</span>
-      <span class="mc-muted">{{ catalogState.navCountLabel }}</span>
+      <span class="mc-muted bank-panel__count">{{ catalogState.navCountLabel }}</span>
     </div>
 
-    <!-- 搜索与类型筛选：属于「题库列表」，从课程树里提出来放到显眼位置 -->
+    <!-- 搜索与类型筛选：属于「题库列表」，放在导航顶部两个视图共用 -->
     <div class="tree__toolbar">
       <input
         v-model.trim="catalogState.bankKeyword"
@@ -54,27 +45,13 @@ const catalogState = reactive(catalogApi);
       <BankNavViewSwitch :model-value="catalogState.navView" @update:model-value="catalogState.switchNavView" />
     </div>
 
-    <BookBankNav
-      v-if="
-        catalogState.navView === 'book' &&
-        (catalogState.browseLevel === 'books' || catalogState.browseLevel === 'sections')
-      "
-      :catalog="catalogApi"
-    />
-    <CourseBankNav
-      v-else-if="
-        catalogState.navView === 'course' &&
-        (catalogState.browseLevel === 'courses' || catalogState.browseLevel === 'books')
-      "
-      :catalog="catalogApi"
-      :actions="actionsApi"
-    />
-    <BankListPanel v-else :catalog="catalogApi" :questions="questionApi" :actions="actionsApi" />
+    <BankFolderNav v-if="catalogState.navView === 'folder'" :catalog="catalogApi" />
+    <BankCourseNav v-else :catalog="catalogApi" />
   </aside>
 </template>
 
 <style scoped>
-/* 左栏导航：头部吸附、行高统一 */
+/* 左栏导航：头部吸附、行高统一；树/课程列表在内部滚动 */
 .bank-panel {
   display: flex;
   flex-direction: column;
@@ -86,15 +63,20 @@ const catalogState = reactive(catalogApi);
 }
 
 .bank-panel .mc-card__header {
-  position: sticky;
-  top: 0;
-  z-index: 2;
+  flex: none;
+  gap: var(--mc-space-2);
   padding: var(--mc-space-4) var(--mc-space-5) var(--mc-space-3);
   background: var(--mc-bg-elev, var(--mc-surface-2));
   border-bottom: 1px solid var(--mc-border);
 }
 
+.bank-panel__count {
+  font-size: var(--mc-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
 .bank-panel .tree__toolbar {
+  flex: none;
   padding: var(--mc-space-3) var(--mc-space-4) var(--mc-space-2);
   margin: 0;
 }
@@ -118,12 +100,14 @@ const catalogState = reactive(catalogApi);
 }
 
 .tree__views {
+  flex: none;
   padding: 0 var(--mc-space-4) var(--mc-space-2);
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 1180px) {
   .bank-panel {
     position: static;
+    max-height: none;
   }
 }
 </style>

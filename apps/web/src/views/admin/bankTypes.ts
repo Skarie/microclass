@@ -1,38 +1,80 @@
-/** 左侧目录视图：按课程（原有）/ 按册次（册次 → 章节 → 题库） */
-export type BankNavView = 'course' | 'book';
+/** 左侧目录视图：题库（文件夹树）/ 课程关联 */
+export type BankNavView = 'folder' | 'course';
 
-/** 按册次视图的层级：册次列表 / 章节列表 / 题库列表 */
-export type BookNavLevel = 'books' | 'sections' | 'banks';
+/** 文件夹筛选：全部题库 / 未分类 / 某个文件夹 */
+export type FolderFilter = 'all' | 'none' | number;
 
-/** 一个章节下的题库与题量（`section: ''` = 未分章） */
-export interface SectionCount {
-  section: string;
+/** 课程筛选：全部题库 / 未关联 / 某门课程 */
+export type CourseFilter = 'all' | 'unbound' | number;
+
+/** 文件夹树节点（计数含子孙，排序由后端给出） */
+export interface BankFolder {
+  id: number;
+  parentId: number | null;
+  name: string;
+  sort: number;
+  bankCount: number;
+  questionCount: number;
+  folderCount: number;
+  children: BankFolder[];
+}
+
+export interface BankFolderResponse {
+  folders: BankFolder[];
+  unfiled: { bankCount: number; questionCount: number };
+}
+
+/** 树形渲染用的一行（扁平化后带层级；避免递归组件与样式穿透问题） */
+export interface BankFolderRow extends BankFolder {
+  depth: number;
+  path: string;
+  hasChildren: boolean;
+}
+
+/** 表单里的文件夹选项（缩进提示层级） */
+export interface BankFolderOption {
+  id: number;
+  name: string;
+  depth: number;
+  path: string;
+  label: string;
+}
+
+/** 课程关联视图的一门课程（只含有题库的课程） */
+export interface BankCourseSummaryRow {
+  courseId: number;
+  name: string;
   bankCount: number;
   questionCount: number;
 }
 
-/** `GET /banks/catalog-sections?view=book` 的一个册次分组（`book: ''` = 未归类册次） */
-export interface BankSectionBook {
-  book: string;
-  /** 该册次下存在未归属课程的题库 */
-  isUnbound: boolean;
-  bankCount: number;
-  questionCount: number;
-  sections: SectionCount[];
+export interface BankCourseSummary {
+  courses: BankCourseSummaryRow[];
+  unbound: { bankCount: number; questionCount: number };
 }
 
-export interface BankSectionCatalog {
-  view: 'book';
-  books: BankSectionBook[];
+/** 题库类型中文名（左栏题库行用） */
+export const KIND_LABEL: Record<string, string> = { lesson: '课时配套', chapter: '章节题库', paper: '整卷试卷' };
+
+/** 兼容 camelCase / snake_case 两种后端字段命名（按实际返回适配） */
+export function bankFolderId(bank: { folderId?: number | null; folder_id?: number | null }): number | null {
+  return bank.folderId ?? bank.folder_id ?? null;
 }
 
-/** 批量回填章节的预览 / 执行结果 */
-export interface BackfillSectionsResult {
-  dryRun: boolean;
-  filled: number;
-  skipped: number;
-  samples: { id: number; name: string; section: string }[];
-  skippedSamples: { id: number; name: string }[];
+export function bankFolderPath(bank: { folderPath?: string; folder_path?: string }): string {
+  return bank.folderPath ?? bank.folder_path ?? '';
+}
+
+export function bankCourseName(bank: { courseName?: string; course_name?: string }): string {
+  return bank.courseName ?? bank.course_name ?? '';
+}
+
+export function bankCourseId(bank: { courseId?: number | null; course_id?: number | null }): number | null {
+  return bank.courseId ?? bank.course_id ?? null;
+}
+
+export function bankLessonTitle(bank: { lessonTitle?: string; lesson_title?: string }): string {
+  return bank.lessonTitle ?? bank.lesson_title ?? '';
 }
 
 /** 题库体检的返回结构（体检弹窗与父页面共用） */

@@ -10,7 +10,6 @@
   "apps/api/src/services/difficultyService.ts": 385,
   "apps/api/src/services/questionConflictService.ts": 339,
   "apps/api/src/utils/docx.ts": 351,
-  "apps/web/src/api/types.ts": 322,
   "apps/web/src/components/BlueprintComposeModal.vue": 432,
   "apps/web/src/components/compose/QuestionPickerPanel.vue": 560,
   "apps/web/src/components/compose/QuestionTable.vue": 318,

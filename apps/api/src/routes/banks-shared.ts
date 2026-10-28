@@ -26,6 +26,8 @@ export const bankBodySchema = {
     section: { type: 'string' },
     /** 归属课程（目录树/组卷题池用）；`null` = 移出课程 */
     courseId: { type: ['integer', 'null'] },
+    /** 归属文件夹（迁移 0024）；`null` = 移到未分类，不传 = 不变 */
+    folderId: { type: ['integer', 'null'] },
   },
   additionalProperties: false,
 } as const;

@@ -1,0 +1,93 @@
+/* 右栏：题库头部 + 工具条 + 表格 */
+.question-panel {
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.question-panel .mc-card__header {
+  gap: var(--mc-space-3);
+  padding: var(--mc-space-4) var(--mc-space-5);
+  border-bottom: 1px solid var(--mc-border);
+}
+
+.bank-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mc-space-4);
+  flex-wrap: wrap;
+}
+
+.bank-head__title {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mc-space-1);
+  min-width: 0;
+  flex: 1 1 260px;
+}
+
+.bank-head__line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--mc-space-3);
+  min-width: 0;
+}
+
+.bank-head__course {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--mc-space-2);
+  font-size: var(--mc-text-xs);
+  min-width: 0;
+}
+
+.bank-head__course-link {
+  color: var(--mc-primary-fg);
+  font-weight: var(--mc-font-medium);
+}
+
+.bank-head__course-link:hover {
+  text-decoration: underline;
+}
+
+.bank-head__name {
+  font-size: var(--mc-text-lg);
+  font-weight: var(--mc-font-semibold);
+  min-width: 0;
+}
+
+.bank-head__count {
+  font-size: var(--mc-text-sm);
+  white-space: nowrap;
+}
+
+.bank-head__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--mc-space-2);
+  flex-wrap: nowrap;
+}
+
+.question-panel .mc-card__body {
+  padding: var(--mc-space-4) var(--mc-space-5) var(--mc-space-5);
+  gap: var(--mc-space-4);
+}
+
+/* 批量操作条：选中后从筛选行下方滑出（用背景色区分"操作态"） */
+.bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--mc-space-2);
+  padding: var(--mc-space-2) var(--mc-space-3);
+  border: 1px solid var(--mc-primary-border);
+  border-radius: var(--mc-radius);
+  background: var(--mc-primary-soft);
+}
+
+.bulk-bar__count {
+  font-size: var(--mc-text-sm);
+  font-weight: var(--mc-font-medium);
+  color: var(--mc-primary-fg);
+}

@@ -1,51 +1,76 @@
-.bank-panel__list {
+.bank-list-panel {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 220px);
+  padding: 0;
+  overflow: hidden;
+  position: sticky;
+  top: var(--mc-space-5);
+}
+
+.bank-list-panel__head {
+  flex: none;
+  gap: var(--mc-space-2);
+  padding: var(--mc-space-4) var(--mc-space-4) var(--mc-space-3);
+  background: var(--mc-bg-elev, var(--mc-surface-2));
+  border-bottom: 1px solid var(--mc-border);
+}
+
+.bank-list-panel__count {
+  font-size: var(--mc-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.bank-list-panel__body {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: 0 var(--mc-space-3) var(--mc-space-3);
   overflow: auto;
+  padding: var(--mc-space-3);
 }
 
-.bank-panel__listhead {
+.bank-list-panel__listhead {
   align-items: center;
   gap: var(--mc-space-2);
-  padding: var(--mc-space-2) var(--mc-space-3);
+  padding: var(--mc-space-2) var(--mc-space-2);
   border-bottom: 1px solid var(--mc-border);
   font-size: var(--mc-text-xs);
 }
 
-.bank-panel__listhead .mc-muted {
+.bank-list-panel__listhead .mc-muted {
   flex: 1;
   min-width: 0;
 }
 
-.bank-panel__sort {
+.bank-list-panel__sort {
   max-width: 108px;
   height: 28px;
   padding: 0 var(--mc-space-2);
   font-size: var(--mc-text-xs);
 }
 
-.bank-panel__loading,
+.bank-list-panel__loading,
 .bank-list {
   margin: 0;
-  padding: var(--mc-space-2);
+  padding: var(--mc-space-2) 0;
   list-style: none;
   display: flex;
   flex-direction: column;
   gap: var(--mc-space-1);
-  max-height: 64vh;
-  overflow-y: auto;
+}
+
+.bank-list-panel__skeleton {
+  height: 44px;
 }
 
 .bank-item {
-  /* flex 列可滚动时行默认允许收缩，会压扁两行题库名；禁止收缩 */
+  /* flex 列可滚动时行默认允许收缩，会压扁多行题库名；禁止收缩 */
   flex: none;
   display: flex;
-  align-items: center;
-  gap: var(--mc-space-2);
+  align-items: flex-start;
+  gap: var(--mc-space-1);
   min-height: 44px;
-  padding: var(--mc-space-2) var(--mc-space-3);
+  padding: var(--mc-space-2) var(--mc-space-2);
   border-radius: var(--mc-radius);
   cursor: pointer;
   transition: background var(--mc-transition);
@@ -57,15 +82,22 @@
 
 .bank-item--active {
   background: var(--mc-primary-soft);
-  border-left-color: var(--mc-primary);
 }
 
 .bank-item__main {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--mc-space-1);
   min-width: 0;
   flex: 1;
+}
+
+.bank-item__title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--mc-space-1);
+  min-width: 0;
 }
 
 /* 题库名最多两行，避免长名字被单行截断 */
@@ -78,15 +110,32 @@
   overflow: hidden;
   white-space: normal;
   line-height: var(--mc-leading-snug);
+  min-width: 0;
+}
+
+/* 关联徽标：醒目标出「这门题库属于哪门课」；名称过长时整体截断 */
+.bank-item__badge {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .bank-item__meta {
   font-size: var(--mc-text-xs);
 }
 
+.bank-item__path {
+  font-size: var(--mc-text-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .bank-item__actions {
   display: none;
   gap: var(--mc-space-1);
+  align-items: center;
+  flex: none;
 }
 
 .bank-item:hover .bank-item__actions,
@@ -99,7 +148,14 @@
   font-size: var(--mc-text-xs);
 }
 
-.bank-panel__more {
+.bank-list-panel__more {
   width: 100%;
-  margin-top: 8px;
+  margin-top: var(--mc-space-2);
+}
+
+@media (max-width: 1180px) {
+  .bank-list-panel {
+    position: static;
+    max-height: none;
+  }
 }

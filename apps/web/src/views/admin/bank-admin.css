@@ -1,12 +1,17 @@
 .page {
   gap: var(--mc-space-5);
+  /* 三栏（文件夹树 / 题库列表 / 题目表）需要比全局 1200px 更宽；窄屏回退到单栏 */
+  position: relative;
+  left: 50%;
+  width: min(1440px, calc(100vw - 64px));
+  transform: translateX(-50%);
 }
 
-/* 两栏骨架：左栏 340px 题库导航，右栏题目面板；窄屏改为单栏 */
+/* 三栏骨架：左栏文件夹树 280px、中间题库列表 320px、右栏题目面板吃剩余 */
 .layout {
   display: grid;
-  grid-template-columns: 340px minmax(0, 1fr);
-  gap: var(--mc-space-5);
+  grid-template-columns: 280px 320px minmax(0, 1fr);
+  gap: var(--mc-space-4);
   align-items: start;
 }
 
@@ -14,14 +19,24 @@
   display: none;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1400px) {
+  .page {
+    width: calc(100vw - 40px);
+  }
+
   .layout {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: 240px 280px minmax(0, 1fr);
   }
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 1180px) {
+  .page {
+    left: auto;
+    width: auto;
+    transform: none;
+  }
+
   .layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }

@@ -14,6 +14,8 @@ export interface BankDto {
   section?: string;
   /** 归属课程（手工把「未归属」的题库挂到某门课）；`null` = 移出课程 */
   courseId?: number | null;
+  /** 归属文件夹（迁移 0024）；`null` = 移到未分类，不传 = 不变 */
+  folderId?: number | null;
 }
 
 export interface QuestionDto {

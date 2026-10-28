@@ -6,6 +6,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Db } from './client.js';
+import { backfillBankFolders } from './bankFolderBackfill.js';
 
 export interface MigrationFile {
   version: string;
@@ -31,6 +32,14 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
   applied_at INTEGER NOT NULL,
   duration_ms INTEGER NOT NULL
 );`;
+
+/**
+ * 纯 SQL 做不了的数据迁移（如需要逐条查询再写入的重组）挂在这里：
+ * 在同一事务内、SQL 执行完之后运行；版本已记录过就永远不会再跑。
+ */
+const DATA_MIGRATIONS: Record<string, (db: Db) => void> = {
+  '0024': backfillBankFolders,
+};
 
 export function loadMigrations(dir: string): MigrationFile[] {
   if (!fs.existsSync(dir)) return [];
@@ -83,6 +92,7 @@ export function runMigrations(db: Db, dir: string): MigrateResult {
     const t0 = Date.now();
     db.transaction(() => {
       db.exec(m.sql);
+      DATA_MIGRATIONS[m.version]?.(db);
       db.run('INSERT INTO schema_migrations (version, name, checksum, applied_at, duration_ms) VALUES (?,?,?,?,?)', [
         m.version,
         m.name,

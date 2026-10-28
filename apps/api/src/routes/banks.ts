@@ -3,6 +3,7 @@
  * `routes/index.ts` 的调用方式无需改动），handler 按资源/动作拆到同目录模块：
  *
  * - `banks-crud`          题库列表（筛选/分页）、题库 CRUD、整卷题库一键建考试
+ * - `banks-folders`       题库文件夹树、课程关联汇总、文件夹增删改
  * - `banks-catalog`       题库目录树、按册次挂课程、回填课程归属
  * - `banks-sections`      册次 → 章节目录（catalog-sections）、历史题库补章节
  * - `banks-health`        题库体检、库内去重、批量设置难度、重算题量
@@ -19,6 +20,7 @@ import type { FastifyInstance } from 'fastify';
 import type { Deps } from '../app.js';
 import { registerBankCatalogRoutes } from './banks-catalog.js';
 import { registerBankCrudRoutes } from './banks-crud.js';
+import { registerBankFolderRoutes } from './banks-folders.js';
 import { registerBankHealthRoutes } from './banks-health.js';
 import { registerBankImportExportRoutes } from './banks-import-export.js';
 import { registerBankQuestionMediaRoutes } from './banks-question-media.js';
@@ -27,6 +29,7 @@ import { registerBankSectionRoutes } from './banks-sections.js';
 
 export async function registerBankRoutes(app: FastifyInstance, deps: Deps): Promise<void> {
   await registerBankCrudRoutes(app, deps);
+  await registerBankFolderRoutes(app, deps);
   await registerBankCatalogRoutes(app, deps);
   await registerBankSectionRoutes(app, deps);
   await registerBankHealthRoutes(app, deps);

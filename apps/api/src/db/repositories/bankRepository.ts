@@ -8,6 +8,13 @@
 import type { Bank } from '@microclass/shared';
 import type { Db } from '../client.js';
 import {
+  countBanks,
+  findBankWithStats,
+  listBanks,
+  type BankListFilter,
+  type BankWithStats,
+} from './bankListQueries.js';
+import {
   catalogCourse,
   catalogCourses,
   catalogUnbound,
@@ -35,16 +42,14 @@ import {
 
 export * from './bankNaming.js';
 export type { CatalogCourse, CatalogNode } from './bankCatalogQueries.js';
+export type { BankListFilter, BankWithStats } from './bankListQueries.js';
 
-/** 题库行：`banks` 表全量字段（迁移 0023 新增 section） */
+/** 题库行：`banks` 表全量字段（迁移 0023 新增 section、0024 新增 folder_id） */
 export interface BankRow extends Bank {
   /** 章节；空串 = 未分章（前端归到「未分章」） */
   section: string;
-}
-
-export interface BankWithStats extends BankRow {
-  lesson_title: string;
-  question_count: number;
+  /** 归属文件夹（迁移 0024）；NULL = 未分类 */
+  folder_id: number | null;
 }
 
 /** 题库类型：课时配套 / 章节题库（未匹配课时）/ 整卷试卷 */
@@ -61,88 +66,27 @@ export interface BankInput {
   section?: string;
   /** 归属课程（迁移 0017；课时配套题库由 lesson 推导，章节/整卷按册次匹配） */
   courseId?: number | null;
-}
-
-export interface BankListFilter {
-  lessonId?: number | null;
-  kind?: BankKind;
-  subject?: string;
-  book?: string;
-  /** 按名字模糊查（管理端搜索大题库用） */
-  keyword?: string;
-  /** 归属课程（含「未归属」用 `courseId: null`） */
-  courseId?: number | null;
-  /** 章节精确筛选；传空串 = 只看未分章（与「不传」区分） */
-  section?: string;
-  /** 分页：全库有 1.2 万个题库，一次全拉会把页面拖死 */
-  limit?: number;
-  offset?: number;
+  /** 归属文件夹（迁移 0024）；`null` = 未分类，`undefined` = 不改 */
+  folderId?: number | null;
 }
 
 export class BankRepository {
-  constructor(private readonly db: Db) {}
+  /** 文件夹仓储等需要直接读库时复用同一个连接（app.ts 不再额外注入依赖） */
+  constructor(readonly db: Db) {}
 
-  private bankWhere(options?: BankListFilter): { where: string; params: unknown[] } {
-    const clauses: string[] = [];
-    const params: unknown[] = [];
-    if (options?.lessonId === null) clauses.push('b.lesson_id IS NULL');
-    else if (typeof options?.lessonId === 'number') {
-      clauses.push('b.lesson_id = ?');
-      params.push(options.lessonId);
-    }
-    if (options?.kind) {
-      clauses.push('b.kind = ?');
-      params.push(options.kind);
-    }
-    if (options?.subject) {
-      clauses.push('b.subject = ?');
-      params.push(options.subject);
-    }
-    if (options?.book) {
-      clauses.push('b.book = ?');
-      params.push(options.book);
-    }
-    if (options?.keyword) {
-      clauses.push('b.name LIKE ?');
-      params.push(`%${options.keyword}%`);
-    }
-    if (options?.courseId === null) clauses.push('b.course_id IS NULL');
-    else if (typeof options?.courseId === 'number') {
-      clauses.push('b.course_id = ?');
-      params.push(options.courseId);
-    }
-    // 注意：空串是有意义的筛选值（未分章），不能用 if (value) 判断
-    if (options?.section !== undefined) {
-      clauses.push('b.section = ?');
-      params.push(options.section);
-    }
-    return { where: clauses.length > 0 ? ` WHERE ${clauses.join(' AND ')}` : '', params };
-  }
-
-  /**
-   * 题库列表。**按 id 倒序（新建的排最前）**：
-   * 真机有 1.2 万个题库、接口一次只取前 300 条，若按 id 升序，老师刚建的题库
-   * 必然落在 300 条之外 —— 建完就"消失"（已踩过）。倒序后新建的立即可见。
-   */
+  /** 题库列表（SQL 与派生字段见 `bankListQueries`） */
   list(options?: BankListFilter): BankWithStats[] {
-    const { where, params } = this.bankWhere(options);
-    const limit = Math.min(1000, Math.max(1, options?.limit ?? 1000));
-    const offset = Math.max(0, options?.offset ?? 0);
-    return this.db.all<BankWithStats>(
-      `SELECT b.*, COALESCE(l.title, '') AS lesson_title, b.question_count
-       FROM banks b
-       LEFT JOIN lessons l ON l.id = b.lesson_id
-
-       ${where}
-       ORDER BY b.id DESC LIMIT ? OFFSET ?`,
-      [...params, limit, offset],
-    );
+    return listBanks(this.db, options);
   }
 
   /** 当前筛选条件下的题库总数（分页用） */
   count(options?: BankListFilter): number {
-    const { where, params } = this.bankWhere(options);
-    return this.db.get<{ c: number }>(`SELECT COUNT(*) AS c FROM banks b${where}`, params)?.c ?? 0;
+    return countBanks(this.db, options);
+  }
+
+  /** 单条题库（详情用，含文件夹路径 / 课程名 / 课时名） */
+  findWithStats(id: number): BankWithStats | undefined {
+    return findBankWithStats(this.db, id);
   }
 
   /* ---------------- 课程 → 章节 → 小节 → 题库 目录（筛选与组卷挑题用） ---------------- */
@@ -229,7 +173,7 @@ export class BankRepository {
 
   create(input: BankInput): number {
     return this.db.run(
-      'INSERT INTO banks (name, lesson_id, kind, subject, book, section, course_id) VALUES (?,?,?,?,?,?,?)',
+      'INSERT INTO banks (name, lesson_id, kind, subject, book, section, course_id, folder_id) VALUES (?,?,?,?,?,?,?,?)',
       [
         input.name,
         input.lessonId ?? null,
@@ -238,19 +182,21 @@ export class BankRepository {
         input.book ?? '',
         input.section ?? '',
         input.courseId ?? null,
+        input.folderId ?? null,
       ],
     ).lastInsertRowid;
   }
 
   update(id: number, input: BankInput): void {
     const existing = this.findById(id);
-    // courseId 用 `undefined` 表示「不动」，显式 `null` 表示「移出课程」——
-    // 写 COALESCE(?, course_id) 的话永远解绑不了，所以按需拼列。
+    // courseId / folderId 用 `undefined` 表示「不动」，显式 `null` 表示「移出」——
+    // 写 COALESCE(?, col) 的话永远解绑不了，所以按需拼列。
     const setCourse = input.courseId !== undefined;
+    const setFolder = input.folderId !== undefined;
     this.db.run(
       `UPDATE banks SET name = ?, lesson_id = ?, kind = ?, subject = ?, book = ?, section = ?${
         setCourse ? ', course_id = ?' : ''
-      } WHERE id = ?`,
+      }${setFolder ? ', folder_id = ?' : ''} WHERE id = ?`,
       [
         input.name,
         input.lessonId ?? null,
@@ -259,6 +205,7 @@ export class BankRepository {
         input.book ?? existing?.book ?? '',
         input.section ?? existing?.section ?? '',
         ...(setCourse ? [input.courseId ?? null] : []),
+        ...(setFolder ? [input.folderId ?? null] : []),
         id,
       ],
     );
@@ -280,11 +227,5 @@ export class BankRepository {
 
   questionCount(bankId: number): number {
     return this.db.get<{ c: number }>('SELECT COUNT(*) AS c FROM questions WHERE bank_id = ?', [bankId])?.c ?? 0;
-  }
-
-  /** 题库归属的课时标题（详情用） */
-  lessonTitle(lessonId: number | null): string {
-    if (lessonId === null) return '';
-    return this.db.get<{ title: string }>('SELECT title FROM lessons WHERE id = ?', [lessonId])?.title ?? '';
   }
 }

@@ -1,0 +1,139 @@
+.folder-nav {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 var(--mc-space-3) var(--mc-space-3);
+}
+
+.folder-nav__head {
+  display: flex;
+  align-items: center;
+  gap: var(--mc-space-2);
+  flex-wrap: wrap;
+  padding: 0 var(--mc-space-1) var(--mc-space-2);
+}
+
+.folder-nav__tip {
+  font-size: var(--mc-text-xs);
+}
+
+.folder-nav__loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mc-space-1);
+  padding: var(--mc-space-2) 0;
+}
+
+.folder-nav__skeleton {
+  height: 36px;
+}
+
+.folder-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mc-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-height: 0;
+}
+
+.folder-row {
+  display: flex;
+  align-items: center;
+  gap: var(--mc-space-1);
+  border-radius: var(--mc-radius);
+  transition: background var(--mc-transition);
+}
+
+.folder-row:hover {
+  background: var(--mc-bg-hover);
+}
+
+.folder-row--active {
+  background: var(--mc-primary-soft);
+}
+
+.folder-row__toggle {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--mc-radius-sm);
+  background: transparent;
+  color: var(--mc-text-muted);
+  cursor: pointer;
+}
+
+.folder-row__toggle:hover {
+  color: var(--mc-text);
+}
+
+.folder-row__toggle--empty {
+  cursor: default;
+}
+
+.folder-row__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--mc-space-2);
+  padding: var(--mc-space-2) var(--mc-space-1) var(--mc-space-2) 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.folder-row__icon {
+  flex: none;
+  color: var(--mc-primary-fg);
+}
+
+.folder-row__icon--muted {
+  color: var(--mc-text-muted);
+}
+
+.folder-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mc-space-1);
+  min-width: 0;
+  flex: 1;
+}
+
+.folder-row__name {
+  font-size: var(--mc-text-sm);
+  font-weight: var(--mc-font-medium);
+}
+
+.folder-row__meta {
+  font-size: var(--mc-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.folder-row__actions {
+  flex: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.folder-row:hover .folder-row__actions,
+.folder-row:focus-within .folder-row__actions,
+.folder-row--active .folder-row__actions {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .folder-row__actions {
+    opacity: 1;
+  }
+}

@@ -11,8 +11,8 @@ defineProps<{ modelValue: BankNavView }>();
 const emit = defineEmits<{ 'update:modelValue': [view: BankNavView] }>();
 
 const VIEWS: { key: BankNavView; label: string; icon: IconName }[] = [
-  { key: 'course', label: '按课程', icon: 'courses' },
-  { key: 'book', label: '按册次', icon: 'book-open' },
+  { key: 'folder', label: '题库', icon: 'folder' },
+  { key: 'course', label: '课程关联', icon: 'courses' },
 ];
 </script>
 

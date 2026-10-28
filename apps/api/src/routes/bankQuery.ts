@@ -32,6 +32,8 @@ export interface BankListQuery {
   section?: string;
   keyword?: string;
   courseId?: string;
+  /** 文件夹直属筛选；`none` = 只看未分类 */
+  folderId?: string;
   limit?: string;
   offset?: string;
 }
@@ -66,6 +68,13 @@ export function parseBankListQuery(q: BankListQuery): BankListFilter {
     const courseId = Number.parseInt(q.courseId, 10);
     if (Number.isNaN(courseId)) throw AppError.badRequest('courseId 参数非法');
     filter.courseId = courseId;
+  }
+  // 文件夹：数字 = 只看直属题库；none = 未分类；不传 = 全部
+  if (q.folderId === 'none') filter.folderId = null;
+  else if (q.folderId) {
+    const folderId = Number.parseInt(q.folderId, 10);
+    if (Number.isNaN(folderId)) throw AppError.badRequest('folderId 参数非法');
+    filter.folderId = folderId;
   }
   const limit = q.limit === undefined || q.limit === '' ? DEFAULT_BANK_PAGE_SIZE : Number.parseInt(q.limit, 10);
   if (Number.isNaN(limit) || limit < 1) throw AppError.badRequest('limit 参数非法');

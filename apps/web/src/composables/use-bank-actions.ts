@@ -4,7 +4,7 @@
  *
  * 从 BankAdminView 抽出。选中的题库、题库/题目列表的刷新、导出与模板下载由参数注入。
  */
-import { computed, ref, type ComputedRef, type Ref } from 'vue';
+import { computed, type ComputedRef, type Ref } from 'vue';
 import { api } from '@/api/client';
 import { errorMessage } from '@/composables/useAsync';
 import { useBankForm } from '@/composables/use-bank-form';
@@ -23,8 +23,8 @@ export interface BankActionDeps {
   selectedBank: ComputedRef<Bank | null>;
   loadBanks: (keepSelection?: boolean) => Promise<void>;
   loadQuestions: () => Promise<void>;
-  loadCatalog: () => Promise<void>;
-  loadBookCatalog: () => Promise<void>;
+  /** 文件夹树 / 课程关联计数刷新（题库增删改、移动文件夹后） */
+  refreshNav: () => Promise<void>;
   downloadTemplate: (kind: 'csv' | 'md') => Promise<void>;
   exportBank: (format: 'csv' | 'md' | 'docx', withAnswers?: boolean) => Promise<void>;
 }
@@ -32,7 +32,7 @@ export interface BankActionDeps {
 export function useBankActions(deps: BankActionDeps) {
   const toast = useToastStore();
 
-  /* ---------------- 题库表单（名称 / 册次 / 章节 / 关联课时） ---------------- */
+  /* ---------------- 题库表单（名称 / 所属文件夹 / 关联课时） ---------------- */
   const form = useBankForm(deps);
   /* ---------------- 体检 / 难度 ---------------- */
   const difficulty = useBankDifficulty({ selectedBank: deps.selectedBank, loadBanks: deps.loadBanks });
@@ -55,44 +55,9 @@ export function useBankActions(deps: BankActionDeps) {
       await api.del<OkResponse>(`/banks/${bank.id}`);
       toast.success(`题库「${bank.name}」已删除`);
       if (deps.selectedBankId.value === bank.id) deps.selectedBankId.value = null;
-      await Promise.all([deps.loadBanks(false), deps.loadCatalog(), deps.loadBookCatalog()]);
+      await Promise.all([deps.loadBanks(false), deps.refreshNav()]);
     } catch (e) {
       toast.error(errorMessage(e));
-    }
-  }
-
-  /* ---------------- 按册次批量挂课程 ---------------- */
-  /** 选中的册次与目标课程 */
-  const bindBookTarget = ref<{ book: string; bankCount: number } | null>(null);
-  const bindCourseId = ref<number | ''>('');
-  const bindingBook = ref(false);
-
-  function openBindBook(item: { book: string; bankCount: number }): void {
-    bindBookTarget.value = item;
-    bindCourseId.value = '';
-  }
-
-  function closeBindBook(): void {
-    bindBookTarget.value = null;
-    bindCourseId.value = '';
-  }
-
-  async function confirmBindBook(): Promise<void> {
-    const target = bindBookTarget.value;
-    if (!target || bindCourseId.value === '') return;
-    bindingBook.value = true;
-    try {
-      const res = await api.post<{ updated: number; courseName: string }>('/banks/bind-by-book', {
-        book: target.book,
-        courseId: Number(bindCourseId.value),
-      });
-      toast.success(`已把 ${res.updated} 个题库挂到「${res.courseName}」`);
-      closeBindBook();
-      await Promise.all([deps.loadCatalog(), deps.loadBanks(false), deps.loadBookCatalog()]);
-    } catch (e) {
-      toast.error(errorMessage(e));
-    } finally {
-      bindingBook.value = false;
     }
   }
 
@@ -213,13 +178,6 @@ export function useBankActions(deps: BankActionDeps) {
     ...quickTools,
     ...difficulty,
     removeBank,
-    // 按册次挂课程
-    bindBookTarget,
-    bindCourseId,
-    bindingBook,
-    openBindBook,
-    closeBindBook,
-    confirmBindBook,
     // 菜单
     bankMenuItems,
     bankRowMenuItems,

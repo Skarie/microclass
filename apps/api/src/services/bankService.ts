@@ -1,6 +1,7 @@
 /** 题库服务入口：题库 CRUD 与领域编排；其它职责已拆到同目录服务，对外签名与返回结构不变。 */
 import { AppError, type User } from '@microclass/shared';
 import type { BankKind, BankListFilter, BankRepository, BankWithStats } from '../db/repositories/bankRepository.js';
+import { BankFolderRepository } from '../db/repositories/bankFolderQueries.js';
 import type { QuestionRepository } from '../db/repositories/questionRepository.js';
 import type { LessonRepository } from '../db/repositories/lessonRepository.js';
 import type { AuditRepository } from '../db/repositories/auditRepository.js';
@@ -11,6 +12,7 @@ import type { StorageService } from './storageService.js';
 import type { QuestionMediaStore } from './questionMediaStore.js';
 import type { DifficultyService } from './difficultyService.js';
 import { BankCatalogService } from './bankCatalogService.js';
+import { BankFolderService } from './bankFolderService.js';
 import { BankExportService } from './bankExportService.js';
 import { BankHealthService } from './bankHealthService.js';
 import { BankImportService } from './bankImportService.js';
@@ -25,10 +27,12 @@ export type { QuestionForViewer } from '../domain/questionView.js';
 export { toViewer } from '../domain/questionView.js';
 export type { BankHealthResult } from './bankHealthService.js';
 export type { BackfillSectionsResult } from './bankSectionService.js';
+export type { BankFolderNode, BankFolderSummary, BankFolderTree, CourseSummary } from './bankFolderService.js';
 
 export class BankService {
   private readonly bankCatalog: BankCatalogService;
   private readonly bankSections: BankSectionService;
+  private readonly bankFolders: BankFolderService;
   private readonly bankQuestions: BankQuestionService;
   private readonly bankImages: BankQuestionImageService;
   private readonly bankImports: BankImportService;
@@ -48,6 +52,7 @@ export class BankService {
   ) {
     this.bankCatalog = new BankCatalogService(banks, questions, audit);
     this.bankSections = new BankSectionService(banks, audit);
+    this.bankFolders = new BankFolderService(new BankFolderRepository(banks.db), audit);
     this.bankQuestions = new BankQuestionService(banks, questions, lessons, storage, audit);
     this.bankImages = new BankQuestionImageService(banks, questions, audit, storage);
     this.bankHealth = new BankHealthService(banks, questions, difficulty, audit);
@@ -66,12 +71,11 @@ export class BankService {
   }
 
   detail(id: number): { bank: BankWithStats; questions: QuestionForViewer[] } {
-    const bank = this.banks.findById(id);
+    const bank = this.banks.findWithStats(id);
     if (!bank) throw AppError.notFound('题库不存在');
-    const [withStats] = this.banks.list().filter((b) => b.id === id);
     const rows = this.questions.listByBank(id);
     return {
-      bank: withStats ?? { ...bank, lesson_title: this.banks.lessonTitle(bank.lesson_id), question_count: rows.length },
+      bank,
       // 教师视角保留答案与解析
       questions: rows.map((q) => toViewer(q, true)),
     };
@@ -88,16 +92,22 @@ export class BankService {
     const courseId = explicitCourse !== undefined ? explicitCourse : (lesson?.course_id ?? null);
     // 章节：入参优先，空串时继承课时 group_name；只给 courseId 不给 lessonId 不强推。
     const section = resolveSection(input.section, lesson?.group_name);
+    // 文件夹归属：不传/传 null 都是未分类，但给了不存在的 id 要拒绝（避免脏引用）
+    const folderId = input.folderId === undefined || input.folderId === null ? null : Number(input.folderId);
+    if (folderId !== null && !this.bankFolders.exists(folderId)) {
+      throw AppError.badRequest('归属文件夹不存在');
+    }
     const id = this.banks.create({
       name,
       lessonId,
       courseId,
+      folderId,
       section,
       ...(input.kind ? { kind: input.kind as BankKind } : {}),
       ...(input.subject ? { subject: String(input.subject) } : {}),
       ...(input.book ? { book: String(input.book) } : {}),
     });
-    this.auditWrite(actor, 'bank.create', 'bank', id, { name, lessonId, courseId });
+    this.auditWrite(actor, 'bank.create', 'bank', id, { name, lessonId, courseId, folderId });
     return id;
   }
 
@@ -119,16 +129,22 @@ export class BankService {
           : undefined;
     // 章节：显式传了（含空串）就按传入值；没传保留原值；为空/被清空则重新继承课时 group_name。
     const section = resolveSection(input.section, lesson?.group_name, bank.section);
+    // 文件夹：不传 = 不变；显式 null = 移出到未分类
+    const folderId = input.folderId === undefined ? undefined : input.folderId === null ? null : Number(input.folderId);
+    if (folderId != null && !this.bankFolders.exists(folderId)) {
+      throw AppError.badRequest('归属文件夹不存在');
+    }
     this.banks.update(id, {
       name,
       lessonId,
       section,
       ...(derivedCourse === undefined ? {} : { courseId: derivedCourse }),
+      ...(folderId === undefined ? {} : { folderId }),
       ...(input.subject === undefined ? {} : { subject: String(input.subject) }),
       ...(input.book === undefined ? {} : { book: String(input.book) }),
       ...(input.kind ? { kind: input.kind as BankKind } : {}),
     });
-    this.auditWrite(actor, 'bank.update', 'bank', id);
+    this.auditWrite(actor, 'bank.update', 'bank', id, { folderId });
   }
 
   remove(actor: User, id: number): void {
@@ -164,6 +180,12 @@ export class BankService {
     this.bankSections.catalogSections(...args);
   readonly backfillSections = (...args: Parameters<BankSectionService['backfillSections']>) =>
     this.bankSections.backfillSections(...args);
+  readonly folderTree = (...args: Parameters<BankFolderService['tree']>) => this.bankFolders.tree(...args);
+  readonly createFolder = (...args: Parameters<BankFolderService['create']>) => this.bankFolders.create(...args);
+  readonly updateFolder = (...args: Parameters<BankFolderService['update']>) => this.bankFolders.update(...args);
+  readonly removeFolder = (...args: Parameters<BankFolderService['remove']>) => this.bankFolders.remove(...args);
+  readonly folderCourseSummary = (...args: Parameters<BankFolderService['courseSummary']>) =>
+    this.bankFolders.courseSummary(...args);
   readonly health = (...args: Parameters<BankHealthService['health']>) => this.bankHealth.health(...args);
   readonly dedupeBank = (...args: Parameters<BankHealthService['dedupeBank']>) => this.bankHealth.dedupeBank(...args);
   readonly listQuestions = (...args: Parameters<BankQuestionService['listQuestions']>) =>

@@ -2,6 +2,7 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import BankAdminHeader from './BankAdminHeader.vue';
 import BankSidePanel from './BankSidePanel.vue';
+import BankListPanel from './BankListPanel.vue';
 import BankQuestionPanel from './BankQuestionPanel.vue';
 import BankPageDialogs from './BankPageDialogs.vue';
 import { useBankCatalog, type BankCatalogDeps } from '@/composables/use-bank-catalog';
@@ -46,8 +47,7 @@ const actionsApi = useBankActions({
   selectedBank: catalogApi.selectedBank,
   loadBanks: catalogApi.loadBanks,
   loadQuestions: questionApi.loadQuestions,
-  loadCatalog: catalogApi.loadCatalog,
-  loadBookCatalog: catalogApi.loadBookCatalog,
+  refreshNav: catalogApi.refreshNav,
   downloadTemplate: importApi.downloadTemplate,
   exportBank: importApi.exportBank,
 });
@@ -70,9 +70,8 @@ onMounted(() => {
   document.addEventListener('keydown', onGlobalKeydown);
   questionApi.loadPrefs();
   void actionsApi.loadCourses();
-  void catalogApi.loadCatalog();
-  // 表单章节候选与「按册次」目录都来自 catalog-sections
-  void catalogApi.loadBookCatalog();
+  void catalogApi.loadFolders();
+  void catalogApi.loadCourseSummary();
   void catalogApi.loadBanks(false);
   // 指标卡片要用体检数据（服务端已预热 + 5 分钟缓存，约 20ms；失败不影响页面）
   void actionsApi.loadHealth(true);
@@ -85,6 +84,7 @@ onMounted(() => {
 
     <div class="layout">
       <BankSidePanel :catalog="catalogApi" :questions="questionApi" :actions="actionsApi" />
+      <BankListPanel :catalog="catalogApi" :questions="questionApi" :actions="actionsApi" />
       <BankQuestionPanel :catalog="catalogApi" :questions="questionApi" :actions="actionsApi" :imports="importApi" />
     </div>
 
