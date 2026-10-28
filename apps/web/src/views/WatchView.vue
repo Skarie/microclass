@@ -7,10 +7,12 @@ import WatchPlayer from './watch/WatchPlayer.vue';
 import WatchMeta from './watch/WatchMeta.vue';
 import WatchKnowledgeCard from './watch/WatchKnowledgeCard.vue';
 import WatchNotesCard from './watch/WatchNotesCard.vue';
+import WatchPracticeCard from './watch/WatchPracticeCard.vue';
 import { useWatchLesson } from '@/composables/use-watch-lesson';
 import { useWatchPlayback } from '@/composables/use-watch-playback';
 import { useWatchProgress } from '@/composables/use-watch-progress';
 import { useWatchNotes } from '@/composables/use-watch-notes';
+import { useWatchPractice } from '@/composables/use-watch-practice';
 
 /**
  * 观看页只做编排：
@@ -36,6 +38,8 @@ const progress = useWatchProgress({
   reload: lessonState.reload,
 });
 const notes = useWatchNotes({ lessonId, currentTime: () => playback.currentTime });
+/** 本课时练习：教师通过实践关联挂到本课时的题库 / 章节 / 小节 / 单题 */
+const practice = useWatchPractice(lessonId);
 
 /** 课时数据 + 笔记 + 同课程目录（顺序与拆分前一致） */
 async function loadPage(): Promise<void> {
@@ -114,6 +118,8 @@ onBeforeUnmount(() => {
 
     <aside class="watch__side">
       <WatchKnowledgeCard :knowledge="lessonState.knowledge" />
+
+      <WatchPracticeCard :practice="practice" :lesson-id="lessonId" />
 
       <WatchNotesCard
         :notes="notes.notes"

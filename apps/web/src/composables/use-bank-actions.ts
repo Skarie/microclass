@@ -27,6 +27,8 @@ export interface BankActionDeps {
   refreshNav: () => Promise<void>;
   downloadTemplate: (kind: 'csv' | 'md') => Promise<void>;
   exportBank: (format: 'csv' | 'md' | 'docx', withAnswers?: boolean) => Promise<void>;
+  /** 题库行菜单「关联课时」：打开整库粒度的关联弹窗（实现在 use-practice-links） */
+  openBankPracticeLink: (bank: Bank) => void;
 }
 
 export function useBankActions(deps: BankActionDeps) {
@@ -133,12 +135,14 @@ export function useBankActions(deps: BankActionDeps) {
   function bankRowMenuItems(): MenuItem[] {
     return [
       { key: 'rename', label: '重命名', icon: 'edit' },
+      { key: 'practice', label: '关联课时', icon: 'courses' },
       { key: 'delete', label: '删除题库', icon: 'trash', danger: true },
     ];
   }
 
   function onBankRowMenu(bank: Bank, key: string): void {
     if (key === 'rename') form.openEditBank(bank);
+    else if (key === 'practice') deps.openBankPracticeLink(bank);
     else if (key === 'delete') void removeBank(bank);
   }
 

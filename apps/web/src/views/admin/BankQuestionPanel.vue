@@ -12,6 +12,7 @@ import type { useBankCatalog } from '@/composables/use-bank-catalog';
 import type { useQuestionList } from '@/composables/use-question-list';
 import type { useBankImport } from '@/composables/use-bank-import';
 import type { useBankActions } from '@/composables/use-bank-actions';
+import type { usePracticeLinks } from '@/composables/use-practice-links';
 
 /**
  * 右栏题库面板（从 BankAdminView 抽出）：
@@ -23,16 +24,19 @@ const props = defineProps<{
   questions: ReturnType<typeof useQuestionList>;
   actions: ReturnType<typeof useBankActions>;
   imports: ReturnType<typeof useBankImport>;
+  practice: ReturnType<typeof usePracticeLinks>;
 }>();
 
 const catalogApi = props.catalog;
 const questionApi = props.questions;
 const actionsApi = props.actions;
 const importApi = props.imports;
+const practiceApi = props.practice;
 const catalogState = reactive(catalogApi);
 const questionsState = reactive(questionApi);
 const actionsState = reactive(actionsApi);
 const importsState = reactive(importApi);
+const practiceState = reactive(practiceApi);
 
 /** 详情面板标题区的关联课程 / 课时；没有课程 id 时只展示课程名，不猜路由 */
 const selectedCourseName = computed(() => (catalogState.selectedBank ? bankCourseName(catalogState.selectedBank) : ''));
@@ -41,6 +45,10 @@ const selectedCourseId = computed(() =>
 );
 const selectedLessonTitle = computed(() =>
   catalogState.selectedBank ? bankLessonTitle(catalogState.selectedBank) : '',
+);
+/** 整库粒度的关联徽标：已关联 N 课时 */
+const bankLinkBadge = computed(() =>
+  catalogState.selectedBank ? practiceState.bankBadge(catalogState.selectedBank.id) : null,
 );
 </script>
 
@@ -75,6 +83,10 @@ const selectedLessonTitle = computed(() =>
             >
           </template>
           <span v-else>未关联课程</span>
+          <!-- 整库粒度的关联标记：放在副标题行，避免把长题库名挤到省略号 -->
+          <span v-if="bankLinkBadge" class="mc-badge bank-head__badge" :title="bankLinkBadge.title">
+            {{ bankLinkBadge.text }}
+          </span>
         </div>
       </div>
       <div class="bank-head__actions">
@@ -85,6 +97,15 @@ const selectedLessonTitle = computed(() =>
           variant="ghost"
           @select="actionsState.onBankMenuSelect"
         />
+        <button
+          class="mc-btn mc-btn--soft mc-btn--sm"
+          type="button"
+          :disabled="!catalogState.selectedBank"
+          @click="catalogState.selectedBank && practiceState.openBankLink(catalogState.selectedBank, selectedCourseId)"
+        >
+          <Icon name="courses" :size="15" />
+          关联课时
+        </button>
         <button
           class="mc-btn mc-btn--soft mc-btn--sm"
           type="button"
@@ -122,6 +143,14 @@ const selectedLessonTitle = computed(() =>
           @select="(key) => questionsState.bulkSetDifficulty(key as 'easy' | 'medium' | 'hard')"
         />
         <button
+          class="mc-btn mc-btn--sm mc-btn--soft"
+          type="button"
+          :disabled="questionsState.bulkBusy"
+          @click="questionsState.openSectionsDialog"
+        >
+          设置章节/小节
+        </button>
+        <button
           class="mc-btn mc-btn--sm mc-btn--danger"
           type="button"
           :disabled="questionsState.bulkBusy"
@@ -155,7 +184,12 @@ const selectedLessonTitle = computed(() =>
       />
 
       <template v-else>
-        <QuestionTable :questions="questionApi" />
+        <QuestionTable
+          :questions="questionApi"
+          :bank="catalogState.selectedBank"
+          :practice="practiceApi"
+          :course-id="selectedCourseId"
+        />
         <QuestionPager :questions="questionApi" />
       </template>
     </div>

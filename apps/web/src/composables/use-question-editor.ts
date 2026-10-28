@@ -36,6 +36,8 @@ export interface QuestionEditorDeps {
   total: Ref<number>;
   loadQuestions: () => Promise<void>;
   loadBanks: (keepSelection?: boolean) => Promise<void>;
+  /** 题目章节/小节可能变了：重新扫描筛选候选 */
+  refreshFacets: () => void;
 }
 
 export function useQuestionEditor(deps: QuestionEditorDeps) {
@@ -121,6 +123,9 @@ export function useQuestionEditor(deps: QuestionEditorDeps) {
       sort: Number(qForm.sort) || 0,
       // 非空表示老师手动指定（后端记 difficulty_source = 'manual'，之后自动重算不会覆盖）
       difficulty: qForm.difficulty,
+      // 章节 / 小节：空串 = 未分章 / 未分节（后端按空串存，不继承题库章节）
+      chapter: qForm.chapter.trim(),
+      section: qForm.section.trim(),
     };
 
     qSaving.value = true;
@@ -135,6 +140,7 @@ export function useQuestionEditor(deps: QuestionEditorDeps) {
       qOpen.value = false;
       await deps.loadQuestions();
       await deps.loadBanks();
+      deps.refreshFacets();
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {

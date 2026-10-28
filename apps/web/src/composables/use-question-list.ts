@@ -13,6 +13,7 @@ import { useToastStore } from '@/stores/toast';
 import { useQuestionSelection } from '@/composables/use-question-selection';
 import { useQuestionEditor } from '@/composables/use-question-editor';
 import { useQuestionHotkeys } from '@/composables/use-question-hotkeys';
+import { useQuestionSections } from '@/composables/use-question-sections';
 import type { Bank, QuestionType, QuestionView } from '@/api/types';
 
 interface QuestionPageResponse {
@@ -45,6 +46,9 @@ export function useQuestionList(deps: QuestionListDeps) {
   const pageSize = ref(20);
   const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)));
 
+  /** 章节 / 小节筛选与候选：筛选变化后走同一条 search（页码回 1） */
+  const sections = useQuestionSections(search);
+
   /** 关键词**输入即搜**（400ms 防抖）：老师输完习惯直接看结果，不再需要点搜索 */
   let keywordTimer: ReturnType<typeof setTimeout> | undefined;
   watch(keyword, () => {
@@ -60,6 +64,7 @@ export function useQuestionList(deps: QuestionListDeps) {
     page,
     loadQuestions,
     loadBanks: deps.loadBanks,
+    refreshFacets: sections.refresh,
   });
 
   const editor = useQuestionEditor({
@@ -69,6 +74,7 @@ export function useQuestionList(deps: QuestionListDeps) {
     total,
     loadQuestions,
     loadBanks: deps.loadBanks,
+    refreshFacets: sections.refresh,
   });
 
   const table = useQuestionHotkeys({
@@ -85,19 +91,25 @@ export function useQuestionList(deps: QuestionListDeps) {
       total.value = 0;
       return;
     }
+    // 切题库时先清掉旧的章节筛选，再拼查询串（否则会带着上一本题库的章节去请求）
+    sections.syncBank(bankId);
     questionsLoading.value = true;
     try {
-      const res = await api.get<QuestionPageResponse>(`/banks/${bankId}/questions`, {
-        ...(typeFilter.value ? { type: typeFilter.value } : {}),
-        ...(difficultyFilter.value ? { difficulty: difficultyFilter.value } : {}),
-        ...(keyword.value.trim() ? { keyword: keyword.value.trim() } : {}),
-        ...(mediaOnlyFilter.value ? { mediaOnlyAnalysis: 1 } : {}),
-        page: page.value,
-        pageSize: pageSize.value,
-      });
+      // 手拼查询串：空串是合法筛选值（?chapter= 表示「未分章」），api.get 的 query 会丢掉空串
+      const params = new URLSearchParams();
+      if (typeFilter.value) params.set('type', typeFilter.value);
+      if (difficultyFilter.value) params.set('difficulty', difficultyFilter.value);
+      if (keyword.value.trim()) params.set('keyword', keyword.value.trim());
+      if (mediaOnlyFilter.value) params.set('mediaOnlyAnalysis', '1');
+      if (sections.chapterFilter.value !== null) params.set('chapter', sections.chapterFilter.value);
+      if (sections.sectionFilter.value !== null) params.set('section', sections.sectionFilter.value);
+      params.set('page', String(page.value));
+      params.set('pageSize', String(pageSize.value));
+      const res = await api.get<QuestionPageResponse>(`/banks/${bankId}/questions?${params.toString()}`);
       questions.value = res.questions;
       total.value = res.total;
       page.value = res.page;
+      sections.mergeQuestions(res.questions);
     } catch (e) {
       toast.error(errorMessage(e));
       questions.value = [];
@@ -122,6 +134,7 @@ export function useQuestionList(deps: QuestionListDeps) {
     difficultyFilter.value = '';
     mediaOnlyFilter.value = false;
     showMoreFilters.value = false;
+    sections.resetSectionFilters();
     search();
   }
 
@@ -193,6 +206,7 @@ export function useQuestionList(deps: QuestionListDeps) {
     changePageSize,
     selectBank,
     ...table,
+    ...sections,
     ...selection,
     ...editor,
   };

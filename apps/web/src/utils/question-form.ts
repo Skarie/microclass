@@ -25,6 +25,9 @@ export interface QuestionFormDraft {
   analysis: string;
   sort: number;
   difficulty: string;
+  /** 章节 / 小节（可空；空串 = 未分章 / 未分节） */
+  chapter: string;
+  section: string;
 }
 
 /** 选项下标 → A/B/C… */
@@ -73,6 +76,8 @@ export function blankQuestionForm(): QuestionFormDraft {
     analysis: '',
     sort: 0,
     difficulty: '',
+    chapter: '',
+    section: '',
   };
 }
 
@@ -86,6 +91,8 @@ export function questionFormFrom(question: QuestionView): QuestionFormDraft {
   form.stem = question.stem;
   form.analysis = question.analysis ?? '';
   form.sort = question.sort;
+  form.chapter = question.chapter ?? '';
+  form.section = question.section ?? '';
   form.options =
     question.options.length > 0 ? question.options.map((text) => ({ text })) : [{ text: '' }, { text: '' }];
   const picked = answerIndexes(question.answer);

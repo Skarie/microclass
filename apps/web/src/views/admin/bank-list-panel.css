@@ -131,6 +131,12 @@
   text-overflow: ellipsis;
 }
 
+/* 实践关联标记：灰色小徽标，无关联时不渲染 */
+.bank-item__practice {
+  align-self: flex-start;
+  font-size: var(--mc-text-xs);
+}
+
 .bank-item__actions {
   display: none;
   gap: var(--mc-space-1);

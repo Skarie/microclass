@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import DropdownMenu from '@/components/DropdownMenu.vue';
+import { FACET_ALL, FACET_NONE } from '@/utils/question-sections';
 import { TYPE_LABEL, TYPE_OPTIONS } from './questionTypes';
 import type { useQuestionList } from '@/composables/use-question-list';
 
@@ -77,6 +78,27 @@ onBeforeUnmount(() => {
       aria-label="搜索题干"
       @keyup.enter="questionsState.search"
     />
+    <!-- 章节 / 小节筛选：候选来自当前题库的题目（后端按自然序返回） -->
+    <select
+      class="mc-select filters__select"
+      :value="questionsState.chapterValue"
+      aria-label="按章节筛选"
+      @change="questionsState.onChapterSelect"
+    >
+      <option :value="FACET_ALL">全部章节</option>
+      <option v-for="chapter in questionsState.chapterOptions" :key="chapter" :value="chapter">{{ chapter }}</option>
+      <option :value="FACET_NONE">未分章</option>
+    </select>
+    <select
+      class="mc-select filters__select"
+      :value="questionsState.sectionValue"
+      aria-label="按小节筛选"
+      @change="questionsState.onSectionSelect"
+    >
+      <option :value="FACET_ALL">全部小节</option>
+      <option v-for="section in questionsState.sectionOptions" :key="section" :value="section">{{ section }}</option>
+      <option :value="FACET_NONE">未分节</option>
+    </select>
     <button class="mc-btn mc-btn--sm mc-btn--ghost" type="button" @click="questionsState.resetFilters">重置</button>
     <DropdownMenu
       :items="questionsState.viewMenuItems"
@@ -147,6 +169,13 @@ onBeforeUnmount(() => {
 .filters__keyword {
   flex: 1 1 240px;
   width: 260px;
+}
+
+/* 章节 / 小节下拉：与关键词同一条筛选行，长章节名截断但保留悬停提示 */
+.filters__select {
+  flex: 0 1 160px;
+  min-width: 120px;
+  max-width: 200px;
 }
 
 .filters__more {

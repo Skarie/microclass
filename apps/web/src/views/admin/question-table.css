@@ -109,6 +109,59 @@
   cursor: pointer;
 }
 
+/* 章节分组行：表内的一条分隔标题（不是可点行），把同章节的题收在一起 */
+.qgroup td {
+  padding: var(--mc-space-2) var(--mc-space-3);
+  background: var(--mc-bg-sunken);
+  border-bottom: 1px solid var(--mc-border);
+}
+
+.qgroup__inner {
+  display: flex;
+  align-items: center;
+  gap: var(--mc-space-2);
+}
+
+.qgroup__name {
+  font-size: var(--mc-text-sm);
+  font-weight: var(--mc-font-semibold);
+}
+
+.qgroup__count {
+  font-size: var(--mc-text-xs);
+}
+
+.qgroup__badge {
+  font-size: var(--mc-text-xs);
+}
+
+/* 小节标签：题干下方小字 + 「关联本节课时」 */
+.stem__section {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--mc-space-2);
+  margin-top: 4px;
+  font-size: var(--mc-text-xs);
+}
+
+.stem__section-name {
+  white-space: nowrap;
+}
+
+.stem__section-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--mc-primary-fg);
+  font-size: var(--mc-text-xs);
+  cursor: pointer;
+}
+
+.stem__section-link:hover {
+  text-decoration: underline;
+}
+
 /* 题干下方的次要信息行（难度 / 知识点 / 册次 / 选项数） */
 .stem__meta {
   margin-top: 4px;
@@ -139,7 +192,8 @@
 }
 
 .col-ops {
-  width: 124px;
+  width: 72px;
+  text-align: right;
   white-space: nowrap;
 }
 

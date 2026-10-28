@@ -1,0 +1,88 @@
+/* 关联课时弹窗：目标说明、课时勾选列表、已选课时 chip */
+.pl-target {
+  margin: 0;
+  font-size: var(--mc-text-sm);
+}
+
+/* 已有关联时的提示条：明确「保存 = 覆盖」 */
+.pl-note {
+  margin: 0;
+  padding: var(--mc-space-2) var(--mc-space-3);
+  border-radius: var(--mc-radius);
+  background: var(--mc-warning-soft);
+  color: var(--mc-warning-fg);
+  font-size: var(--mc-text-xs);
+}
+
+.pl-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mc-space-1);
+  max-height: 280px;
+  margin: 0;
+  padding: var(--mc-space-1);
+  overflow: auto;
+  list-style: none;
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius);
+}
+
+.pl-skeleton {
+  height: 40px;
+}
+
+.pl-item {
+  display: flex;
+  align-items: center;
+  gap: var(--mc-space-2);
+  padding: var(--mc-space-2);
+  border-radius: var(--mc-radius-sm);
+  font-size: var(--mc-text-sm);
+  cursor: pointer;
+}
+
+.pl-item:hover {
+  background: var(--mc-bg-hover);
+}
+
+.pl-item__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pl-item__group {
+  margin-left: auto;
+  font-size: var(--mc-text-xs);
+  white-space: nowrap;
+}
+
+.pl-picked {
+  gap: var(--mc-space-1);
+}
+
+.pl-chips {
+  gap: var(--mc-space-1);
+}
+
+.pl-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mc-space-1);
+  padding: 4px var(--mc-space-2);
+  border-radius: var(--mc-radius-pill);
+  background: var(--mc-primary-soft);
+  color: var(--mc-primary-fg);
+  font-size: var(--mc-text-xs);
+}
+
+.pl-chip__remove {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: var(--mc-text-sm);
+  line-height: var(--mc-leading-snug);
+  cursor: pointer;
+}

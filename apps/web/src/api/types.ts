@@ -140,6 +140,8 @@ export interface QuestionView {
   stage?: string;
   book?: string;
   chapter?: string;
+  /** 小节（迁移 0025；空串 = 未分节） */
+  section?: string;
   point?: string;
   source_path?: string;
   source_no?: string;

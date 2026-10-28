@@ -26,6 +26,8 @@ export interface QuestionSelectionDeps {
   page: Ref<number>;
   loadQuestions: () => Promise<void>;
   loadBanks: (keepSelection?: boolean) => Promise<void>;
+  /** 批量改章节/小节后重新扫描章节候选（来自章节筛选组合式函数） */
+  refreshFacets: () => void;
 }
 
 export function useQuestionSelection(deps: QuestionSelectionDeps) {
@@ -61,6 +63,42 @@ export function useQuestionSelection(deps: QuestionSelectionDeps) {
   const bulkDifficultyItems = DIFFICULTY_OPTIONS.map((d) => ({ key: d.value, label: d.label }));
 
   const bulkBusy = ref(false);
+
+  /* ---------------- 批量设置章节 / 小节 ---------------- */
+  const sectionsDialogOpen = ref(false);
+  const sectionChapter = ref('');
+  const sectionSection = ref('');
+  const sectionsSaving = ref(false);
+
+  function openSectionsDialog(): void {
+    if (selectedIds.value.size === 0) return;
+    sectionChapter.value = '';
+    sectionSection.value = '';
+    sectionsDialogOpen.value = true;
+  }
+
+  /** 一次设置选中的全部题目；两个字段都传（空串 = 清空），与接口语义一致 */
+  async function saveSections(): Promise<void> {
+    const bankId = deps.selectedBankId.value;
+    const ids = [...selectedIds.value];
+    if (bankId === null || ids.length === 0) return;
+    sectionsSaving.value = true;
+    try {
+      const res = await api.patch<{ updated: number }>(`/banks/${bankId}/questions/sections`, {
+        ids,
+        chapter: sectionChapter.value.trim(),
+        section: sectionSection.value.trim(),
+      });
+      toast.success(`已更新 ${res.updated} 道题`);
+      sectionsDialogOpen.value = false;
+      await deps.loadQuestions();
+      deps.refreshFacets();
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      sectionsSaving.value = false;
+    }
+  }
 
   /** 批量改难度：人工标注（重算难度不会覆盖），一次请求处理一页以内 */
   async function bulkSetDifficulty(difficulty: 'easy' | 'medium' | 'hard'): Promise<void> {
@@ -133,5 +171,12 @@ export function useQuestionSelection(deps: QuestionSelectionDeps) {
     bulkDelete,
     removeQuestion,
     DIFFICULTY_OPTIONS,
+    // 批量设置章节 / 小节
+    sectionsDialogOpen,
+    sectionChapter,
+    sectionSection,
+    sectionsSaving,
+    openSectionsDialog,
+    saveSections,
   };
 }

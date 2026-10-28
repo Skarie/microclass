@@ -32,6 +32,8 @@ const props = defineProps<{
     analysis: string;
     sort: number;
     difficulty: string;
+    chapter: string;
+    section: string;
   };
 }>();
 
@@ -77,6 +79,26 @@ function removeOption(index: number): void {
         <span class="mc-label mc-label--required">题干</span>
         <textarea v-model="form.stem" class="mc-textarea" maxlength="4000" placeholder="请输入题目内容" />
       </label>
+
+      <!-- 章节 / 小节：题库内分组与「按章节/小节关联课时」都靠这两个字段 -->
+      <div class="form-grid">
+        <label class="mc-field">
+          <span class="mc-label">章节</span>
+          <input
+            v-model="form.chapter"
+            class="mc-input"
+            type="text"
+            maxlength="120"
+            placeholder="例如：第一章 有理数"
+          />
+          <span class="mc-hint">留空 = 未分章，在题库里归到「未分章」分组。</span>
+        </label>
+
+        <label class="mc-field">
+          <span class="mc-label">小节</span>
+          <input v-model="form.section" class="mc-input" type="text" maxlength="120" placeholder="例如：1.1" />
+        </label>
+      </div>
 
       <div class="mc-col image-block">
         <div class="mc-row mc-row--between mc-row--wrap">

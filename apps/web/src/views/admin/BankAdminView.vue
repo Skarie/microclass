@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BankAdminHeader from './BankAdminHeader.vue';
 import BankSidePanel from './BankSidePanel.vue';
 import BankListPanel from './BankListPanel.vue';
@@ -9,6 +9,7 @@ import { useBankCatalog, type BankCatalogDeps } from '@/composables/use-bank-cat
 import { useQuestionList } from '@/composables/use-question-list';
 import { useBankImport } from '@/composables/use-bank-import';
 import { useBankActions } from '@/composables/use-bank-actions';
+import { usePracticeLinks } from '@/composables/use-practice-links';
 
 /**
  * 本组件只做组合式函数的编排：目录 → 题目列表 → 导入导出 → 题库操作。
@@ -42,6 +43,17 @@ const importApi = useBankImport({
   page: questionApi.page,
   fileInput,
 });
+
+/** 实践关联：题库行徽标、题目面板的关联标记与弹窗共用这一份缓存 */
+const practiceApi = usePracticeLinks();
+watch(
+  () => catalogApi.selectedBankId.value,
+  (bankId) => {
+    if (bankId !== null) void practiceApi.loadBankLinks(bankId);
+  },
+  { immediate: true },
+);
+
 const actionsApi = useBankActions({
   selectedBankId: catalogApi.selectedBankId,
   selectedBank: catalogApi.selectedBank,
@@ -50,6 +62,7 @@ const actionsApi = useBankActions({
   refreshNav: catalogApi.refreshNav,
   downloadTemplate: importApi.downloadTemplate,
   exportBank: importApi.exportBank,
+  openBankPracticeLink: (bank) => practiceApi.openBankLink(bank, catalogApi.courseIdOfBank(bank)),
 });
 
 /** 文档级快捷键：/ 聚焦题干搜索（在输入框里打字时不拦截） */
@@ -84,8 +97,14 @@ onMounted(() => {
 
     <div class="layout">
       <BankSidePanel :catalog="catalogApi" />
-      <BankListPanel :catalog="catalogApi" :questions="questionApi" :actions="actionsApi" />
-      <BankQuestionPanel :catalog="catalogApi" :questions="questionApi" :actions="actionsApi" :imports="importApi" />
+      <BankListPanel :catalog="catalogApi" :questions="questionApi" :actions="actionsApi" :practice="practiceApi" />
+      <BankQuestionPanel
+        :catalog="catalogApi"
+        :questions="questionApi"
+        :actions="actionsApi"
+        :imports="importApi"
+        :practice="practiceApi"
+      />
     </div>
 
     <input
@@ -107,7 +126,13 @@ onMounted(() => {
       @change="questionApi.onQuestionImagePicked"
     />
 
-    <BankPageDialogs :catalog="catalogApi" :questions="questionApi" :actions="actionsApi" :imports="importApi" />
+    <BankPageDialogs
+      :catalog="catalogApi"
+      :questions="questionApi"
+      :actions="actionsApi"
+      :imports="importApi"
+      :practice="practiceApi"
+    />
   </section>
 </template>
 
