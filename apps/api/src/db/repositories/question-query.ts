@@ -61,9 +61,13 @@ export function buildQuestionFilter(filter?: QuestionFilter): { sql: string; par
     clauses.push('book = ?');
     params.push(filter.book);
   }
-  if (filter?.chapter) {
+  if (filter?.chapter !== undefined) {
     clauses.push('chapter = ?');
     params.push(filter.chapter);
+  }
+  if (filter?.section !== undefined) {
+    clauses.push('section = ?');
+    params.push(filter.section);
   }
   if (filter?.point) {
     clauses.push('point = ?');

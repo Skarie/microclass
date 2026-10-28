@@ -28,6 +28,8 @@ export interface ImageQuestionInput {
   stage?: string;
   book?: string;
   chapter?: string;
+  /** 小节（迁移 0025） */
+  section?: string;
   point?: string;
   file: ImageUpload;
 }
@@ -66,7 +68,12 @@ export class BankQuestionImageService {
       subject: String(input.subject ?? bank.subject ?? ''),
       stage: String(input.stage ?? ''),
       book: String(input.book ?? ''),
-      chapter: String(input.chapter ?? ''),
+      chapter: String(input.chapter ?? '')
+        .trim()
+        .slice(0, 120),
+      section: String(input.section ?? '')
+        .trim()
+        .slice(0, 120),
       point: String(input.point ?? ''),
       // 图片题：题面就是图片，has_image 必须为真（否则"有图"筛选与统计会漏）
       hasImage: true,

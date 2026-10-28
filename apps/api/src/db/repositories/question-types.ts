@@ -26,6 +26,8 @@ export interface QuestionInput {
   stage?: string;
   book?: string;
   chapter?: string;
+  /** 小节（迁移 0025，可空） */
+  section?: string;
   point?: string;
   sourcePath?: string;
   sourceNo?: string;
@@ -44,6 +46,8 @@ export interface QuestionFilter {
   subject?: string;
   book?: string;
   chapter?: string;
+  /** 小节精确筛选（迁移 0025） */
+  section?: string;
   point?: string;
   stage?: string;
   /** 只看有配图 / 没有配图的题 */

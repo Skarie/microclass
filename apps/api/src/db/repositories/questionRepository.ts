@@ -75,6 +75,11 @@ export class QuestionRepository {
     write.updateQuestion(this.db, id, input);
   }
 
+  /** 批量改题库内题目的章节/小节（只影响该题库，返回更新条数） */
+  setSections(bankId: number, ids: number[], patch: { chapter?: string; section?: string }): number {
+    return write.setQuestionsSections(this.db, bankId, ids, patch);
+  }
+
   /** 只更新标准化元数据（回填历史数据用，不动题面与答案） */
   setMetadata(
     id: number,

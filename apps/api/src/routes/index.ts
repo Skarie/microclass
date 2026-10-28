@@ -12,6 +12,7 @@ import { registerFaststartRoutes } from './faststart.js';
 import { registerUserRoutes } from './users.js';
 import { registerProgressRoutes } from './progress.js';
 import { registerBankRoutes } from './banks.js';
+import { registerPracticeLinkRoutes } from './practiceLinks.js';
 import { registerQuestionConflictRoutes } from './questionConflicts.js';
 import { registerDifficultyRoutes } from './difficulty.js';
 import { registerPaperRoutes } from './paper.js';
@@ -32,6 +33,7 @@ export async function registerRoutes(app: FastifyInstance, deps: Deps): Promise<
       await registerUserRoutes(v1, deps);
       await registerProgressRoutes(v1, deps);
       await registerBankRoutes(v1, deps);
+      await registerPracticeLinkRoutes(v1, deps);
       await registerQuestionConflictRoutes(v1, deps);
       await registerDifficultyRoutes(v1, deps);
       await registerPaperRoutes(v1, deps);

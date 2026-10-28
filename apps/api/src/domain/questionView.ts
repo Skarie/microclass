@@ -33,6 +33,7 @@ export interface QuestionForViewer {
   stage: string;
   book: string;
   chapter: string;
+  section: string;
   point: string;
   source_path: string;
   source_no: string;
@@ -62,6 +63,7 @@ export function toViewer(q: Question, withAnswer: boolean): QuestionForViewer {
     stage: q.stage ?? '',
     book: q.book ?? '',
     chapter: q.chapter ?? '',
+    section: (q as Question & { section?: string }).section ?? '',
     point: q.point ?? '',
     source_path: q.source_path ?? '',
     source_no: q.source_no ?? '',

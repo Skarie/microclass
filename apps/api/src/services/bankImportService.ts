@@ -7,12 +7,8 @@ import type { BankRepository } from '../db/repositories/bankRepository.js';
 import type { QuestionInput, QuestionRepository } from '../db/repositories/questionRepository.js';
 import type { AuditRepository } from '../db/repositories/auditRepository.js';
 import type { StorageService } from './storageService.js';
-import {
-  hasMediaOnlyAnalysis,
-  hasQuestionImage,
-  questionFingerprint,
-  type CsvQuestionRow,
-} from '../domain/question.js';
+import { hasMediaOnlyAnalysis, hasQuestionImage, questionFingerprint } from '../domain/question.js';
+import type { CsvQuestionRow } from '../domain/questionCsv.js';
 import { parseQuestionText } from '../domain/questionText.js';
 import { parseCsv } from '../utils/csv.js';
 import { parseCsvQuestionRows } from '../domain/bankImport.js';
@@ -159,6 +155,8 @@ export class BankImportService {
         options: q.options,
         answer: q.answer,
         analysis: q.analysis,
+        chapter: q.chapter,
+        section: q.section,
         // 与手工新增走同一套标准化元数据口径
         contentHash: questionFingerprint(q.stem, q.options),
         hasImage: hasQuestionImage(q.stem, q.options, q.analysis),

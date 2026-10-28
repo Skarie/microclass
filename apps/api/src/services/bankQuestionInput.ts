@@ -14,6 +14,7 @@ import {
   questionFingerprint,
 } from '../domain/question.js';
 import { inferStage } from '../domain/difficulty.js';
+import { QUESTION_SECTION_MAX } from '../domain/questionCsv.js';
 import type { QuestionDto } from './bankTypes.js';
 import type { StorageService } from './storageService.js';
 
@@ -100,7 +101,12 @@ export function prepareQuestionInput(ctx: QuestionInputContext, input: QuestionD
     subject: String(input.subject ?? '').trim() || String(bank.subject ?? ''),
     stage: String(input.stage ?? '').trim() || inferStage(String(bank.book ?? '')),
     book: String(input.book ?? '').trim() || String(bank.book ?? ''),
-    chapter: String(input.chapter ?? '').trim(),
+    chapter: String(input.chapter ?? '')
+      .trim()
+      .slice(0, QUESTION_SECTION_MAX),
+    section: String(input.section ?? '')
+      .trim()
+      .slice(0, QUESTION_SECTION_MAX),
     point: String(input.point ?? '').trim(),
     // 标准化元数据在写入时就补齐：指纹用于查重与「同题不同答案」体检，
     // has_image 让体检不必对题干/选项做 LIKE 全表扫描（详见 docs/bank-standardization.md）
@@ -129,6 +135,7 @@ export function questionRowToDto(q: Question): QuestionDto {
     stage: q.stage ?? '',
     book: q.book ?? '',
     chapter: q.chapter ?? '',
+    section: (q as Question & { section?: string }).section ?? '',
     point: q.point ?? '',
   };
 }

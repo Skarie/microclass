@@ -16,7 +16,6 @@ import type {
 } from '../db/repositories/questionConflictRepository.js';
 import { answersEquivalent, mergeAnswerText } from '../domain/answerNormalize.js';
 import { AppError, type User } from '@microclass/shared';
-
 export interface ConflictGroupDto {
   contentHash: string;
   stem: string;
@@ -170,6 +169,7 @@ export class QuestionConflictService {
         stage: q.stage,
         book: q.book,
         chapter: q.chapter,
+        section: (q as { section?: string }).section ?? '',
         point: q.point,
         sourcePath: q.source_path,
         sourceNo: q.source_no,

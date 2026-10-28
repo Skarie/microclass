@@ -49,9 +49,9 @@ export function createQuestion(db: Db, input: QuestionInput): number {
   const created = db.run(
     `INSERT INTO questions
        (bank_id, lesson_id, type, stem, image_path, options, answer, analysis, sort, difficulty,
-        subject, stage, book, chapter, point, source_path, source_no, content_hash, has_image,
+        subject, stage, book, chapter, section, point, source_path, source_no, content_hash, has_image,
         analysis_media_only)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       input.bankId,
       input.lessonId ?? null,
@@ -67,6 +67,7 @@ export function createQuestion(db: Db, input: QuestionInput): number {
       input.stage ?? '',
       input.book ?? '',
       input.chapter ?? '',
+      input.section ?? '',
       input.point ?? '',
       input.sourcePath ?? '',
       input.sourceNo ?? '',
@@ -87,7 +88,7 @@ export function updateQuestion(db: Db, id: number, input: QuestionInput): void {
   db.run(
     `UPDATE questions SET
        bank_id = ?, lesson_id = ?, type = ?, stem = ?, image_path = ?, options = ?, answer = ?, analysis = ?,
-       sort = ?, difficulty = ?, subject = ?, stage = ?, book = ?, chapter = ?, point = ?,
+       sort = ?, difficulty = ?, subject = ?, stage = ?, book = ?, chapter = ?, section = ?, point = ?,
        source_path = ?, source_no = ?, content_hash = ?, has_image = ?${setMediaOnly ? ', analysis_media_only = ?' : ''}
      WHERE id = ?`,
     [
@@ -105,6 +106,7 @@ export function updateQuestion(db: Db, id: number, input: QuestionInput): void {
       input.stage ?? '',
       input.book ?? '',
       input.chapter ?? '',
+      input.section ?? '',
       input.point ?? '',
       input.sourcePath ?? '',
       input.sourceNo ?? '',
@@ -162,6 +164,33 @@ export function insertManyQuestions(db: Db, inputs: QuestionInput[]): number {
     }
   });
   return inserted;
+}
+
+/** 批量改章节/小节：只改属于该题库的题，返回实际更新条数（跨库 id 自动跳过） */
+export function setQuestionsSections(
+  db: Db,
+  bankId: number,
+  ids: number[],
+  patch: { chapter?: string; section?: string },
+): number {
+  if (ids.length === 0) return 0;
+  const sets: string[] = [];
+  const params: unknown[] = [];
+  if (patch.chapter !== undefined) {
+    sets.push('chapter = ?');
+    params.push(patch.chapter);
+  }
+  if (patch.section !== undefined) {
+    sets.push('section = ?');
+    params.push(patch.section);
+  }
+  if (sets.length === 0) return 0;
+  const placeholders = ids.map(() => '?').join(',');
+  return db.run(`UPDATE questions SET ${sets.join(', ')} WHERE bank_id = ? AND id IN (${placeholders})`, [
+    ...params,
+    bankId,
+    ...ids,
+  ]).changes;
 }
 
 /** 批量删除（去重/清理用，一个事务）；同步维护题库题量 */

@@ -75,6 +75,7 @@ export class BankManifestImportService {
       const analysis = replaceMediaPlaceholders(asText(q.analysis));
       const meta = {
         ...(asText(q.chapter) ? { chapter: asText(q.chapter) } : {}),
+        ...(asText(q.section) ? { section: asText(q.section) } : {}),
         ...(asText(q.point) ? { point: asText(q.point) } : {}),
         ...(asText(q.difficulty) ? { difficulty: asText(q.difficulty) } : {}),
         ...(asText(q.subject) ? { subject: asText(q.subject) } : {}),

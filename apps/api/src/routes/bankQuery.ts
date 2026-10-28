@@ -136,6 +136,9 @@ export interface BankQuestionListQuery {
   type?: string;
   keyword?: string;
   difficulty?: string;
+  /** 章节 / 小节精确筛选（迁移 0025）；空串表示「未分章 / 未分小节」 */
+  chapter?: string;
+  section?: string;
   mediaOnlyAnalysis?: string;
   page?: string;
   pageSize?: string;
@@ -146,6 +149,8 @@ export interface BankQuestionListRequest {
   type?: QuestionType;
   keyword?: string;
   difficulty?: string;
+  chapter?: string;
+  section?: string;
   mediaOnlyAnalysis?: true;
   page?: number;
   pageSize?: number;
@@ -161,6 +166,8 @@ export function parseBankQuestionListQuery(q: BankQuestionListQuery): BankQuesti
     ...(q.type ? { type: q.type as QuestionType } : {}),
     ...(q.keyword ? { keyword: q.keyword } : {}),
     ...(q.difficulty ? { difficulty: q.difficulty } : {}),
+    ...(q.chapter !== undefined ? { chapter: q.chapter } : {}),
+    ...(q.section !== undefined ? { section: q.section } : {}),
     ...(q.mediaOnlyAnalysis === '1' ? { mediaOnlyAnalysis: true } : {}),
     ...(q.page ? { page: Number.parseInt(q.page, 10) } : {}),
     ...(q.pageSize ? { pageSize: Number.parseInt(q.pageSize, 10) } : {}),

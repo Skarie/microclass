@@ -10,7 +10,7 @@ import { AppError } from '@microclass/shared';
 import { requireTeacherOrAdmin, requireUser } from '../http/guards.js';
 import type { Deps } from '../app.js';
 import type { QuestionDto } from '../services/bankService.js';
-import { bankIdOf, bulkIdsSchema, questionBodySchema, questionIdOf } from './banks-shared.js';
+import { bankIdOf, bulkIdsSchema, questionBodySchema, questionIdOf, questionSectionsSchema } from './banks-shared.js';
 import {
   parseBankQuestionListQuery,
   parseQuestionSearchQuery,
@@ -59,6 +59,17 @@ export async function registerBankQuestionRoutes(app: FastifyInstance, deps: Dep
     const user = requireTeacherOrAdmin(req, reply);
     deps.bankService.removeQuestion(user, questionIdOf(req));
     return { ok: true };
+  });
+
+  /** 批量改章节 / 小节（只改本库题目；空串表示清空），返回 updated */
+  app.patch('/banks/:id/questions/sections', { schema: { body: questionSectionsSchema } }, async (req, reply) => {
+    const user = requireTeacherOrAdmin(req, reply);
+    const bankId = bankIdOf(req);
+    const body = req.body as { ids: number[]; chapter?: string; section?: string };
+    return deps.bankService.setQuestionsSections(user, bankId, body.ids, {
+      ...(body.chapter === undefined ? {} : { chapter: body.chapter }),
+      ...(body.section === undefined ? {} : { section: body.section }),
+    });
   });
 
   /** 批量删除所选题目（只删属于该题库的题，返回 deleted / skipped） */

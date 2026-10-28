@@ -7,6 +7,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { Db } from './client.js';
 import { backfillBankFolders } from './bankFolderBackfill.js';
+import { reorgBankFolders } from './bankFolderReorg.js';
+import { backfillLegacyLessonLinks } from './practiceLinkBackfill.js';
 
 export interface MigrationFile {
   version: string;
@@ -39,6 +41,10 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
  */
 const DATA_MIGRATIONS: Record<string, (db: Db) => void> = {
   '0024': backfillBankFolders,
+  '0025': (db) => {
+    backfillLegacyLessonLinks(db);
+    reorgBankFolders(db);
+  },
 };
 
 export function loadMigrations(dir: string): MigrationFile[] {

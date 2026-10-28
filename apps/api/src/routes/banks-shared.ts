@@ -62,9 +62,24 @@ export const questionBodySchema = {
     subject: { type: 'string', maxLength: 40 },
     stage: { type: 'string', maxLength: 20 },
     book: { type: 'string', maxLength: 80 },
-    chapter: { type: 'string', maxLength: 120 },
+    /** 章节 / 小节上限 120 由服务端 trim 后截断（不在这里 400） */
+    chapter: { type: 'string' },
+    section: { type: 'string' },
     point: { type: 'string', maxLength: 120 },
   },
+  additionalProperties: false,
+} as const;
+
+/** 批量改章节/小节：ids 必填，chapter / section 至少给一个（空串表示清空） */
+export const questionSectionsSchema = {
+  type: 'object',
+  required: ['ids'],
+  properties: {
+    ids: { type: 'array', minItems: 1, maxItems: 500, items: { type: 'integer' } },
+    chapter: { type: 'string' },
+    section: { type: 'string' },
+  },
+  anyOf: [{ required: ['chapter'] }, { required: ['section'] }],
   additionalProperties: false,
 } as const;
 

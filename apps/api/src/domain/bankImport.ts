@@ -16,7 +16,7 @@ import {
   csvRowToQuestion,
   type CsvColumnMap,
   type CsvQuestionRow,
-} from './question.js';
+} from './questionCsv.js';
 
 export interface CsvImportParseResult {
   /** 通过校验、待入库的题目草稿 */

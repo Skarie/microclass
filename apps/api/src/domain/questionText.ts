@@ -26,15 +26,8 @@
  * - 选项、答案、解析的**先后顺序无所谓**；题目之间用空行分隔即可。
  */
 import type { Question, QuestionType } from '@microclass/shared';
-import {
-  TYPE_ALIAS,
-  TYPE_LABEL,
-  answerToCsv,
-  parseOptions,
-  assembleQuestion,
-  type CsvQuestionRow,
-  type QuestionDraft,
-} from './question.js';
+import { TYPE_ALIAS, TYPE_LABEL, answerToCsv, parseOptions } from './question.js';
+import { assembleQuestion, type CsvQuestionRow, type QuestionDraft } from './questionCsv.js';
 
 export interface TextParseResult {
   /** 校验通过、可直接入库的题目 */
@@ -48,6 +41,9 @@ export interface TextParseResult {
 const OPTION_RE = /^\s*(?:[-*+]\s+)?[（(]?([A-Fa-f])[)）.、．:：]\s*(.*)$/;
 const ANSWER_RE = /^\s*(?:正确答案|参考答案|答案|answer)\s*[：:]\s*(.*)$/i;
 const ANALYSIS_RE = /^\s*(?:解析|分析|说明|explanation)\s*[：:]\s*(.*)$/i;
+/** 可选元数据行（迁移 0025）：`章节：第一章` / `小节：1.1 正数和负数` */
+const CHAPTER_RE = /^\s*(?:章节|chapter)\s*[：:]\s*(.*)$/i;
+const SECTION_RE = /^\s*(?:小节|section)\s*[：:]\s*(.*)$/i;
 const INLINE_TYPE_RE = /^\s*[【\[（(]\s*([^】\]）)]{1,6})\s*[】\]）)]\s*(.*)$/;
 const IMAGE_RE = /!\[[^\]]*\]\(([^)\s]+)\)/g;
 
@@ -111,6 +107,8 @@ export function parseQuestionText(text: string): TextParseResult {
       options: cleaned.options,
       rawAnswer: cleaned.rawAnswer,
       analysis: cleaned.analysis,
+      chapter: cleaned.chapter ?? '',
+      section: cleaned.section ?? '',
       ...(cleaned.imageIndexes === undefined ? {} : { imageIndexes: cleaned.imageIndexes }),
     });
     if (!result.ok) {
@@ -193,6 +191,16 @@ export function parseQuestionText(text: string): TextParseResult {
       current.analysis = (analysis[1] ?? '').trim();
       return;
     }
+    const chapter = CHAPTER_RE.exec(stripped);
+    if (chapter) {
+      current.chapter = (chapter[1] ?? '').trim();
+      return;
+    }
+    const section = SECTION_RE.exec(stripped);
+    if (section) {
+      current.section = (section[1] ?? '').trim();
+      return;
+    }
 
     const option = OPTION_RE.exec(stripped);
     // 「A. xxx」样式的选项（带分隔符才算，避免把普通句子当选项）；
@@ -232,6 +240,10 @@ export function questionsToMarkdown(input: { title: string; questions: Question[
       out.push(`${String.fromCharCode(65 + oi)}. ${opt}`);
     });
     if (options.length > 0) out.push('');
+    const meta = q as Question & { chapter?: string; section?: string };
+    if (meta.chapter) out.push(`章节：${meta.chapter}`);
+    if (meta.section) out.push(`小节：${meta.section}`);
+    if (meta.chapter || meta.section) out.push('');
     if (withAnswers) {
       out.push(`答案：${answerToCsv(q)}`, '');
       if (q.analysis) out.push(`解析：${q.analysis}`, '');

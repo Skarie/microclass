@@ -201,6 +201,7 @@ export class QuizService {
         stage: '',
         book: '',
         chapter: '',
+        section: '',
         point: '',
         source_path: '',
         source_no: '',

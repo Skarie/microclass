@@ -4,7 +4,6 @@
   "apps/api/src/db/repositories/questionConflictRepository.ts": 304,
   "apps/api/src/domain/difficulty.ts": 330,
   "apps/api/src/domain/paperHtml.ts": 381,
-  "apps/api/src/domain/question.ts": 381,
   "apps/api/src/routes/lessons.ts": 330,
   "apps/api/src/services/analyticsService.ts": 356,
   "apps/api/src/services/difficultyService.ts": 385,

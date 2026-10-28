@@ -40,6 +40,8 @@ export class BankQuestionService {
       ...(filter?.type ? { type: filter.type } : {}),
       ...(filter?.keyword ? { keyword: filter.keyword } : {}),
       ...(filter?.difficulty ? { difficulty: filter.difficulty } : {}),
+      ...(filter?.chapter !== undefined ? { chapter: filter.chapter } : {}),
+      ...(filter?.section !== undefined ? { section: filter.section } : {}),
       ...(filter?.mediaOnlyAnalysis === true ? { mediaOnlyAnalysis: true } : {}),
     };
     const rows = this.questions.listByBank(bankId, where, {
@@ -145,6 +147,33 @@ export class BankQuestionService {
       detail: { count: deleted, ids: inBank.slice(0, 50) },
     });
     return { deleted, skipped: ids.length - inBank.length };
+  }
+
+  /** 批量改章节/小节（只影响该题库；两个字段都可单独传，空串表示清空） */
+  setQuestionsSections(
+    actor: User,
+    bankId: number,
+    ids: number[],
+    patch: { chapter?: string; section?: string },
+  ): { updated: number } {
+    if (!this.banks.findById(bankId)) throw AppError.notFound('题库不存在');
+    const normalize = (value: string | undefined): string | undefined =>
+      value === undefined ? undefined : String(value).trim().slice(0, 120);
+    const chapter = normalize(patch.chapter);
+    const section = normalize(patch.section);
+    const updated = this.questions.setSections(bankId, ids, {
+      ...(chapter === undefined ? {} : { chapter }),
+      ...(section === undefined ? {} : { section }),
+    });
+    this.audit.write({
+      actorId: actor.id,
+      actorName: actor.username,
+      action: 'question.updateSections',
+      targetType: 'bank',
+      targetId: bankId,
+      detail: { updated, chapter, section, ids: ids.slice(0, 50) },
+    });
+    return { updated };
   }
 
   /** 批量设置难度（人工标注）：逐题走 updateQuestion，与单条编辑口径一致。 */

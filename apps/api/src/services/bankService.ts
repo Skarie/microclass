@@ -200,6 +200,8 @@ export class BankService {
     this.bankQuestions.removeQuestion(...args);
   readonly removeQuestions = (...args: Parameters<BankQuestionService['removeQuestions']>) =>
     this.bankQuestions.removeQuestions(...args);
+  readonly setQuestionsSections = (...args: Parameters<BankQuestionService['setQuestionsSections']>) =>
+    this.bankQuestions.setQuestionsSections(...args);
   readonly setQuestionsDifficulty = (...args: Parameters<BankQuestionService['setQuestionsDifficulty']>) =>
     this.bankQuestions.setQuestionsDifficulty(...args);
   readonly searchQuestions = (...args: Parameters<BankQuestionService['searchQuestions']>) =>

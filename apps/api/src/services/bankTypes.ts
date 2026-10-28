@@ -42,5 +42,7 @@ export interface QuestionDto {
   stage?: string;
   book?: string;
   chapter?: string;
+  /** 小节（迁移 0025，可空；trim 后最长 120） */
+  section?: string;
   point?: string;
 }
