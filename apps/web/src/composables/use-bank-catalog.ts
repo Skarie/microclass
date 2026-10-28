@@ -39,13 +39,18 @@ export function useBankCatalog(deps: BankCatalogDeps) {
   const bankKeyword = ref('');
   const searchActive = computed(() => bankKeyword.value.trim() !== '');
 
-  watch(navView, (view) => {
-    try {
-      localStorage.setItem(NAV_VIEW_KEY, view);
-    } catch {
-      /* 浏览器禁用存储时只影响下次打开，不影响当前页面 */
-    }
-  });
+  watch(
+    navView,
+    (view) => {
+      try {
+        localStorage.setItem(NAV_VIEW_KEY, view);
+      } catch {
+        /* 浏览器禁用存储时只影响下次打开，不影响当前页面 */
+      }
+    },
+    // 首次进入也把默认视图写下来，下次打开/跨标签页读到的是明确值而不是 null
+    { immediate: true },
+  );
 
   /** 文件夹 CRUD 需要刷新列表，列表创建后回填（打破循环依赖） */
   let reloadBanks = async (): Promise<void> => {};

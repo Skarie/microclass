@@ -90,7 +90,7 @@ describe('文件夹树：表单下拉与路径', () => {
 });
 
 describe('题库字段兼容', () => {
-  it('readme 字段是 camelCase 时直接读取', () => {
+  it('接口字段是 camelCase 时直接读取', () => {
     const bank = {
       folderId: 2,
       folderPath: '必刷题 / 第一章',

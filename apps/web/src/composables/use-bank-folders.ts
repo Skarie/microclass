@@ -150,11 +150,7 @@ export function useBankFolders(deps: BankFolderDeps) {
 
   /* ---------------- 删除（非空 409 由后端拦截） ---------------- */
   async function deleteFolder(folder: BankFolder): Promise<void> {
-    if (
-      !window.confirm(
-        `确定删除文件夹「${folder.name}」吗？文件夹里还有 ${folder.bankCount} 个题库、${folder.folderCount} 个子文件夹时不能删除。`,
-      )
-    ) {
+    if (!window.confirm(`确定删除文件夹「${folder.name}」吗？只有空文件夹可以删除，里面的题库和子文件夹需要先移走。`)) {
       return;
     }
     try {

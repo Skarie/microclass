@@ -83,7 +83,7 @@ onMounted(() => {
     <BankAdminHeader :catalog="catalogApi" :questions="questionApi" :actions="actionsApi" />
 
     <div class="layout">
-      <BankSidePanel :catalog="catalogApi" :questions="questionApi" :actions="actionsApi" />
+      <BankSidePanel :catalog="catalogApi" />
       <BankListPanel :catalog="catalogApi" :questions="questionApi" :actions="actionsApi" />
       <BankQuestionPanel :catalog="catalogApi" :questions="questionApi" :actions="actionsApi" :imports="importApi" />
     </div>
