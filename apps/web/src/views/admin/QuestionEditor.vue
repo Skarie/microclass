@@ -200,7 +200,7 @@ function removeOption(index: number): void {
 
       <label class="mc-field">
         <span class="mc-label">难度</span>
-        <select v-model="form.difficulty" class="mc-select">
+        <select v-model="form.difficulty" class="mc-select" aria-label="难度">
           <option value="">自动判定（推荐）</option>
           <option value="easy">基础</option>
           <option value="medium">中等</option>

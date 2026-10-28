@@ -341,9 +341,10 @@ test.describe('微课堂端到端', () => {
 
     // 老师手动指定难度 → 记人工标注
     const row = page.locator('tbody tr', { hasText: '计算' }).first();
-    await row.getByRole('button', { name: '编辑' }).click();
+    await row.getByRole('button', { name: /题目操作/ }).click();
+    await page.getByRole('menuitem', { name: '编辑' }).click();
     const editModal = page.getByRole('dialog');
-    await editModal.locator('select.mc-select').last().selectOption('hard');
+    await editModal.getByLabel('难度').selectOption('hard');
     await editModal.getByRole('button', { name: '保存' }).click();
     await expect(page.getByText('题目已保存')).toBeVisible();
     await expect(row.locator('.diff-text')).toHaveAttribute('title', /人工/);
