@@ -9,7 +9,10 @@ import LessonBindModal from './lessons/LessonBindModal.vue';
 import LessonFolderPickerModal from './lessons/LessonFolderPickerModal.vue';
 import LessonScanModal from './lessons/LessonScanModal.vue';
 import CourseLessonDialogs from './lessons/CourseLessonDialogs.vue';
+import CourseKnowledgeDialogs from './lessons/CourseKnowledgeDialogs.vue';
 import { useCourseLessonManage } from '@/composables/use-course-lesson-manage';
+import { useCourseKnowledge } from '@/composables/use-course-knowledge';
+import { useKnowledgeImport } from '@/composables/use-knowledge-import';
 import { useCourseFolder } from '@/composables/use-course-folder';
 import { useLessonScan } from '@/composables/use-lesson-scan';
 import { useLessonOrder } from '@/composables/use-lesson-order';
@@ -49,9 +52,20 @@ const order = useLessonOrder({
 });
 const actions = useCourseLessonActions({ courseId: () => courseId.value, reload: manage.load });
 
+/** 课程级知识点（整门课共享）：与课时列表分开加载，互不阻塞 */
+const courseKnowledge = useCourseKnowledge({ courseId: () => courseId.value });
+/** 批量导入：正式导入成功后刷新课程知识点与课时列表 */
+const importer = useKnowledgeImport({
+  courseId: () => courseId.value,
+  onImported: async () => {
+    await Promise.all([courseKnowledge.load(), manage.load()]);
+  },
+});
+
 onMounted(() => {
   void manage.load();
   void manage.loadRoots();
+  void courseKnowledge.load();
 });
 </script>
 
@@ -80,7 +94,16 @@ onMounted(() => {
       @unbind="folder.unbind()"
     />
 
-    <CourseKnowledgeCard :exporting="actions.exporting" @export-knowledge="actions.exportKnowledge" />
+    <CourseKnowledgeCard
+      :items="courseKnowledge.items"
+      :loading="courseKnowledge.loading"
+      :exporting="actions.exporting"
+      @create="courseKnowledge.openCreate()"
+      @edit="courseKnowledge.openEdit"
+      @remove="courseKnowledge.remove"
+      @import-files="importer.openWizard()"
+      @export-knowledge="actions.exportKnowledge"
+    />
 
     <LessonListCard
       :manage="manage"
@@ -104,6 +127,8 @@ onMounted(() => {
       :lessons="manage.lessons"
       :roots="manage.roots"
     />
+
+    <CourseKnowledgeDialogs :knowledge="courseKnowledge" :importer="importer" />
   </section>
 </template>
 

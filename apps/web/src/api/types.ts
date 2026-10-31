@@ -105,7 +105,10 @@ export interface CourseScanResult {
 
 export interface Knowledge {
   id: number;
-  lesson_id: number;
+  /** 所属课时；课程级知识点为 null（后端可能不返回该字段） */
+  lesson_id?: number | null;
+  /** 所属课程（课程级知识点） */
+  course_id?: number | null;
   title: string;
   kind: KnowledgeKind;
   file_name: string;

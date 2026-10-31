@@ -15,10 +15,18 @@ import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import { isFigureImage, splitRichText } from '@/utils/richText';
 
-const props = withDefaults(defineProps<{ text?: string | null; inline?: boolean }>(), {
-  text: '',
-  inline: false,
-});
+const props = withDefaults(
+  defineProps<{
+    text?: string | null;
+    inline?: boolean;
+    /**
+     * 图片一律按「整幅插图」展示（块级居中）。
+     * 知识点正文里的图都是插图；题库里的图可能是公式碎片，仍按尺寸自动判断。
+     */
+    figureImages?: boolean;
+  }>(),
+  { text: '', inline: false, figureImages: false },
+);
 
 function escapeHtml(s: string): string {
   return s
@@ -39,13 +47,15 @@ function renderMath(latex: string, display: boolean): string {
 
 const root = ref<HTMLElement | null>(null);
 const segments = computed(() => splitRichText(String(props.text ?? '')));
+/** 知识点正文的插图直接带 figure 类；题库仍由 classifyImages 按真实尺寸判断 */
+const imageClass = computed(() => (props.figureImages ? 'rich-img rich-img--figure' : 'rich-img'));
 
 const html = computed(() =>
   segments.value
     .map((seg) => {
       if (seg.kind === 'text') return escapeHtml(seg.value);
       if (seg.kind === 'math') return renderMath(seg.value, seg.display === true);
-      return `<img class="rich-img" src="${escapeHtml(seg.value)}" alt="${escapeHtml(seg.alt ?? '')}" loading="lazy" />`;
+      return `<img class="${imageClass.value}" src="${escapeHtml(seg.value)}" alt="${escapeHtml(seg.alt ?? '')}" loading="lazy" />`;
     })
     .join(''),
 );
@@ -57,7 +67,7 @@ const html = computed(() =>
  */
 function classifyImages(): void {
   const el = root.value;
-  if (!el) return;
+  if (!el || props.figureImages) return;
   for (const img of el.querySelectorAll<HTMLImageElement>('img.rich-img')) {
     const apply = (): void => {
       img.classList.toggle('rich-img--figure', isFigureImage(img.naturalWidth, img.naturalHeight));

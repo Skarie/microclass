@@ -1,7 +1,7 @@
 /**
  * 课时（lessons）与知识点（knowledge）仓储。
  */
-import type { Knowledge, Lesson, LessonSource } from '@microclass/shared';
+import type { Lesson, LessonSource } from '@microclass/shared';
 import type { Db } from '../client.js';
 
 /**
@@ -240,50 +240,5 @@ export class LessonRepository {
           : null,
       };
     });
-  }
-
-  // ---- 知识点 ----
-  listKnowledge(lessonId: number): Knowledge[] {
-    return this.db.all<Knowledge>('SELECT * FROM knowledge WHERE lesson_id = ? ORDER BY sort, id', [lessonId]);
-  }
-
-  findKnowledge(id: number): Knowledge | undefined {
-    return this.db.get<Knowledge>('SELECT * FROM knowledge WHERE id = ?', [id]);
-  }
-
-  createKnowledge(input: {
-    lessonId: number;
-    title: string;
-    kind: Knowledge['kind'];
-    fileName?: string;
-    filePath?: string;
-    content?: string;
-    url?: string;
-  }): number {
-    return this.db.run(
-      'INSERT INTO knowledge (lesson_id, title, kind, file_name, file_path, content, url) VALUES (?,?,?,?,?,?,?)',
-      [
-        input.lessonId,
-        input.title,
-        input.kind,
-        input.fileName ?? '',
-        input.filePath ?? '',
-        input.content ?? '',
-        input.url ?? '',
-      ],
-    ).lastInsertRowid;
-  }
-
-  deleteKnowledge(id: number): void {
-    this.db.run('DELETE FROM knowledge WHERE id = ?', [id]);
-  }
-
-  /** 更新知识点标题与正文/链接（只更新传入的字段） */
-  updateKnowledge(id: number, patch: { title: string; content?: string; url?: string }): void {
-    if (patch.url !== undefined) {
-      this.db.run('UPDATE knowledge SET title = ?, url = ? WHERE id = ?', [patch.title, patch.url, id]);
-      return;
-    }
-    this.db.run('UPDATE knowledge SET title = ?, content = ? WHERE id = ?', [patch.title, patch.content ?? '', id]);
   }
 }

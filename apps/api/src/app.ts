@@ -19,6 +19,7 @@ import { SettingsRepository } from './db/repositories/settingsRepository.js';
 import { AuditRepository } from './db/repositories/auditRepository.js';
 import { CourseRepository } from './db/repositories/courseRepository.js';
 import { LessonRepository } from './db/repositories/lessonRepository.js';
+import { KnowledgeRepository } from './db/repositories/knowledgeRepository.js';
 import { ProgressRepository } from './db/repositories/progressRepository.js';
 import { BankRepository } from './db/repositories/bankRepository.js';
 import { QuestionRepository } from './db/repositories/questionRepository.js';
@@ -33,7 +34,11 @@ import { WatchIntervalRepository } from './db/repositories/watchIntervalReposito
 import { SessionSigner } from './security/session.js';
 import { AuthService } from './services/authService.js';
 import { CourseService } from './services/courseService.js';
+import { CourseKnowledgeService } from './services/courseKnowledgeService.js';
 import { LessonService } from './services/lessonService.js';
+import { KnowledgeImportService } from './services/knowledgeImportService.js';
+import { KnowledgeMediaStore } from './services/knowledgeMediaStore.js';
+import { startFaststartSweeps, warmBankHealth } from './services/startupTasks.js';
 import { MediaRootService } from './services/mediaRootService.js';
 import { StorageService } from './services/storageService.js';
 import { QuestionMediaStore } from './services/questionMediaStore.js';
@@ -60,6 +65,8 @@ export interface Deps {
   audit: AuditRepository;
   courses: CourseRepository;
   lessons: LessonRepository;
+  /** 知识点仓储：课时级与课程级共用 */
+  knowledge: KnowledgeRepository;
   progress: ProgressRepository;
   banks: BankRepository;
   questions: QuestionRepository;
@@ -68,7 +75,10 @@ export interface Deps {
   signer: SessionSigner;
   auth: AuthService;
   courseService: CourseService;
+  courseKnowledgeService: CourseKnowledgeService;
   lessonService: LessonService;
+  knowledgeImportService: KnowledgeImportService;
+  knowledgeMedia: KnowledgeMediaStore;
   bankService: BankService;
   conflictService: QuestionConflictService;
   difficultyService: DifficultyService;
@@ -103,6 +113,7 @@ export function buildDeps(config: AppConfig, db: Db): Deps {
   const audit = new AuditRepository(db);
   const courses = new CourseRepository(db);
   const lessons = new LessonRepository(db);
+  const knowledge = new KnowledgeRepository(db);
   const progress = new ProgressRepository(db);
   const banks = new BankRepository(db);
   const questions = new QuestionRepository(db);
@@ -128,9 +139,22 @@ export function buildDeps(config: AppConfig, db: Db): Deps {
   });
   const storage = new StorageService(config.dataDir);
   const questionMedia = new QuestionMediaStore(config.dataDir);
+  const knowledgeMedia = new KnowledgeMediaStore(config.dataDir);
   const auth = new AuthService(users, settings, audit, signer);
   const courseService = new CourseService(courses, audit);
-  const lessonService = new LessonService(lessons, progress, media, audit, storage, courses, watchIntervals, probe);
+  const courseKnowledgeService = new CourseKnowledgeService(courses, knowledge, audit);
+  const knowledgeImportService = new KnowledgeImportService(courses, lessons, knowledge, knowledgeMedia, audit);
+  const lessonService = new LessonService(
+    lessons,
+    knowledge,
+    progress,
+    media,
+    audit,
+    storage,
+    courses,
+    watchIntervals,
+    probe,
+  );
   const difficultyService = new DifficultyService(questions, settings, audit);
   const bankService = new BankService(banks, questions, lessons, audit, storage, questionMedia, difficultyService);
   const conflictService = new QuestionConflictService(questionConflicts, questions, audit);
@@ -148,6 +172,7 @@ export function buildDeps(config: AppConfig, db: Db): Deps {
     audit,
     courses,
     lessons,
+    knowledge,
     progress,
     banks,
     questions,
@@ -156,7 +181,10 @@ export function buildDeps(config: AppConfig, db: Db): Deps {
     signer,
     auth,
     courseService,
+    courseKnowledgeService,
     lessonService,
+    knowledgeImportService,
+    knowledgeMedia,
     bankService,
     conflictService,
     difficultyService,
@@ -319,33 +347,7 @@ export async function buildApp(config: AppConfig, options?: { db?: Db }): Promis
    * faststart 后台巡检：启动 1 分钟后跑第一次，之后每 15 分钟一轮。
    * 老师上传/挂载视频后不需要任何手工操作，下一轮自动把索引挪到文件头。
    */
-  const faststartTimer = config.autoFaststart
-    ? setInterval(
-        () => {
-          for (const root of config.mediaRoots as { path: string }[]) {
-            try {
-              deps.faststart.sweep(root.path);
-            } catch {
-              /* 单个目录失败不影响其它 */
-            }
-          }
-        },
-        15 * 60 * 1000,
-      )
-    : null;
-  if (faststartTimer) {
-    faststartTimer.unref();
-    const firstRun = setTimeout(() => {
-      for (const root of config.mediaRoots as { path: string }[]) {
-        try {
-          deps.faststart.sweep(root.path);
-        } catch {
-          /* ignore */
-        }
-      }
-    }, 60 * 1000);
-    firstRun.unref();
-  }
+  const faststartTimer = startFaststartSweeps(deps.faststart, config);
 
   app.addHook('onClose', async () => {
     if (checkpointTimer) clearInterval(checkpointTimer);
@@ -359,22 +361,8 @@ export async function buildApp(config: AppConfig, options?: { db?: Db }): Promis
     db.close();
   });
 
-  /**
-   * **启动预热**：容器刚起来时页缓存是空的，而「题库体检」要把全库统计跑一遍
-   * （真机实测冷缓存 69 秒，用户看到的就是"卡死"；热缓存只要几百毫秒）。
-   * 这里在服务就绪后**后台**算一次并写进内存缓存，让第一次点击体检的人直接命中缓存。
-   * 预热失败不影响启动（只在日志里留一条）。
-   */
   app.addHook('onReady', async () => {
-    setTimeout(() => {
-      try {
-        const t0 = Date.now();
-        deps.bankService.health(undefined, 20);
-        app.log.info({ ms: Date.now() - t0 }, '题库体检预热完成');
-      } catch (e) {
-        app.log.warn({ err: e instanceof Error ? e.message : String(e) }, '题库体检预热失败（忽略）');
-      }
-    }, 1000).unref?.();
+    warmBankHealth(app, deps.bankService);
   });
 
   return { app, deps, migrations };

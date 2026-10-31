@@ -23,7 +23,12 @@ export async function registerCourseRoutes(app: FastifyInstance, deps: Deps): Pr
     if (!course) throw AppError.notFound('课程不存在');
     if (course.published !== 1 && user.role === 'student') throw AppError.notFound('课程未发布');
     const lessons = deps.lessonService.listForViewer(user, id);
-    return { course: { ...course, fav: deps.courses.isFavorite(user.id, id) }, lessons };
+    // 课程级共享知识点：学生端课程详情页也要能看到
+    return {
+      course: { ...course, fav: deps.courses.isFavorite(user.id, id) },
+      lessons,
+      knowledge: deps.knowledge.listByCourse(id),
+    };
   });
 
   app.post(

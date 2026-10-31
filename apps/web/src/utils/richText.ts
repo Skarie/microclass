@@ -22,10 +22,12 @@ import { scanBareLatex } from '@microclass/shared';
 
 export { scanBareLatex };
 
-/** 只允许站内题目图片或 http(s) 图片；其它（含 javascript:）返回 null */
+/** 只允许站内题目/知识点图片或 http(s) 图片；其它（含 javascript:）返回 null */
 export function safeImageUrl(url: string): string | null {
   const u = url.trim();
   if (u.startsWith('/api/v1/question-media/')) return u;
+  // 批量导入的知识点图片（Markdown 里的 ![](/api/v1/knowledge-media/<file>)）
+  if (u.startsWith('/api/v1/knowledge-media/')) return u;
   if (/^https?:\/\//i.test(u)) return u;
   return null;
 }

@@ -6,6 +6,8 @@ import type { Knowledge, Lesson } from '@/api/types';
 interface LessonDetailResponse {
   lesson: Lesson;
   knowledge: Knowledge[];
+  /** 该课时所属课程的课程级知识点（整门课共享） */
+  courseKnowledge?: Knowledge[];
 }
 
 /**
@@ -19,6 +21,7 @@ export function useWatchLesson(lessonId: Ref<number>) {
 
   const lesson = computed(() => data.value?.lesson ?? null);
   const knowledge = computed(() => data.value?.knowledge ?? []);
+  const courseKnowledge = computed(() => data.value?.courseKnowledge ?? []);
   const siblingLessons = ref<Lesson[]>([]);
 
   /** 视频源：本地视频走后端 Range 流，外部链接/嵌入直接用原地址 */
@@ -65,6 +68,7 @@ export function useWatchLesson(lessonId: Ref<number>) {
     reload,
     lesson,
     knowledge,
+    courseKnowledge,
     videoSrc,
     isEmbed,
     prevLesson,

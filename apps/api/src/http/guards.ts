@@ -57,6 +57,8 @@ export const TEACHER_ROUTES = new Set([
   'PUT /api/v1/courses/:id',
   'DELETE /api/v1/courses/:id',
   'POST /api/v1/courses/:id/cover',
+  'POST /api/v1/courses/:id/knowledge',
+  'POST /api/v1/courses/:id/knowledge/import',
   'GET /api/v1/courses/:id/manage',
   'GET /api/v1/courses/:id/knowledge.md',
   'GET /api/v1/courses/:id/knowledge.docx',

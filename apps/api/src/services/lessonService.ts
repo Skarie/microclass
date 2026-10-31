@@ -6,6 +6,8 @@ import { sortLessonsByChapter } from '../domain/lessonChapterOrder.js';
 import fs from 'node:fs';
 import { AppError, type User } from '@microclass/shared';
 import type { LessonRepository, LessonWithProgress } from '../db/repositories/lessonRepository.js';
+import type { KnowledgeRepository } from '../db/repositories/knowledgeRepository.js';
+import type { KnowledgeRow } from '../domain/knowledgeTypes.js';
 import type { ProgressRepository } from '../db/repositories/progressRepository.js';
 import type { MediaRootService } from './mediaRootService.js';
 import type { StorageService } from './storageService.js';
@@ -48,6 +50,7 @@ export class LessonService {
 
   constructor(
     private readonly lessons: LessonRepository,
+    private readonly knowledgeRepo: KnowledgeRepository,
     progress: ProgressRepository,
     private readonly media: MediaRootService,
     private readonly audit: AuditRepository,
@@ -57,8 +60,8 @@ export class LessonService {
     probe: MediaProbeService,
   ) {
     this.unlock = new LessonUnlockService(lessons, progress, intervals);
-    this.knowledge = new LessonKnowledgeService(lessons, audit, storage);
-    this.knowledgeExport = new LessonKnowledgeExportService(lessons, courses);
+    this.knowledge = new LessonKnowledgeService(lessons, knowledgeRepo, audit, storage);
+    this.knowledgeExport = new LessonKnowledgeExportService(lessons, knowledgeRepo, courses);
     this.mediaOps = new LessonMediaService(lessons, media, audit, courses, probe);
     this.folders = new LessonFolderService(lessons, media, courses, audit);
     this.scans = new LessonScanService(lessons, media, courses, audit, this.folders);
@@ -79,11 +82,19 @@ export class LessonService {
     return this.lessons.withProgress(ordered, viewer.id);
   }
 
-  detail(viewer: User, id: number): { lesson: LessonWithProgress; knowledge: unknown[] } {
+  detail(
+    viewer: User,
+    id: number,
+  ): { lesson: LessonWithProgress; knowledge: KnowledgeRow[]; courseKnowledge: KnowledgeRow[] } {
     const lesson = this.lessons.findById(id);
     if (!lesson) throw AppError.notFound('视频单元不存在');
     const [withProgress] = this.lessons.withProgress([lesson], viewer.id);
-    return { lesson: withProgress ?? { ...lesson, progress: null }, knowledge: this.lessons.listKnowledge(id) };
+    return {
+      lesson: withProgress ?? { ...lesson, progress: null },
+      knowledge: this.knowledgeRepo.listByLesson(id),
+      // 观看页展示该课时所属课程的「课程级共享知识点」；未归类课时为空
+      courseKnowledge: lesson.course_id === null ? [] : this.knowledgeRepo.listByCourse(lesson.course_id),
+    };
   }
 
   /** 本地视频是否已解锁刷题；判定细节见 LessonUnlockService */

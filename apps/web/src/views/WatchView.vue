@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import EmptyState from '@/components/EmptyState.vue';
+import KnowledgeModal from '@/components/lessons/KnowledgeModal.vue';
+import { useAuthStore } from '@/stores/auth';
 import WatchHeader from './watch/WatchHeader.vue';
 import WatchPlayer from './watch/WatchPlayer.vue';
 import WatchMeta from './watch/WatchMeta.vue';
@@ -24,6 +26,9 @@ import { useWatchPractice } from '@/composables/use-watch-practice';
  */
 const route = useRoute();
 const lessonId = computed(() => Number(route.params.id));
+const auth = useAuthStore();
+/** 老师 / 管理员：课时知识点编辑弹窗 */
+const knowledgeOpen = ref(false);
 
 const lessonState = useWatchLesson(lessonId);
 const playback = useWatchPlayback({
@@ -45,6 +50,11 @@ const practice = useWatchPractice(lessonId);
 async function loadPage(): Promise<void> {
   await lessonState.run();
   await Promise.all([notes.loadNotes(), lessonState.loadSiblings()]);
+}
+
+/** 课时知识点增删改后重载详情（课程知识点也随详情一起刷新） */
+function onKnowledgeChanged(): void {
+  void lessonState.reload();
 }
 
 onMounted(async () => {
@@ -117,7 +127,12 @@ onBeforeUnmount(() => {
     </div>
 
     <aside class="watch__side">
-      <WatchKnowledgeCard :knowledge="lessonState.knowledge" />
+      <WatchKnowledgeCard
+        :knowledge="lessonState.knowledge"
+        :course-knowledge="lessonState.courseKnowledge"
+        :can-edit="auth.isTeacher"
+        @edit="knowledgeOpen = true"
+      />
 
       <WatchPracticeCard :practice="practice" :lesson-id="lessonId" />
 
@@ -134,6 +149,13 @@ onBeforeUnmount(() => {
       />
     </aside>
   </section>
+
+  <KnowledgeModal
+    :open="knowledgeOpen"
+    :lesson="lessonState.lesson"
+    @close="knowledgeOpen = false"
+    @changed="onKnowledgeChanged"
+  />
 </template>
 
 <style scoped>

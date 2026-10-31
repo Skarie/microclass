@@ -65,6 +65,8 @@ describe('题面切分', () => {
     expect(safeImageUrl('javascript:alert(1)')).toBeNull();
     expect(safeImageUrl('/etc/passwd')).toBeNull();
     expect(safeImageUrl('https://example.com/a.png')).toBe('https://example.com/a.png');
+    // 批量导入的知识点配图走 knowledge-media，同样属于站内白名单
+    expect(safeImageUrl('/api/v1/knowledge-media/abc-neg.png')).toBe('/api/v1/knowledge-media/abc-neg.png');
     const segs = splitRichText('看这里 ![](javascript:alert(1)) 结束');
     expect(segs.every((s) => s.kind === 'text')).toBe(true);
   });

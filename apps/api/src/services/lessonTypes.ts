@@ -1,5 +1,6 @@
 /** 课时领域共享类型：入参、文件夹绑定/扫描结果、知识点讲义的中间结构。 */
-import type { Knowledge, Lesson } from '@microclass/shared';
+import type { Lesson } from '@microclass/shared';
+import type { KnowledgeRow } from '../domain/knowledgeTypes.js';
 
 export interface LessonInputDto {
   title: string;
@@ -75,7 +76,9 @@ export interface UploadKnowledgeFileInput {
 export interface KnowledgeOutline {
   title: string;
   subtitle: string;
-  chapters: { chapter: string; lessons: { lesson: Lesson; items: Knowledge[] }[] }[];
+  /** 课程级共享知识点（整门课共享，单课时导出时为空） */
+  courseItems: KnowledgeRow[];
+  chapters: { chapter: string; lessons: { lesson: Lesson; items: KnowledgeRow[] }[] }[];
   totalItems: number;
 }
 
