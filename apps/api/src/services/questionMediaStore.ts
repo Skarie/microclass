@@ -35,12 +35,10 @@ export class QuestionMediaStore {
 
   /** 按内容哈希落盘；类型不在白名单内返回 null（调用方跳过并记 warning） */
   save(data: Buffer): SavedQuestionImage | null {
-    const ext = sniffExtension(data);
-    if (!ext || !ALLOWED.has(ext)) return null;
-    const sha = crypto.createHash('sha1').update(data).digest('hex');
-    const file = `${sha}.${ext}`;
-    const dir = path.join(this.root, sha.slice(0, 2));
-    const abs = path.join(dir, file);
+    const preview = previewQuestionImage(data);
+    if (!preview) return null;
+    const dir = path.join(this.root, preview.file.slice(0, 2));
+    const abs = path.join(dir, preview.file);
     const existed = fs.existsSync(abs);
     if (!existed) {
       fs.mkdirSync(dir, { recursive: true });
@@ -49,12 +47,7 @@ export class QuestionMediaStore {
       fs.writeFileSync(tmp, data);
       fs.renameSync(tmp, abs);
     }
-    return {
-      file,
-      relPath: path.posix.join('question-media', sha.slice(0, 2), file),
-      url: `/api/v1/question-media/${file}`,
-      deduped: existed,
-    };
+    return { ...preview, deduped: existed };
   }
 
   /** 文件名 → 绝对路径（严格校验文件名格式，防目录穿越） */
@@ -107,4 +100,22 @@ function sniffExtension(data: Buffer): string | null {
   }
   if (data.length >= 2 && data[0] === 0x42 && data[1] === 0x4d) return 'bmp';
   return null;
+}
+
+/**
+ * 只算「按内容寻址会存成什么」，**不落盘**（导入 dry-run 用：
+ * 只统计不产生文件，但对外的 URL 与正式导入完全一致）。
+ * 类型不在白名单内返回 null。
+ */
+export function previewQuestionImage(data: Buffer): SavedQuestionImage | null {
+  const ext = sniffExtension(data);
+  if (!ext || !ALLOWED.has(ext)) return null;
+  const sha = crypto.createHash('sha1').update(data).digest('hex');
+  const file = `${sha}.${ext}`;
+  return {
+    file,
+    relPath: path.posix.join('question-media', sha.slice(0, 2), file),
+    url: `/api/v1/question-media/${file}`,
+    deduped: false,
+  };
 }

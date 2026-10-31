@@ -49,9 +49,9 @@ export function createQuestion(db: Db, input: QuestionInput): number {
   const created = db.run(
     `INSERT INTO questions
        (bank_id, lesson_id, type, stem, image_path, options, answer, analysis, sort, difficulty,
-        subject, stage, book, chapter, section, point, source_path, source_no, content_hash, has_image,
+        subject, stage, book, chapter, section, point, source_path, source_no, source_id, content_hash, has_image,
         analysis_media_only)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       input.bankId,
       input.lessonId ?? null,
@@ -71,6 +71,7 @@ export function createQuestion(db: Db, input: QuestionInput): number {
       input.point ?? '',
       input.sourcePath ?? '',
       input.sourceNo ?? '',
+      input.sourceId ?? '',
       input.contentHash ?? '',
       input.hasImage ? 1 : 0,
       input.analysisMediaOnly ? 1 : 0,
@@ -89,7 +90,7 @@ export function updateQuestion(db: Db, id: number, input: QuestionInput): void {
     `UPDATE questions SET
        bank_id = ?, lesson_id = ?, type = ?, stem = ?, image_path = ?, options = ?, answer = ?, analysis = ?,
        sort = ?, difficulty = ?, subject = ?, stage = ?, book = ?, chapter = ?, section = ?, point = ?,
-       source_path = ?, source_no = ?, content_hash = ?, has_image = ?${setMediaOnly ? ', analysis_media_only = ?' : ''}
+       source_path = ?, source_no = ?, source_id = ?, content_hash = ?, has_image = ?${setMediaOnly ? ', analysis_media_only = ?' : ''}
      WHERE id = ?`,
     [
       input.bankId,
@@ -110,6 +111,7 @@ export function updateQuestion(db: Db, id: number, input: QuestionInput): void {
       input.point ?? '',
       input.sourcePath ?? '',
       input.sourceNo ?? '',
+      input.sourceId ?? '',
       input.contentHash ?? '',
       input.hasImage ? 1 : 0,
       ...(setMediaOnly ? [input.analysisMediaOnly ? 1 : 0] : []),

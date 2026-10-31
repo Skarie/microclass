@@ -32,6 +32,8 @@ export interface QuestionInput {
   sourcePath?: string;
   sourceNo?: string;
   contentHash?: string;
+  /** 题源标识（迁移 0027）：教师版题库的 `**题目标识：**`，整册覆盖导入时用于定位同一道题 */
+  sourceId?: string;
   /** 题干/选项/解析里是否引用了题图（体检统计用，避免 LIKE 全表扫描） */
   hasImage?: boolean;
   /** 解析是否「只有图片、没有一个字」（迁移 0020 预计算列） */
