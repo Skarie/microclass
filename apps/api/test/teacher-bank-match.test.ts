@@ -40,17 +40,27 @@ describe('小节 → 题库匹配', () => {
     expect(matcher).toEqual({ action: 'replace', bankId: 9, reason: 'section-and-tail' });
   });
 
-  it('章节不一致时退到「题库名包含小节且唯一命中」', () => {
+  it('章节对不上但题库名末段 = 小节且唯一 → 命中（name-tail）', () => {
     const matcher = matchTeacherBank([bank(3, `拓展训练 · ${SECTION}`, '拓展训练')], CHAPTER, SECTION);
-    expect(matcher).toEqual({ action: 'replace', bankId: 3, reason: 'name-contains' });
+    expect(matcher).toEqual({ action: 'replace', bankId: 3, reason: 'name-tail' });
   });
 
-  it('包含命中多条时不算唯一 → 新建（避免把两个小节并进一个题库）', () => {
+  it('题库章节为空、名字末段 = 小节 → 命中', () => {
+    const matcher = matchTeacherBank([bank(3, `${CHAPTER} · ${SECTION}`, '')], CHAPTER, SECTION);
+    expect(matcher).toEqual({ action: 'replace', bankId: 3, reason: 'section-and-tail' });
+  });
+
+  it('末段相同但章节都对不上且多条 → 新建（避免把两个小节并进一个题库）', () => {
     const matcher = matchTeacherBank(
-      [bank(3, `拓展训练 · ${SECTION}`, ''), bank(4, `${CHAPTER} · ${SECTION}（答案）`, '')],
+      [bank(3, `单元A · ${SECTION}`, '单元A'), bank(4, `单元B · ${SECTION}`, '单元B')],
       CHAPTER,
       SECTION,
     );
+    expect(matcher).toEqual({ action: 'create', bankId: null, reason: 'none' });
+  });
+
+  it('本次导入已用过的题库不再复用 → 新建（防止覆盖前一个小节）', () => {
+    const matcher = matchTeacherBank([bank(3, `${CHAPTER} · ${SECTION}`, CHAPTER)], CHAPTER, SECTION, new Set([3]));
     expect(matcher).toEqual({ action: 'create', bankId: null, reason: 'none' });
   });
 

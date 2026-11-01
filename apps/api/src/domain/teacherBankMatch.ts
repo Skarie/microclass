@@ -21,11 +21,13 @@ export interface TeacherBankCandidate {
 
 export type TeacherBankMatchAction = 'replace' | 'create';
 
+export type TeacherBankMatchReason = 'section-and-tail' | 'name-tail' | 'none';
+
 export interface TeacherBankMatch {
   action: TeacherBankMatchAction;
   /** 命中/新建题库的 id；dry-run 下的新建为 null */
   bankId: number | null;
-  reason: 'section-and-tail' | 'name-contains' | 'none';
+  reason: TeacherBankMatchReason;
 }
 
 /** 题库名按 `·` 分段后取最后一段（`第一章 有理数（说明）· 数轴` → `数轴`） */
@@ -46,24 +48,32 @@ export function teacherBankName(chapter: string, section: string): string {
   return `${left} · ${right}`;
 }
 
-/** 小节 → 题库匹配结果（调用方负责按 id 升序传入，命中取最靠前的一条） */
+/**
+ * 小节 → 题库匹配结果（调用方负责按 id 升序传入，命中取最靠前的一条）。
+ *
+ * `usedBankIds` 是本次导入里已经被前面小节占用的题库：一个题库只能装一个小节，
+ * 否则后导入的小节会把前一个小节的题覆盖掉（化学/物理实测踩过这个坑）。
+ * 只按题库名**最后一段**精确比对小节，不再用「包含」这种宽泛规则。
+ */
 export function matchTeacherBank(
   candidates: readonly TeacherBankCandidate[],
   chapter: string,
   section: string,
+  usedBankIds: ReadonlySet<number> = new Set(),
 ): TeacherBankMatch {
   const chapterKey = String(chapter ?? '').trim();
   const sectionKey = String(section ?? '').trim();
-  const exact = candidates.find(
-    (bank) => bank.section.trim() === chapterKey && lastBankNameSegment(bank.name) === sectionKey,
-  );
+  if (sectionKey === '') return { action: 'create', bankId: null, reason: 'none' };
+  const usable = candidates.filter((bank) => !usedBankIds.has(bank.id));
+  const tailMatches = usable.filter((bank) => lastBankNameSegment(bank.name) === sectionKey);
+  const exact = tailMatches.find((bank) => {
+    const bankSection = bank.section.trim();
+    return bankSection === chapterKey || bankSection === '';
+  });
   if (exact) return { action: 'replace', bankId: exact.id, reason: 'section-and-tail' };
-  if (sectionKey !== '') {
-    const fuzzy = candidates.filter((bank) => bank.name.includes(sectionKey));
-    if (fuzzy.length === 1) {
-      const hit = fuzzy[0];
-      if (hit) return { action: 'replace', bankId: hit.id, reason: 'name-contains' };
-    }
+  if (tailMatches.length === 1) {
+    const hit = tailMatches[0];
+    if (hit) return { action: 'replace', bankId: hit.id, reason: 'name-tail' };
   }
   return { action: 'create', bankId: null, reason: 'none' };
 }

@@ -129,6 +129,7 @@ export function runTeacherBankImport(
   const maxSamples = Math.max(0, input.maxSamples ?? 20);
   let imported = 0;
 
+  const usedBankIds = new Set<number>();
   for (const source of sources) {
     const doc = parseTeacherBankMarkdown(fs.readFileSync(source.mdPath, 'utf8'));
     const chapter = doc.meta.chapter.trim() || source.chapterDir;
@@ -152,7 +153,7 @@ export function runTeacherBankImport(
     const rows = doc.questions.map((draft, index) => buildRow(draft, index, ctx));
     report.questionsWithImages += rows.filter((row) => row.hasImage === true).length;
 
-    const match = matchTeacherBank(repo.candidates(course.id), chapter, section);
+    const match = matchTeacherBank(repo.candidates(course.id), chapter, section, usedBankIds);
     let bankId = match.bankId;
     if (match.action === 'replace' && bankId !== null) {
       report.banksMatched += 1;
@@ -170,6 +171,7 @@ export function runTeacherBankImport(
         });
       }
     }
+    if (bankId !== null) usedBankIds.add(bankId);
     if (!dryRun && bankId !== null) {
       imported +=
         match.action === 'replace' ? repo.replaceBankQuestions(bankId, rows) : repo.insertBankQuestions(bankId, rows);
