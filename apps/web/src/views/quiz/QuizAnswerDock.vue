@@ -86,11 +86,13 @@ function changeCount(value: number): void {
   top: calc(var(--mc-topbar-height) + var(--mc-space-12) + var(--mc-space-8) + var(--mc-space-4));
   display: flex;
   flex-direction: column;
+  /* 固定高度：题多时网格内部滚动，底部操作始终可见，不再把整页撑长 */
+  height: min(72vh, 640px);
   max-height: calc(
     100vh - var(--mc-topbar-height) - var(--mc-space-12) - var(--mc-space-8) - var(--mc-space-4) - var(--mc-space-4)
   );
   padding: var(--mc-space-4);
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 @media (max-width: 1023px) {

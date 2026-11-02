@@ -72,8 +72,8 @@ function stateLabel(q: QuizQuestion): string {
 <style scoped>
 .qgrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(32px, 1fr));
-  gap: var(--mc-space-2);
+  grid-template-columns: repeat(auto-fill, minmax(28px, 1fr));
+  gap: var(--mc-space-1);
 }
 
 .qb {
@@ -81,7 +81,7 @@ function stateLabel(q: QuizQuestion): string {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 32px;
+  min-height: 30px;
   padding: 0;
   border: 1px solid var(--mc-border-strong);
   border-radius: var(--mc-radius-sm);

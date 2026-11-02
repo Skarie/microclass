@@ -111,6 +111,21 @@ function onCountChange(event: Event): void {
   display: flex;
   flex-direction: column;
   gap: var(--mc-space-3);
+  min-height: 0;
+  height: 100%;
+}
+
+/* 题号多时只有中间网格滚动，标题与底部交卷保持可见 */
+.sheet__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: var(--mc-space-1);
+}
+
+.sheet__head,
+.sheet__foot {
+  flex: none;
 }
 
 .sheet__head {
