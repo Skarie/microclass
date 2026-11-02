@@ -56,28 +56,36 @@ test.describe('微课堂端到端', () => {
       .click();
     await expect(page.getByRole('heading', { name: /课后练习 · E2E 课时/ })).toBeVisible();
 
-    // 作答：单选 B、多选 AC、判断对、填空 main
-    // 注意：取题接口会打乱顺序，必须按题干定位而不是按序号
-    const questions = page.locator('.question');
-    await expect(questions).toHaveCount(4);
-
-    const single = page.locator('.question', { hasText: 'Java 中定义常量的关键字是？' });
-    await single.getByRole('radio').nth(1).check();
-
-    const multiple = page.locator('.question', { hasText: '属于基本类型的有？' });
-    await multiple.getByRole('checkbox').nth(0).check();
-    await multiple.getByRole('checkbox').nth(2).check();
-    // 两个选项都要保持勾选（多选状态不能被覆盖）
-    await expect(multiple.getByRole('checkbox').nth(0)).toBeChecked();
-    await expect(multiple.getByRole('checkbox').nth(2)).toBeChecked();
-
-    const judge = page.locator('.question', { hasText: 'Java 是编译型语言。' });
-    await judge.getByRole('radio').first().check();
-
-    const fill = page.locator('.question', { hasText: '程序入口方法是' });
-    await fill.locator('input.mc-input').fill('main');
-
-    await page.getByRole('button', { name: '提交并判分' }).click();
+    // 作答（学习通式单题流）：题干顺序会被打乱，逐题识别题干后作答并前进
+    const answers: Record<string, (card: typeof page.locator) => Promise<void>> = {
+      定义常量的关键字: async (card) => {
+        // 原生 radio 视觉隐藏，点可见的选项卡片
+        await card.locator('.opt').nth(1).click();
+      },
+      属于基本类型: async (card) => {
+        await card.locator('.opt').nth(0).click();
+        await card.locator('.opt').nth(2).click();
+        // 两个选项都要保持勾选（多选状态不能被覆盖）
+        await expect(card.getByRole('checkbox').nth(0)).toBeChecked();
+        await expect(card.getByRole('checkbox').nth(2)).toBeChecked();
+      },
+      编译型语言: async (card) => {
+        await card.locator('.opt').first().click();
+      },
+      程序入口方法: async (card) => {
+        await card.locator('input.mc-input').first().fill('main');
+      },
+    };
+    for (let i = 0; i < 4; i += 1) {
+      const card = page.locator('.question').first();
+      await expect(card).toBeVisible();
+      const text = await card.innerText();
+      const key = Object.keys(answers).find((k) => text.includes(k));
+      if (key) await answers[key]?.(card);
+      if (i < 3) await page.getByRole('button', { name: '下一题' }).click();
+    }
+    // 交卷（全部作答，不应出现未答确认）；题头和答题卡各有一个交卷按钮，取题头的
+    await page.locator('.qhead__submit').click();
 
     // 6. 判分结果：4 题全对
     await expect(page.locator('.quiz__score-num')).toHaveText('4');
