@@ -21,20 +21,17 @@
   --mc-primary-soft: #e5f4ef;
   --mc-primary-border: #b0dcd0;
   --mc-primary-fg: #00694e;
-
   /* 第二品牌色（哑光赭）：只做数据高亮与图表 */
   --mc-accent: #ea580c;
   --mc-accent-hover: #c2410c;
   --mc-accent-soft: #fff2ea;
   --mc-accent-border: #fbd0b4;
   --mc-accent-fg: #c2410c;
-
   /* 暖点缀 */
   --mc-amber: #a16207;
   --mc-amber-soft: #fdf6e3;
   --mc-amber-border: #ecd9a8;
   --mc-amber-fg: #854d0e;
-
   /* 冷点缀（哑光青） */
   --mc-cyan: #0891b2;
   --mc-cyan-soft: #e4f6fa;
@@ -97,6 +94,9 @@
   --mc-leading-snug: 1.4;
   --mc-leading: 1.6;
   --mc-leading-loose: 1.75;
+  /* 泛雅式答题页的阅读尺：题干与题头 15px / 1.7，比通用正文略大、更接近考试系统 */
+  --mc-quiz-font-size: 15px;
+  --mc-quiz-line-height: 1.7;
 
   /* ================= 间距（4px 基准） ================= */
   --mc-space-1: 4px;

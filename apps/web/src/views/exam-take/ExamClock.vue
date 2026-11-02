@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import Icon from '@/components/Icon.vue';
 
-/** 考试倒计时徽标：固定题头里显示剩余时间，最后 1 分钟换成告警底色（与旧状态条一致） */
+/** 考试倒计时：题头右侧小字，最后 1 分钟整体转红（不再用大底色徽标） */
 defineProps<{ clock: string; warn: boolean; limited: boolean }>();
 </script>
 
@@ -21,9 +21,6 @@ defineProps<{ clock: string; warn: boolean; limited: boolean }>();
   display: inline-flex;
   align-items: center;
   gap: var(--mc-space-1);
-  padding: var(--mc-space-1) var(--mc-space-2);
-  border-radius: var(--mc-radius-md);
-  background: var(--mc-bg-sunken);
   color: var(--mc-text-secondary);
   font-size: var(--mc-text-xs);
   font-variant-numeric: tabular-nums;
@@ -31,8 +28,8 @@ defineProps<{ clock: string; warn: boolean; limited: boolean }>();
 }
 
 .clock--warn {
-  background: var(--mc-danger-soft);
   color: var(--mc-danger-fg);
+  font-weight: var(--mc-font-semibold);
 }
 
 .clock__value {

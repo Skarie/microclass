@@ -83,7 +83,9 @@ function onKeyword(event: Event): void {
   display: flex;
   flex-direction: column;
   gap: var(--mc-space-3);
-  padding: var(--mc-space-4) var(--mc-space-5);
+  padding: var(--mc-space-3) var(--mc-space-4);
+  border-radius: var(--mc-radius-xs);
+  box-shadow: var(--mc-shadow-xs);
 }
 
 .wbf__row {

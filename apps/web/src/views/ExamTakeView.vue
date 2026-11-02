@@ -41,7 +41,6 @@ const clockWarn = computed(() => take.limitSeconds > 0 && take.remaining <= 60);
       :back-to="{ name: 'hall' }"
       back-label="课程大厅"
       :title="`在线考试 · ${examTitle}`"
-      :index="take.questions.length > 0 ? take.currentIndex + 1 : 0"
       :total="take.questions.length"
       :answered="take.answeredCount"
       answered-label="已答"
@@ -53,7 +52,7 @@ const clockWarn = computed(() => take.limitSeconds > 0 && take.remaining <= 60);
     >
       <template #badges>
         <ExamClock :clock="clock" :warn="clockWarn" :limited="take.limitSeconds > 0" />
-        <Tag v-if="take.questions.length > 0" tone="primary" size="sm" icon="list">
+        <Tag v-if="take.questions.length > 0" class="take__count-tag" tone="primary" size="sm" icon="list">
           {{ take.questions.length }} 题
         </Tag>
         <Tag v-if="passScore !== undefined" size="sm" icon="target">及格线 {{ passScore }}%</Tag>
@@ -69,12 +68,19 @@ const clockWarn = computed(() => take.limitSeconds > 0 && take.remaining <= 60);
       description="请联系教师完成组卷后再来作答。"
     />
 
-    <QuizStage v-else :flow="take" mode="exam" :show-count="false" show-submit />
+    <QuizStage v-else :flow="take" mode="exam" :show-count="false" />
   </section>
 </template>
 
 <style scoped>
 .take__hint {
   margin: 0;
+}
+
+/* 手机题头只留倒计时/及格线/已答/进度，题量在答题卡里已经能看到 */
+@media (max-width: 1023px) {
+  .take__count-tag {
+    display: none;
+  }
 }
 </style>

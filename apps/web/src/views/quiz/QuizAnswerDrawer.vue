@@ -64,7 +64,7 @@ onBeforeUnmount(() => {
   width: min(520px, 100%);
   max-height: 84vh;
   padding: var(--mc-space-2) var(--mc-space-4) var(--mc-space-4);
-  border-radius: var(--mc-radius-2xl) var(--mc-radius-2xl) 0 0;
+  border-radius: var(--mc-radius-md) var(--mc-radius-md) 0 0;
   background: var(--mc-bg-elevated);
   box-shadow: var(--mc-shadow-lg);
 }

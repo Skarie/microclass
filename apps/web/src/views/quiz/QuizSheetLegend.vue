@@ -30,7 +30,7 @@ withDefaults(defineProps<{ revealed: boolean; manual: number; mode?: SheetMode }
 .legend {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--mc-space-2) var(--mc-space-3);
+  gap: var(--mc-space-1) var(--mc-space-2);
   color: var(--mc-text-muted);
   font-size: var(--mc-text-xs);
 }
@@ -43,8 +43,8 @@ withDefaults(defineProps<{ revealed: boolean; manual: number; mode?: SheetMode }
 
 .legend__swatch {
   display: inline-block;
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border: 1px solid var(--mc-border-strong);
   border-radius: var(--mc-radius-xs);
 }

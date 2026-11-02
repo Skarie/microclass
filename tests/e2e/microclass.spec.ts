@@ -88,7 +88,7 @@ test.describe('微课堂端到端', () => {
     await page.locator('.qhead__submit').click();
 
     // 6. 判分结果：4 题全对
-    await expect(page.locator('.quiz__score-num')).toHaveText('4');
+    await expect(page.locator('.rhead__score-num')).toHaveText('4');
     await expect(page.getByText(/历史最好 100%/)).toBeVisible();
 
     // 7. 错题本可从结果区进入

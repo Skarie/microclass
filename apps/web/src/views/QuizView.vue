@@ -35,12 +35,10 @@ const session = useQuizSession();
       v-else
       :lesson-id="session.lessonId"
       :title="session.lesson?.title ?? ''"
-      :index="session.questions.length > 0 ? session.currentIndex + 1 : 0"
       :total="session.questions.length"
       :answered="session.answeredCount"
       :unlocked="session.unlocked"
       :submitting="session.submitting"
-      :random-mode="session.mode !== 'all'"
       @submit="session.submit"
     />
 
@@ -62,7 +60,7 @@ const session = useQuizSession();
 .quiz {
   display: flex;
   flex-direction: column;
-  gap: var(--mc-space-4);
+  gap: var(--mc-space-3);
 }
 
 .notice {

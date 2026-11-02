@@ -4,19 +4,19 @@ import { RouterLink, type RouteLocationRaw } from 'vue-router';
 import Icon from '@/components/Icon.vue';
 
 /**
- * 单题流固定题头：返回、标题/徽标、第 n / N 题与已答（已看）数、进度条、交卷。
- * 课后练习、在线考试、错题本共用；标题与倒计时等差异走 badges / actions 插槽。
+ * 泛雅式单题流题头：白色细条，不做通栏大卡片。
+ * 左侧「← 返回」+ 标题；右侧徽标（考试倒计时等）、已答 n/N、细进度条、错题本筛选与交卷。
+ * 课后练习、在线考试、错题本共用；差异只走 badges / actions 插槽。
  */
 const props = withDefaults(
   defineProps<{
     backTo: RouteLocationRaw;
     backLabel: string;
     title: string;
-    index: number;
     total: number;
     answered: number;
     answeredLabel?: string;
-    /** 进度百分比；默认按「第 n 题 / 总题数」计算 */
+    /** 进度百分比；默认按「已答 / 总题数」计算 */
     percent?: number | null;
     progressLabel?: string;
     showSubmit?: boolean;
@@ -36,52 +36,50 @@ const props = withDefaults(
 );
 
 const emit = defineEmits<{ submit: [] }>();
-
 const percentValue = computed(() =>
-  props.percent !== null ? props.percent : props.total > 0 ? Math.round((props.index / props.total) * 100) : 0,
+  props.percent !== null ? props.percent : props.total > 0 ? Math.round((props.answered / props.total) * 100) : 0,
 );
 </script>
 
 <template>
   <header class="qhead">
     <div class="qhead__row">
-      <RouterLink class="mc-btn mc-btn--sm qhead__back" :to="backTo">
-        <Icon name="arrow-left" :size="15" />
-        {{ backLabel }}
+      <RouterLink class="qhead__back" :to="backTo" :aria-label="backLabel" :title="backLabel">
+        <Icon name="arrow-left" :size="16" />
+        <span class="qhead__back-text">{{ backLabel }}</span>
       </RouterLink>
 
-      <div class="qhead__titles">
-        <h1 class="qhead__title">{{ title }}</h1>
-        <slot name="badges" />
-      </div>
+      <h1 class="qhead__title">{{ title }}</h1>
 
-      <div v-if="total > 0" class="qhead__stats">
-        <span class="qhead__stat">第 {{ index }} / {{ total }} 题</span>
-        <span class="qhead__stat">{{ answeredLabel }} {{ answered }}</span>
+      <div class="qhead__tools">
+        <slot name="badges" />
+
+        <span v-if="total > 0" class="qhead__stat">{{ answeredLabel }} {{ answered }}/{{ total }}</span>
+
+        <div
+          v-if="total > 0"
+          class="qhead__bar"
+          role="progressbar"
+          :aria-label="progressLabel"
+          :aria-valuenow="percentValue"
+          aria-valuemin="0"
+          aria-valuemax="100"
+        >
+          <span class="qhead__bar-fill" :style="{ width: `${percentValue}%` }" />
+        </div>
+
+        <slot name="actions" />
       </div>
 
       <button
         v-if="showSubmit"
-        class="mc-btn mc-btn--primary qhead__submit"
+        class="mc-btn mc-btn--primary mc-btn--sm qhead__submit"
         type="button"
         :disabled="submitting || submitDisabled"
         @click="emit('submit')"
       >
         {{ submitting ? '提交中…' : submitLabel }}
       </button>
-
-      <slot name="actions" />
-    </div>
-
-    <div
-      class="qhead__bar"
-      role="progressbar"
-      :aria-label="progressLabel"
-      :aria-valuenow="percentValue"
-      aria-valuemin="0"
-      aria-valuemax="100"
-    >
-      <span class="qhead__bar-fill" :style="{ width: `${percentValue}%` }" />
     </div>
   </header>
 </template>
@@ -91,65 +89,74 @@ const percentValue = computed(() =>
   position: sticky;
   top: var(--mc-topbar-height);
   z-index: var(--mc-z-sticky);
-  display: flex;
-  flex-direction: column;
-  gap: var(--mc-space-2);
   width: 100%;
   max-width: 1120px;
   margin: 0 auto;
-  padding: var(--mc-space-3) var(--mc-space-4);
-  border: 1px solid var(--mc-border);
-  border-radius: var(--mc-radius-lg);
+  padding: var(--mc-space-2) var(--mc-space-4);
+  border-top: 1px solid var(--mc-border);
+  border-bottom: 1px solid var(--mc-border);
   background: var(--mc-bg-elevated);
-  box-shadow: var(--mc-shadow-sm);
 }
-
 .qhead__row {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: var(--mc-space-3);
-}
-
-.qhead__titles {
-  display: flex;
-  flex: 1;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--mc-space-2);
   min-width: 0;
 }
-
+.qhead__back {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--mc-space-1);
+  height: 32px;
+  padding: 0 var(--mc-space-2);
+  border: 0;
+  border-radius: var(--mc-radius-xs);
+  background: transparent;
+  color: var(--mc-text-secondary);
+  font-size: var(--mc-text-xs);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.qhead__back:hover {
+  background: var(--mc-bg-hover);
+  color: var(--mc-text);
+}
+.qhead__back:focus-visible {
+  outline: 2px solid var(--mc-primary);
+  outline-offset: 1px;
+}
 .qhead__title {
+  flex: 1;
   overflow: hidden;
   color: var(--mc-text);
-  font-size: var(--mc-text-md);
-  font-weight: var(--mc-font-semibold);
-  line-height: var(--mc-leading-tight);
+  font-size: var(--mc-quiz-font-size);
+  font-weight: var(--mc-font-medium);
+  line-height: var(--mc-leading-snug);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-.qhead__stats {
+.qhead__tools {
   display: flex;
+  flex: none;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--mc-space-3);
+  justify-content: flex-end;
+  gap: var(--mc-space-2) var(--mc-space-3);
 }
-
 .qhead__stat {
-  color: var(--mc-text-secondary);
-  font-size: var(--mc-text-sm);
+  color: var(--mc-text-muted);
+  font-size: var(--mc-text-xs);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-
 .qhead__bar {
+  width: 96px;
   height: 4px;
   overflow: hidden;
   border-radius: var(--mc-radius-pill);
   background: var(--mc-bg-sunken);
 }
-
 .qhead__bar-fill {
   display: block;
   height: 100%;
@@ -157,25 +164,37 @@ const percentValue = computed(() =>
   background: var(--mc-primary);
   transition: width var(--mc-transition);
 }
-
+.qhead__submit {
+  flex: none;
+}
 @media (max-width: 1023px) {
   .qhead {
-    gap: var(--mc-space-1);
     padding: var(--mc-space-2) var(--mc-space-3);
   }
-
-  .qhead__title {
-    font-size: var(--mc-text-sm);
+  .qhead__row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: var(--mc-space-2) var(--mc-space-3);
   }
-
-  .qhead__stats {
-    order: 3;
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .qhead__submit {
+  .qhead__back-text {
     display: none;
+  }
+  .qhead__title {
+    font-size: var(--mc-quiz-font-size);
+  }
+  .qhead__tools {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    width: 100%;
+  }
+  .qhead__bar {
+    width: 64px;
+  }
+  .qhead__submit {
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: end;
+    min-height: 28px;
   }
 }
 </style>

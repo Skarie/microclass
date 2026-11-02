@@ -1,17 +1,18 @@
 <script setup lang="ts">
 import Icon from '@/components/Icon.vue';
 
-/** 底部操作条：上一题 / 标记疑问 / 答题卡 / 下一题；移动端固定并补交卷 */
+/**
+ * 泛雅式底部操作条：不再是一整块大卡片。
+ * 桌面 = 左侧快捷键提示 + 标记疑问，右侧「上一题 / 下一题」；
+ * 移动端 = 固定底栏「上一题 / 答题卡 / 下一题」。
+ */
 defineProps<{
   index: number;
   total: number;
   marked: boolean;
   revealed: boolean;
-  submitting: boolean;
-  unlocked: boolean;
-  /** 错题本不需要「标记疑问」与交卷 */
+  /** 错题本不需要「标记疑问」 */
   showMark?: boolean;
-  showSubmit?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -19,16 +20,16 @@ const emit = defineEmits<{
   next: [];
   mark: [];
   card: [];
-  submit: [];
 }>();
 </script>
 
 <template>
   <nav class="bar" aria-label="答题操作">
-    <button class="mc-btn bar__btn" type="button" :disabled="index <= 0" @click="emit('prev')">
-      <Icon name="chevron-left" :size="16" />
-      上一题
-    </button>
+    <span class="bar__hint">
+      <span class="bar__key">← →</span> 切题
+      <span class="bar__sep">·</span>
+      <span class="bar__key">A/B/C/D</span> 选择
+    </span>
 
     <button
       v-if="!revealed && showMark !== false"
@@ -38,30 +39,30 @@ const emit = defineEmits<{
       :aria-pressed="marked"
       @click="emit('mark')"
     >
-      <Icon name="helpCircle" :size="16" />
+      <Icon name="helpCircle" :size="14" />
       {{ marked ? '已标记' : '标记疑问' }}
-    </button>
-
-    <button class="mc-btn bar__btn" type="button" @click="emit('card')">
-      <Icon name="grid" :size="16" />
-      答题卡
     </button>
 
     <span class="mc-spacer" />
 
-    <button class="mc-btn bar__btn" type="button" :disabled="index >= total - 1" @click="emit('next')">
-      下一题
-      <Icon name="chevron-right" :size="16" />
+    <button class="mc-btn bar__btn bar__prev" type="button" :disabled="index <= 0" @click="emit('prev')">
+      <Icon name="chevron-left" :size="16" />
+      上一题
+    </button>
+
+    <button class="mc-btn bar__btn bar__card" type="button" @click="emit('card')">
+      <Icon name="grid" :size="16" />
+      答题卡
     </button>
 
     <button
-      v-if="!revealed && showSubmit !== false"
-      class="mc-btn mc-btn--primary bar__submit"
+      class="mc-btn mc-btn--primary bar__btn bar__next"
       type="button"
-      :disabled="submitting || !unlocked"
-      @click="emit('submit')"
+      :disabled="index >= total - 1"
+      @click="emit('next')"
     >
-      {{ submitting ? '提交中…' : '交卷' }}
+      下一题
+      <Icon name="chevron-right" :size="16" />
     </button>
   </nav>
 </template>
@@ -74,42 +75,70 @@ const emit = defineEmits<{
   display: flex;
   align-items: center;
   gap: var(--mc-space-2);
-  padding: var(--mc-space-3) var(--mc-space-4);
-  border: 1px solid var(--mc-border);
-  border-radius: var(--mc-radius-lg);
-  background: var(--mc-bg-elevated);
-  box-shadow: var(--mc-shadow-sm);
+  padding: var(--mc-space-2) 0;
 }
 
-.bar__btn {
-  min-height: 36px;
+.bar__hint {
+  color: var(--mc-text-muted);
+  font-size: var(--mc-text-xs);
+  white-space: nowrap;
+}
+
+.bar__key {
+  padding: 1px var(--mc-space-1);
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius-xs);
+  background: var(--mc-bg-elevated);
+  color: var(--mc-text-secondary);
+  font-family: var(--mc-font-mono);
+  font-size: var(--mc-text-xs);
+}
+
+.bar__sep {
+  margin: 0 var(--mc-space-1);
 }
 
 .bar__mark {
   display: inline-flex;
   align-items: center;
   gap: var(--mc-space-1);
-  min-height: 36px;
-  padding: 0 var(--mc-space-3);
-  border: 1px solid var(--mc-border-strong);
-  border-radius: var(--mc-radius-md);
-  background: var(--mc-bg-elevated);
-  color: var(--mc-text-secondary);
+  height: 28px;
+  padding: 0 var(--mc-space-2);
+  border: 0;
+  border-radius: var(--mc-radius-xs);
+  background: transparent;
+  color: var(--mc-text-muted);
   font: inherit;
-  font-size: var(--mc-text-sm);
+  font-size: var(--mc-text-xs);
   cursor: pointer;
   white-space: nowrap;
 }
 
-.bar__mark--on {
-  border-color: var(--mc-warning);
-  background: var(--mc-warning-soft);
-  color: var(--mc-warning-fg);
-  font-weight: var(--mc-font-semibold);
+.bar__mark:hover {
+  background: var(--mc-bg-hover);
+  color: var(--mc-text-secondary);
 }
 
-.bar__submit {
+.bar__mark--on {
+  background: var(--mc-warning-soft);
+  color: var(--mc-warning-fg);
+}
+
+.bar__btn {
+  min-height: 36px;
+}
+
+.bar__prev {
+  order: 1;
+}
+
+.bar__card {
   display: none;
+  order: 2;
+}
+
+.bar__next {
+  order: 3;
 }
 
 @media (max-width: 1023px) {
@@ -118,28 +147,28 @@ const emit = defineEmits<{
     right: 0;
     bottom: 0;
     left: 0;
-    gap: var(--mc-space-1);
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: var(--mc-space-2);
     padding: var(--mc-space-2) var(--mc-space-4) calc(var(--mc-space-2) + env(safe-area-inset-bottom));
-    border-right: 0;
-    border-bottom: 0;
-    border-left: 0;
-    border-radius: 0;
-    box-shadow: var(--mc-shadow-md);
+    border-top: 1px solid var(--mc-border);
+    background: var(--mc-bg-elevated);
   }
 
-  .bar__mark {
+  .bar__hint,
+  .bar__mark,
+  .bar > .mc-spacer {
     display: none;
   }
 
-  .bar__btn {
-    min-height: 44px;
-    padding: 0 var(--mc-space-2);
+  .bar__card {
+    display: inline-flex;
   }
 
-  .bar__submit {
-    display: inline-flex;
+  .bar__btn {
+    justify-content: center;
     min-height: 44px;
-    padding: 0 var(--mc-space-3);
+    padding: 0 var(--mc-space-2);
   }
 }
 </style>

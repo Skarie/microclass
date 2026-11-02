@@ -15,10 +15,9 @@ const props = withDefaults(
     flow: QuizFlowState;
     mode?: 'quiz' | 'wrong' | 'exam';
     showCount?: boolean;
-    showSubmit?: boolean;
     showMark?: boolean;
   }>(),
-  { mode: 'quiz', showCount: true, showSubmit: true, showMark: true },
+  { mode: 'quiz', showCount: true, showMark: true },
 );
 
 const drawerOpen = ref(false);
@@ -95,15 +94,11 @@ useQuizHotkeys({
         :total="flow.questions.length"
         :marked="currentMarked"
         :revealed="flow.revealed"
-        :submitting="flow.submitting"
-        :unlocked="flow.unlocked"
         :show-mark="showMark"
-        :show-submit="showSubmit"
         @prev="flow.prev"
         @next="flow.next"
         @mark="onMark"
         @card="openCard"
-        @submit="flow.submit"
       />
     </div>
 
@@ -113,7 +108,6 @@ useQuizHotkeys({
       :drawer-open="drawerOpen"
       :mode="mode"
       :show-count="showCount"
-      :show-submit="showSubmit"
       @close-sheet="sheetOpen = false"
       @close-drawer="drawerOpen = false"
     />
@@ -123,8 +117,8 @@ useQuizHotkeys({
 <style scoped>
 .quiz__body {
   display: grid;
-  grid-template-columns: minmax(0, 800px) 260px;
-  gap: var(--mc-space-5);
+  grid-template-columns: minmax(0, 800px) 284px;
+  gap: var(--mc-space-4);
   align-items: start;
   justify-content: center;
   width: 100%;
@@ -140,13 +134,13 @@ useQuizHotkeys({
 .quiz__main {
   display: flex;
   flex-direction: column;
-  gap: var(--mc-space-4);
+  gap: var(--mc-space-3);
   min-width: 0;
 }
 
 @media (max-width: 1279px) {
   .quiz__body {
-    grid-template-columns: minmax(0, 1fr) 220px;
+    grid-template-columns: minmax(0, 1fr) 284px;
   }
 
   .quiz__body--solo {

@@ -10,6 +10,7 @@ import {
   splitBlankAnswers,
   summarizeQuiz,
 } from '../src/utils/quiz';
+import { groupQuestionsByType } from '../src/views/quiz/quiz-groups';
 import type { QuizSubmitResult } from '../src/api/types';
 
 describe('刷题：选项编码', () => {
@@ -113,5 +114,30 @@ describe('刷题：旧版配图地址', () => {
     expect(legacyImageUrl({ id: 9, image_path: 'a.png', stem: '![](/api/v1/question-media/x.png)' })).toBe('');
     expect(legacyImageUrl({ id: 9, image_path: 'a.png', stem: '题干' })).toBe('/api/v1/question-images/9');
     expect(legacyImageUrl({ id: 9, image_path: '', stem: '题干' })).toBe('');
+  });
+});
+
+describe('刷题：答题卡按题型分组', () => {
+  const q = (id: number, type: 'single' | 'multiple' | 'judge' | 'fill' | 'short') => ({
+    id,
+    type,
+    stem: '',
+    options: [],
+  });
+
+  it('组序按题型首次出现，组内保持原题号', () => {
+    const groups = groupQuestionsByType([q(1, 'single'), q(2, 'judge'), q(3, 'single'), q(4, 'judge'), q(5, 'single')]);
+    expect(groups.map((g) => g.label)).toEqual(['单选题', '判断题']);
+    expect(groups[0]?.items.map((item) => item.index)).toEqual([0, 2, 4]);
+    expect(groups[1]?.items.map((item) => item.index)).toEqual([1, 3]);
+    // 打乱后同题型题号不连续，不显示会误导的范围
+    expect(groups[0]?.range).toBe('');
+  });
+
+  it('连续题号显示范围，单题只显示题号', () => {
+    const groups = groupQuestionsByType([q(1, 'single'), q(2, 'single'), q(3, 'fill')]);
+    expect(groups[0]?.range).toBe('1-2');
+    expect(groups[1]?.range).toBe('3');
+    expect(groups[1]?.items).toHaveLength(1);
   });
 });

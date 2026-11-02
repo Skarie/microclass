@@ -5,7 +5,7 @@ import Tag from '@/components/Tag.vue';
 import type { QuizSummary } from '@/utils/quiz';
 import type { QuizSubmitResult } from '@/api/types';
 
-/** 解析模式题头：得分 / 对错数 / 返回课时 / 再练一组 */
+/** 解析模式题头：与答题题头同一根白色细条，显示得分 / 对错数 / 返回课时 / 再练一组 */
 defineProps<{
   lessonId: number;
   title: string;
@@ -19,9 +19,9 @@ const emit = defineEmits<{ retry: [] }>();
 <template>
   <header class="rhead">
     <div class="rhead__row">
-      <RouterLink class="mc-btn mc-btn--sm" :to="{ name: 'watch', params: { id: lessonId } }">
-        <Icon name="arrow-left" :size="15" />
-        返回课时
+      <RouterLink class="rhead__back" :to="{ name: 'watch', params: { id: lessonId } }">
+        <Icon name="arrow-left" :size="16" />
+        <span class="rhead__back-text">返回课时</span>
       </RouterLink>
 
       <div class="rhead__titles">
@@ -30,7 +30,7 @@ const emit = defineEmits<{ retry: [] }>();
       </div>
 
       <div class="rhead__score">
-        <span class="quiz__score-num">{{ result.score }}</span>
+        <span class="rhead__score-num">{{ result.score }}</span>
         <span class="rhead__total">/ {{ result.total }}</span>
       </div>
 
@@ -54,18 +54,38 @@ const emit = defineEmits<{ retry: [] }>();
   position: sticky;
   top: var(--mc-topbar-height);
   z-index: var(--mc-z-sticky);
-  padding: var(--mc-space-3) var(--mc-space-4);
-  border: 1px solid var(--mc-border);
-  border-radius: var(--mc-radius-lg);
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: var(--mc-space-2) var(--mc-space-4);
+  border-top: 1px solid var(--mc-border);
+  border-bottom: 1px solid var(--mc-border);
   background: var(--mc-bg-elevated);
-  box-shadow: var(--mc-shadow-sm);
 }
 
 .rhead__row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--mc-space-3);
+  gap: var(--mc-space-2) var(--mc-space-3);
+}
+
+.rhead__back {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--mc-space-1);
+  height: 32px;
+  padding: 0 var(--mc-space-2);
+  border-radius: var(--mc-radius-xs);
+  color: var(--mc-text-secondary);
+  font-size: var(--mc-text-xs);
+  text-decoration: none;
+}
+
+.rhead__back:hover {
+  background: var(--mc-bg-hover);
+  color: var(--mc-text);
 }
 
 .rhead__titles {
@@ -79,9 +99,9 @@ const emit = defineEmits<{ retry: [] }>();
 .rhead__title {
   overflow: hidden;
   color: var(--mc-text);
-  font-size: var(--mc-text-md);
-  font-weight: var(--mc-font-semibold);
-  line-height: var(--mc-leading-tight);
+  font-size: var(--mc-quiz-font-size);
+  font-weight: var(--mc-font-medium);
+  line-height: var(--mc-leading-snug);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -96,13 +116,12 @@ const emit = defineEmits<{ retry: [] }>();
   display: flex;
   align-items: baseline;
   gap: var(--mc-space-1);
-  color: var(--mc-text);
 }
 
-.quiz__score-num {
+.rhead__score-num {
   color: var(--mc-primary-fg);
   font-family: var(--mc-font-num);
-  font-size: var(--mc-text-2xl);
+  font-size: var(--mc-text-xl);
   font-weight: var(--mc-font-bold);
   line-height: var(--mc-leading-display);
   font-variant-numeric: tabular-nums;
@@ -125,19 +144,36 @@ const emit = defineEmits<{ retry: [] }>();
   .rhead {
     padding: var(--mc-space-2) var(--mc-space-3);
   }
-
-  .rhead__title {
-    overflow: visible;
-    font-size: var(--mc-text-sm);
-    text-overflow: clip;
-    white-space: normal;
-  }
-
   .rhead__row {
-    gap: var(--mc-space-2);
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: var(--mc-space-2) var(--mc-space-3);
   }
-
+  .rhead__back {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .rhead__back-text {
+    display: none;
+  }
+  .rhead__titles {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .rhead__title {
+    font-size: var(--mc-quiz-font-size);
+  }
+  .rhead__score {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .rhead__counts {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
   .rhead__actions {
+    grid-column: 1 / -1;
+    grid-row: 3;
     width: 100%;
   }
 }

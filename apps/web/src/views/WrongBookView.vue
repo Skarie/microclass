@@ -33,7 +33,6 @@ const filterCount = computed(
       :back-to="{ name: 'hall' }"
       back-label="课程大厅"
       title="错题本"
-      :index="wb.items.length > 0 ? wb.currentIndex + 1 : 0"
       :total="wb.items.length"
       :answered="wb.seenCount"
       answered-label="已看"
@@ -41,8 +40,10 @@ const filterCount = computed(
       progress-label="错题查看进度"
     >
       <template #badges>
-        <Tag tone="warning" size="sm">未掌握 {{ wb.pendingCount }}</Tag>
-        <Tag v-if="wb.masteredCount > 0" tone="success" size="sm">已掌握 {{ wb.masteredCount }}</Tag>
+        <span class="wb__badges">
+          <Tag tone="warning" size="sm">未掌握 {{ wb.pendingCount }}</Tag>
+          <Tag v-if="wb.masteredCount > 0" tone="success" size="sm">已掌握 {{ wb.masteredCount }}</Tag>
+        </span>
       </template>
 
       <template #actions>
@@ -85,7 +86,7 @@ const filterCount = computed(
       description="试试更换关键词，或切换为「全部（含已掌握）」查看完整记录。"
     />
 
-    <QuizStage v-else :flow="wb" mode="wrong" :show-count="false" :show-submit="false" :show-mark="false">
+    <QuizStage v-else :flow="wb" mode="wrong" :show-count="false" :show-mark="false">
       <template #after-question>
         <WrongBookActions
           v-if="wb.current"
@@ -106,5 +107,18 @@ const filterCount = computed(
 <style scoped>
 .wb__filter {
   white-space: nowrap;
+}
+
+.wb__badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--mc-space-2);
+}
+
+/* 手机题头优先保证「已看 / 进度 / 筛选」一行放得下，统计在答题卡与筛选面板里仍有 */
+@media (max-width: 1023px) {
+  .wb__badges {
+    display: none;
+  }
 }
 </style>
