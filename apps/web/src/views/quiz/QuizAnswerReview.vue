@@ -2,12 +2,12 @@
 import { computed } from 'vue';
 import AnswerText from '@/components/AnswerText.vue';
 import RichText from '@/components/RichText.vue';
-import type { GradedItem, QuestionView } from '@/api/types';
-import { judgeText, lettersOf } from '@/utils/quiz';
+import type { GradedItem } from '@/api/types';
+import { judgeText, lettersOf, type QuizQuestion } from '@/utils/quiz';
 
 /** 解析区：你的作答 / 正确答案 / 解析（沿用后端逐题 graded 结构） */
 const props = defineProps<{
-  q: QuestionView;
+  q: QuizQuestion;
   graded: GradedItem;
 }>();
 

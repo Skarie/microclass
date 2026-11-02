@@ -1,11 +1,11 @@
 import { computed, reactive, watch, type Ref } from 'vue';
-import type { QuestionView } from '@/api/types';
+import type { QuizQuestion } from '@/utils/quiz';
 
 /**
  * 刷题作答状态：单选/判断/填空/简答存字符串，多选单独存数组并同步到 answers。
  * 答案编码与拆分前逐字一致（单选/多选传下标串、判断 T/F、填空/简答原样）。
  */
-export function useQuizAnswers(questions: Ref<QuestionView[]>) {
+export function useQuizAnswers(questions: Ref<QuizQuestion[]>) {
   const answers = reactive<Record<number, string>>({});
   const multipleAnswers = reactive<Record<number, string[]>>({});
 

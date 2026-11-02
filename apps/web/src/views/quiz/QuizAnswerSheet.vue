@@ -3,22 +3,31 @@ import { computed } from 'vue';
 import Icon from '@/components/Icon.vue';
 import QuizAnswerGrid from './QuizAnswerGrid.vue';
 import QuizSheetLegend from './QuizSheetLegend.vue';
-import type { QuizSummary } from '@/utils/quiz';
-import type { QuestionView } from '@/api/types';
+import type { SheetMode } from './quiz-types';
+import type { QuizSummary, QuizQuestion } from '@/utils/quiz';
 
 /** 答题卡内容：网格 + 图例 + 随机题数 + 底部计数/交卷（桌面面板与移动抽屉共用） */
-const props = defineProps<{
-  questions: QuestionView[];
-  currentIndex: number;
-  answeredIds: Set<number>;
-  markedIds: Set<number>;
-  verdicts: Record<number, boolean | null>;
-  revealed: boolean;
-  count: number;
-  unlocked: boolean;
-  submitting: boolean;
-  summary: QuizSummary;
-}>();
+const props = withDefaults(
+  defineProps<{
+    questions: QuizQuestion[];
+    currentIndex: number;
+    answeredIds: Set<number>;
+    markedIds: Set<number>;
+    verdicts: Record<number, boolean | null>;
+    revealed: boolean;
+    count: number;
+    unlocked: boolean;
+    submitting: boolean;
+    summary: QuizSummary;
+    /** 错题本：未做/已看/已掌握；练习/考试：未答/已答/标记 */
+    mode?: SheetMode;
+    masteredIds?: Set<number>;
+    /** 错题本/考试没有随机题数可换 */
+    showCount?: boolean;
+    showSubmit?: boolean;
+  }>(),
+  { mode: 'quiz', masteredIds: () => new Set<number>(), showCount: true, showSubmit: true },
+);
 
 const emit = defineEmits<{
   jump: [index: number];
@@ -28,7 +37,9 @@ const emit = defineEmits<{
 }>();
 
 const answered = computed(() => props.answeredIds.size);
+const mastered = computed(() => props.questions.filter((q) => props.masteredIds.has(q.id)).length);
 const manual = computed(() => props.summary.manual);
+const countLabel = computed(() => (props.mode === 'wrong' ? '已看' : '已答'));
 const resultLine = computed(
   () =>
     `正确 ${props.summary.correct} · 错误 ${props.summary.wrong}${manual.value > 0 ? ` · 待自评 ${manual.value}` : ''}`,
@@ -43,7 +54,7 @@ function onCountChange(event: Event): void {
   <div class="sheet">
     <div class="sheet__head">
       <span class="sheet__title">答题卡</span>
-      <span class="sheet__count">已答 {{ answered }} / {{ questions.length }}</span>
+      <span class="sheet__count">{{ countLabel }} {{ answered }} / {{ questions.length }}</span>
       <button class="sheet__close" type="button" aria-label="关闭答题卡" @click="emit('close')">
         <Icon name="close" :size="16" />
       </button>
@@ -57,12 +68,14 @@ function onCountChange(event: Event): void {
         :marked-ids="markedIds"
         :verdicts="verdicts"
         :revealed="revealed"
+        :mode="mode"
+        :mastered-ids="masteredIds"
         @jump="emit('jump', $event)"
       />
 
-      <QuizSheetLegend :revealed="revealed" :manual="manual" />
+      <QuizSheetLegend :revealed="revealed" :manual="manual" :mode="mode" />
 
-      <label v-if="!revealed" class="sheet__random">
+      <label v-if="!revealed && showCount !== false" class="sheet__random">
         <span>随机题数</span>
         <select class="mc-select sheet__select" :value="count" @change="onCountChange">
           <option :value="0">全部</option>
@@ -72,8 +85,8 @@ function onCountChange(event: Event): void {
     </div>
 
     <div class="sheet__foot">
-      <template v-if="!revealed">
-        <span class="sheet__foot-count">已答 {{ answered }} / {{ questions.length }}</span>
+      <template v-if="!revealed && showSubmit !== false">
+        <span class="sheet__foot-count">{{ countLabel }} {{ answered }} / {{ questions.length }}</span>
         <button
           class="mc-btn mc-btn--primary mc-btn--sm"
           type="button"
@@ -82,6 +95,9 @@ function onCountChange(event: Event): void {
         >
           {{ submitting ? '提交中…' : '交卷' }}
         </button>
+      </template>
+      <template v-else-if="mode === 'wrong'">
+        <span class="sheet__foot-count">已掌握 {{ mastered }} / {{ questions.length }}</span>
       </template>
       <template v-else>
         <span class="sheet__foot-count">{{ resultLine }}</span>

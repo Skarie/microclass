@@ -1,9 +1,10 @@
 import { onBeforeUnmount, onMounted } from 'vue';
-import type { QuestionView, QuizSubmitResult } from '@/api/types';
+import type { QuizQuestion } from '@/utils/quiz';
 
 interface QuizHotkeysDeps {
-  current: () => QuestionView | undefined;
-  result: () => QuizSubmitResult | null;
+  current: () => QuizQuestion | undefined;
+  /** 整卷解析模式（交卷后）不再用字母键作答 */
+  revealed: () => boolean;
   choose: (value: string) => void;
   next: () => void;
   prev: () => void;
@@ -22,7 +23,7 @@ function isTypingTarget(target: HTMLElement | null): boolean {
 }
 
 /**
- * 刷题快捷键：←/→ 上一题/下一题、A–D 选择选项（多选切换、判断 A=对 B=错）、Enter 下一题。
+ * 单题流快捷键：←/→ 上一题/下一题、A–D 选择选项（多选切换、判断 A=对 B=错）、Enter 下一题。
  * 选项是 radio/checkbox 时仍接管方向键（preventDefault 阻止原生选项切换），
  * 但按钮聚焦时的 Enter 留给按钮自身（交卷/答题卡）。
  */
@@ -51,7 +52,7 @@ export function useQuizHotkeys(deps: QuizHotkeysDeps) {
 
     if (e.repeat) return;
     const letter = e.key.toUpperCase();
-    if (!/^[A-D]$/.test(letter) || deps.result()) return;
+    if (!/^[A-D]$/.test(letter) || deps.revealed()) return;
     const q = deps.current();
     if (!q) return;
     if (q.type === 'judge') {

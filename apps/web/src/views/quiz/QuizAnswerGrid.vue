@@ -1,19 +1,32 @@
 <script setup lang="ts">
-import type { QuestionView } from '@/api/types';
+import type { QuizQuestion } from '@/utils/quiz';
+import type { SheetMode } from './quiz-types';
 
-/** 答题卡网格：练习态=未答/已答/标记；解析态=正确/错误/待自评/未答 */
-const props = defineProps<{
-  questions: QuestionView[];
-  currentIndex: number;
-  answeredIds: Set<number>;
-  markedIds: Set<number>;
-  verdicts: Record<number, boolean | null>;
-  revealed: boolean;
-}>();
+/**
+ * 答题卡网格：练习/考试态=未答/已答/标记；解析态=正确/错误/待自评/未答；
+ * 错题本态=未做/已看/已掌握。
+ */
+const props = withDefaults(
+  defineProps<{
+    questions: QuizQuestion[];
+    currentIndex: number;
+    answeredIds: Set<number>;
+    markedIds: Set<number>;
+    verdicts: Record<number, boolean | null>;
+    revealed: boolean;
+    mode?: SheetMode;
+    masteredIds?: Set<number>;
+  }>(),
+  { mode: 'quiz', masteredIds: () => new Set<number>() },
+);
 
 const emit = defineEmits<{ jump: [index: number] }>();
 
-function stateClass(q: QuestionView): string {
+function stateClass(q: QuizQuestion): string {
+  if (props.mode === 'wrong') {
+    if (props.masteredIds.has(q.id)) return 'qb--correct';
+    return props.answeredIds.has(q.id) ? 'qb--done' : '';
+  }
   if (props.revealed) {
     const verdict = props.verdicts[q.id];
     if (verdict === true) return 'qb--correct';
@@ -23,7 +36,11 @@ function stateClass(q: QuestionView): string {
   return props.answeredIds.has(q.id) ? 'qb--done' : '';
 }
 
-function stateLabel(q: QuestionView): string {
+function stateLabel(q: QuizQuestion): string {
+  if (props.mode === 'wrong') {
+    if (props.masteredIds.has(q.id)) return '（已掌握）';
+    return props.answeredIds.has(q.id) ? '（已看）' : '（未做）';
+  }
   if (props.revealed) {
     const verdict = props.verdicts[q.id];
     if (verdict === true) return '（正确）';

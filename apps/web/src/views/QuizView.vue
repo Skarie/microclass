@@ -54,7 +54,7 @@ const session = useQuizSession();
       title="本课时还没有配套题目"
       description="教师可在「题库管理」中创建题目并关联到该课时。"
     />
-    <QuizStage v-else :session="session" />
+    <QuizStage v-else :flow="session" />
   </section>
 </template>
 
@@ -74,11 +74,5 @@ const session = useQuizSession();
   background: var(--mc-warning-soft);
   color: var(--mc-warning-fg);
   font-size: var(--mc-text-sm);
-}
-
-@media (max-width: 1023px) {
-  .quiz {
-    padding-bottom: calc(var(--mc-space-12) + var(--mc-space-10));
-  }
 }
 </style>

@@ -9,6 +9,9 @@ defineProps<{
   revealed: boolean;
   submitting: boolean;
   unlocked: boolean;
+  /** 错题本不需要「标记疑问」与交卷 */
+  showMark?: boolean;
+  showSubmit?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -28,7 +31,7 @@ const emit = defineEmits<{
     </button>
 
     <button
-      v-if="!revealed"
+      v-if="!revealed && showMark !== false"
       class="bar__mark"
       :class="{ 'bar__mark--on': marked }"
       type="button"
@@ -52,7 +55,7 @@ const emit = defineEmits<{
     </button>
 
     <button
-      v-if="!revealed"
+      v-if="!revealed && showSubmit !== false"
       class="mc-btn mc-btn--primary bar__submit"
       type="button"
       :disabled="submitting || !unlocked"

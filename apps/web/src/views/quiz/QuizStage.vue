@@ -4,10 +4,22 @@ import QuizActionBar from './QuizActionBar.vue';
 import QuizAnswerDock from './QuizAnswerDock.vue';
 import QuizQuestionCard from './QuizQuestionCard.vue';
 import { useQuizHotkeys } from '@/composables/use-quiz-hotkeys';
-import type { useQuizSession } from '@/composables/use-quiz-session';
+import type { QuizFlowState } from '@/composables/use-quiz-flow';
 
-/** 刷题主区：单题卡片 + 底部操作条 + 右侧答题卡/移动抽屉 */
-const props = defineProps<{ session: ReturnType<typeof useQuizSession> }>();
+/**
+ * 单题流主区：单题卡片 + 底部操作条 + 右侧答题卡/移动抽屉。
+ * 练习、考试、错题本共用；页面用 after-question 插槽追加各自的操作（如看解析/标记掌握）。
+ */
+const props = withDefaults(
+  defineProps<{
+    flow: QuizFlowState;
+    mode?: 'quiz' | 'wrong' | 'exam';
+    showCount?: boolean;
+    showSubmit?: boolean;
+    showMark?: boolean;
+  }>(),
+  { mode: 'quiz', showCount: true, showSubmit: true, showMark: true },
+);
 
 const drawerOpen = ref(false);
 const sheetOpen = ref(true);
@@ -24,23 +36,23 @@ onMounted(() => {
 });
 onBeforeUnmount(() => mediaQuery?.removeEventListener('change', syncNarrow));
 
-const current = computed(() => props.session.current);
+const current = computed(() => props.flow.current);
 const currentAnswer = computed(() => {
   const q = current.value;
-  return q ? (props.session.answers[q.id] ?? '') : '';
+  return q ? (props.flow.answers[q.id] ?? '') : '';
 });
-const currentPicked = computed(() => (current.value ? props.session.pickedOf(current.value.id) : []));
-const currentMarked = computed(() => (current.value ? props.session.isMarked(current.value.id) : false));
-const currentGraded = computed(() => (current.value ? (props.session.resultMap.get(current.value.id) ?? null) : null));
+const currentPicked = computed(() => (current.value ? props.flow.pickedOf(current.value.id) : []));
+const currentMarked = computed(() => (current.value ? props.flow.isMarked(current.value.id) : false));
+const currentGraded = computed(() => (current.value ? props.flow.gradedOf(current.value.id) : null));
 
 function onInput(value: string): void {
   const q = current.value;
-  if (q) props.session.setAnswer(q.id, value);
+  if (q) props.flow.setAnswer(q.id, value);
 }
 
 function onMark(): void {
   const q = current.value;
-  if (q) props.session.toggleMark(q.id);
+  if (q) props.flow.toggleMark(q.id);
 }
 
 function openCard(): void {
@@ -50,10 +62,10 @@ function openCard(): void {
 
 useQuizHotkeys({
   current: () => current.value,
-  result: () => props.session.result,
-  choose: props.session.choose,
-  next: props.session.next,
-  prev: props.session.prev,
+  revealed: () => props.flow.revealed,
+  choose: (value) => props.flow.choose(value),
+  next: () => props.flow.next(),
+  prev: () => props.flow.prev(),
   blocked: () => drawerOpen.value,
 });
 </script>
@@ -64,35 +76,44 @@ useQuizHotkeys({
       <QuizQuestionCard
         v-if="current"
         :q="current"
-        :index="session.currentIndex"
+        :index="flow.currentIndex"
         :answer="currentAnswer"
         :picked="currentPicked"
         :marked="currentMarked"
         :graded="currentGraded"
-        :disabled="Boolean(session.result)"
-        @pick="session.choose"
+        :disabled="Boolean(currentGraded)"
+        :markable="showMark"
+        @pick="flow.choose"
         @input="onInput"
         @mark="onMark"
       />
+
+      <slot name="after-question" />
+
       <QuizActionBar
-        :index="session.currentIndex"
-        :total="session.questions.length"
+        :index="flow.currentIndex"
+        :total="flow.questions.length"
         :marked="currentMarked"
-        :revealed="Boolean(session.result)"
-        :submitting="session.submitting"
-        :unlocked="session.unlocked"
-        @prev="session.prev"
-        @next="session.next"
+        :revealed="flow.revealed"
+        :submitting="flow.submitting"
+        :unlocked="flow.unlocked"
+        :show-mark="showMark"
+        :show-submit="showSubmit"
+        @prev="flow.prev"
+        @next="flow.next"
         @mark="onMark"
         @card="openCard"
-        @submit="session.submit"
+        @submit="flow.submit"
       />
     </div>
 
     <QuizAnswerDock
-      :session="session"
+      :flow="flow"
       :open="sheetOpen"
       :drawer-open="drawerOpen"
+      :mode="mode"
+      :show-count="showCount"
+      :show-submit="showSubmit"
       @close-sheet="sheetOpen = false"
       @close-drawer="drawerOpen = false"
     />
@@ -132,6 +153,7 @@ useQuizHotkeys({
 @media (max-width: 1023px) {
   .quiz__body {
     grid-template-columns: minmax(0, 1fr);
+    padding-bottom: calc(var(--mc-space-12) + var(--mc-space-10));
   }
 }
 </style>

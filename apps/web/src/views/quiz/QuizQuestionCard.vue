@@ -7,21 +7,22 @@ import Tag from '@/components/Tag.vue';
 import QuizAnswerReview from './QuizAnswerReview.vue';
 import QuizChoiceOptions from './QuizChoiceOptions.vue';
 import QuizFillInput from './QuizFillInput.vue';
-import { QUIZ_TYPE_LABEL, legacyImageUrl } from '@/utils/quiz';
-import type { GradedItem, QuestionView } from '@/api/types';
-
+import { QUIZ_TYPE_LABEL, legacyImageUrl, type QuizQuestion } from '@/utils/quiz';
+import type { GradedItem } from '@/api/types';
 /**
  * 单题卡片：题号 / 题型 / 难度 + 题干与配图 + 大卡片选项 / 填空 / 简答。
  * 解析模式下追加「你的作答 / 参考答案 / 解析」，选项同时标出对错。
  */
 const props = defineProps<{
-  q: QuestionView;
+  q: QuizQuestion;
   index: number;
   answer: string;
   picked: string[];
   marked: boolean;
   graded: GradedItem | null;
   disabled: boolean;
+  /** 错题本/考试等不需要「标记疑问」时传 false */
+  markable?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -66,7 +67,7 @@ function onTextInput(event: Event): void {
       </span>
       <span class="mc-spacer" />
       <button
-        v-if="!graded"
+        v-if="!graded && markable !== false"
         class="question__mark"
         :class="{ 'question__mark--on': marked }"
         type="button"

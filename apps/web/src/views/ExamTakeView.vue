@@ -1,19 +1,18 @@
 <script setup lang="ts">
 /**
- * 在线考试作答页 = 只做编排：
- *  - 取卷 / 交卷 / 答题进度 / 倒计时 / 自动交卷 / 离开确认：composables/use-exam-take.ts
- *    （倒计时在 use-exam-countdown，答案编码与题型文案在 use-exam-answers）
- *  - 界面按区块拆到 ./exam-take/*：页头、状态条、题目列表与单题、底部答题卡、已交卷、加载失败。
+ * 在线考试作答页 = 只做编排（学习通式单题流）：
+ *  - 取卷 / 交卷 / 倒计时 / 自动交卷 / 离开确认：composables/use-exam-take.ts
+ *  - 固定题头（含倒计时）、单题卡片、底部操作条、右侧答题卡/移动抽屉：views/quiz/*
  * 答案编码与后端一致：单选/多选传选项下标（多选逗号升序），判断传 T/F。
  */
 import { computed } from 'vue';
 import EmptyState from '@/components/EmptyState.vue';
-import ExamTakeHeader from './exam-take/ExamTakeHeader.vue';
-import ExamTakeStatus from './exam-take/ExamTakeStatus.vue';
-import ExamQuestionList from './exam-take/ExamQuestionList.vue';
-import ExamTakeFooter from './exam-take/ExamTakeFooter.vue';
+import Tag from '@/components/Tag.vue';
+import ExamClock from './exam-take/ExamClock.vue';
 import ExamTakeAlready from './exam-take/ExamTakeAlready.vue';
 import ExamTakeLoadFail from './exam-take/ExamTakeLoadFail.vue';
+import QuizFlowHeader from './quiz/QuizFlowHeader.vue';
+import QuizStage from './quiz/QuizStage.vue';
 import { useExamTake } from '@/composables/use-exam-take';
 
 const take = useExamTake();
@@ -25,15 +24,6 @@ const examDescription = computed(
 const passScore = computed(() => take.data?.exam.pass_score);
 const clock = computed(() => (take.limitSeconds > 0 ? take.formatClock(take.remaining) : '不限时'));
 const clockWarn = computed(() => take.limitSeconds > 0 && take.remaining <= 60);
-
-/** 子组件只发事件，由页面统一写入作答状态（避免在子组件里改 prop） */
-function setAnswer(qid: number, value: string): void {
-  take.answers[qid] = value;
-}
-
-function toggleAnswer(qid: number, value: string): void {
-  take.toggleMultiple(qid, value);
-}
 </script>
 
 <template>
@@ -47,9 +37,30 @@ function toggleAnswer(qid: number, value: string): void {
   <ExamTakeAlready v-else-if="take.data.already" :exam-id="take.examId" :title="examTitle" />
 
   <section v-else class="take mc-col">
-    <ExamTakeHeader :title="examTitle" :description="examDescription" />
+    <QuizFlowHeader
+      :back-to="{ name: 'hall' }"
+      back-label="课程大厅"
+      :title="`在线考试 · ${examTitle}`"
+      :index="take.questions.length > 0 ? take.currentIndex + 1 : 0"
+      :total="take.questions.length"
+      :answered="take.answeredCount"
+      answered-label="已答"
+      progress-label="考试进度"
+      :show-submit="take.questions.length > 0"
+      :submitting="take.submitting"
+      :submit-disabled="take.submitting"
+      @submit="take.submit()"
+    >
+      <template #badges>
+        <ExamClock :clock="clock" :warn="clockWarn" :limited="take.limitSeconds > 0" />
+        <Tag v-if="take.questions.length > 0" tone="primary" size="sm" icon="list">
+          {{ take.questions.length }} 题
+        </Tag>
+        <Tag v-if="passScore !== undefined" size="sm" icon="target">及格线 {{ passScore }}%</Tag>
+      </template>
+    </QuizFlowHeader>
 
-    <ExamTakeStatus :count="take.questions.length" :pass-score="passScore" :clock="clock" :warn="clockWarn" />
+    <p class="mc-hint take__hint">{{ examDescription }}</p>
 
     <EmptyState
       v-if="take.questions.length === 0"
@@ -58,9 +69,12 @@ function toggleAnswer(qid: number, value: string): void {
       description="请联系教师完成组卷后再来作答。"
     />
 
-    <template v-else>
-      <ExamQuestionList :take="take" @answer="setAnswer" @toggle="toggleAnswer" />
-      <ExamTakeFooter :take="take" />
-    </template>
+    <QuizStage v-else :flow="take" mode="exam" :show-count="false" show-submit />
   </section>
 </template>
+
+<style scoped>
+.take__hint {
+  margin: 0;
+}
+</style>

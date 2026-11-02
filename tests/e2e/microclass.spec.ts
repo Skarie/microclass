@@ -107,26 +107,34 @@ test.describe('微课堂端到端', () => {
     // 倒计时在页面上可见（10 分钟限时）
     await expect(page.getByText(/10:00|09:5\d/)).toBeVisible();
 
-    const questions = page.locator('.question');
-    await expect(questions).toHaveCount(3);
-
-    // 按题干定位（考试卷内顺序固定，但仍不依赖序号）
-    const single = page.locator('.question', { hasText: 'Java 中定义常量的关键字是？' });
-    await single.getByRole('radio').nth(1).check();
-
-    const multiple = page.locator('.question', { hasText: '属于基本类型的有？' });
-    await multiple.getByRole('checkbox').nth(0).check();
-    await multiple.getByRole('checkbox').nth(2).check();
-    // 倒计时每秒重渲染，多选状态必须保持
-    await page.waitForTimeout(1200);
-    await expect(multiple.getByRole('checkbox').nth(0)).toBeChecked();
-    await expect(multiple.getByRole('checkbox').nth(2)).toBeChecked();
-
-    const judge = page.locator('.question', { hasText: 'Java 是编译型语言。' });
-    await judge.getByRole('radio').first().check();
+    // 学习通式单题流：逐题识别题干作答并前进
+    const examAnswers: Record<string, (card: Locator) => Promise<void>> = {
+      定义常量的关键字: async (card) => {
+        await card.locator('.opt').nth(1).click();
+      },
+      属于基本类型: async (card) => {
+        await card.locator('.opt').nth(0).click();
+        await card.locator('.opt').nth(2).click();
+        // 倒计时每秒重渲染，多选状态必须保持
+        await page.waitForTimeout(1200);
+        await expect(card.getByRole('checkbox').nth(0)).toBeChecked();
+        await expect(card.getByRole('checkbox').nth(2)).toBeChecked();
+      },
+      编译型语言: async (card) => {
+        await card.locator('.opt').first().click();
+      },
+    };
+    for (let i = 0; i < 3; i += 1) {
+      const card = page.locator('.question').first();
+      await expect(card).toBeVisible();
+      const text = await card.innerText();
+      const key = Object.keys(examAnswers).find((k) => text.includes(k));
+      if (key) await examAnswers[key]?.(card);
+      if (i < 2) await page.getByRole('button', { name: '下一题' }).click();
+    }
 
     page.once('dialog', (dialog) => void dialog.accept());
-    await page.getByRole('button', { name: /交卷/ }).click();
+    await page.locator('.qhead__submit').click();
 
     await expect(page).toHaveURL(/\/exams\/\d+\/result/);
     await expect(page.getByText(/及格/).first()).toBeVisible();

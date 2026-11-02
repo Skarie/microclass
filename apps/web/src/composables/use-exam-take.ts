@@ -2,20 +2,14 @@ import { computed, reactive, ref } from 'vue';
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import { errorMessage, useAsync } from '@/composables/useAsync';
-import { useExamAnswers } from '@/composables/use-exam-answers';
 import { useExamCountdown } from '@/composables/use-exam-countdown';
+import { useQuizFlow } from '@/composables/use-quiz-flow';
 import { useToastStore } from '@/stores/toast';
-import type { ExamSubmitResult, QuestionType } from '@/api/types';
+import type { QuizQuestion } from '@/utils/quiz';
+import type { ExamSubmitResult } from '@/api/types';
 
-export interface ExamQuestion {
-  id: number;
-  type: QuestionType;
-  stem: string;
-  image_path: string;
-  options: string[];
+export interface ExamQuestion extends QuizQuestion {
   sort: number;
-  /** 填空题空位数（>1 时按顺序用「；」分隔作答） */
-  blanks?: number;
 }
 
 export interface ExamTakeResponse {
@@ -34,8 +28,8 @@ export interface ExamTakeResponse {
 /**
  * 在线考试作答页的数据与动作（页面只做编排）：
  *  - 取卷 `GET /exams/:id/take`、交卷 `POST /exams/:id/submit`（参数与拆分前逐字一致）
- *  - 答案暂存（本页无 localStorage，纯内存）、答题进度、切题滚动
- *  - 倒计时 / 自动交卷在 use-exam-countdown，答案编码在 use-exam-answers
+ *  - 单题导航/作答/标记在 use-quiz-flow，倒计时与自动交卷在 use-exam-countdown
+ *  - 答案编码与后端一致：单选/多选传选项下标（多选逗号升序），判断传 T/F
  */
 export function useExamTake() {
   const route = useRoute();
@@ -55,26 +49,26 @@ export function useExamTake() {
     return res;
   });
 
-  const questions = computed<ExamQuestion[]>(() => data.value?.questions ?? []);
-  const answerState = useExamAnswers(questions);
+  const questions = computed<QuizQuestion[]>(() => data.value?.questions ?? []);
+  const flow = useQuizFlow(questions);
 
-  async function submit(auto = false): Promise<void> {
-    if (submitting.value || submitted.value) return;
+  async function submit(auto = false): Promise<boolean> {
+    if (submitting.value || submitted.value) return false;
     const list = questions.value;
     if (list.length === 0) {
       toast.error('本场考试还没有题目');
-      return;
+      return false;
     }
     if (!auto) {
-      const missing = list.length - answerState.answeredCount.value;
+      const missing = list.length - flow.answeredCount.value;
       const tip = missing > 0 ? `还有 ${missing} 题未作答，确定要交卷吗？` : '确定要交卷吗？交卷后不能修改。';
-      if (!window.confirm(tip)) return;
+      if (!window.confirm(tip)) return false;
     }
 
     submitting.value = true;
     try {
       const payload = {
-        answers: answerState.buildAnswersPayload(),
+        answers: flow.buildAnswersPayload(),
         startedAt: countdown.startedAt.value,
       };
       await api.post<ExamSubmitResult>(`/exams/${examId.value}/submit`, payload);
@@ -82,8 +76,10 @@ export function useExamTake() {
       countdown.stop();
       toast.success('交卷成功，正在生成成绩…');
       await router.push({ name: 'exam-result', params: { id: examId.value } });
+      return true;
     } catch (e) {
       toast.error(errorMessage(e));
+      return false;
     } finally {
       submitting.value = false;
     }
@@ -91,7 +87,7 @@ export function useExamTake() {
 
   onBeforeRouteLeave(() => {
     if (!data.value || data.value.already || submitted.value) return true;
-    if (questions.value.length > 0 && answerState.answeredCount.value === questions.value.length) return true;
+    if (questions.value.length > 0 && flow.answeredCount.value === questions.value.length) return true;
     return window.confirm('试卷尚未提交，离开将丢失本次作答，确定离开吗？');
   });
 
@@ -101,24 +97,34 @@ export function useExamTake() {
     run,
     examId,
     questions,
+    currentIndex: flow.currentIndex,
+    current: flow.current,
+    answers: flow.answers,
+    multipleAnswers: flow.multipleAnswers,
+    answeredIds: flow.answeredIds,
+    answeredCount: flow.answeredCount,
+    pickedOf: flow.pickedOf,
+    setAnswer: flow.setAnswer,
+    buildAnswersPayload: flow.buildAnswersPayload,
+    isMarked: flow.isMarked,
+    toggleMark: flow.toggleMark,
+    markedIds: flow.markedIds,
+    choose: flow.choose,
+    goTo: flow.goTo,
+    next: flow.next,
+    prev: flow.prev,
+    verdicts: computed<Record<number, boolean | null>>(() => ({})),
+    revealed: false,
+    gradedOf: (): null => null,
+    summary: flow.summary,
+    count: 0,
+    unlocked: true,
     submitting,
     submitted,
-    answers: answerState.answers,
-    multipleAnswers: answerState.multipleAnswers,
-    answeredIds: answerState.answeredIds,
-    answeredCount: answerState.answeredCount,
-    typeLabel: answerState.typeLabel,
-    pickedOf: answerState.pickedOf,
-    isPicked: answerState.isPicked,
-    toggleMultiple: answerState.toggleMultiple,
-    optionLabel: answerState.optionLabel,
-    fillPlaceholder: answerState.fillPlaceholder,
-    legacyImageUrl: answerState.legacyImageUrl,
-    buildAnswersPayload: answerState.buildAnswersPayload,
+    submit,
     limitSeconds: countdown.limitSeconds,
     remaining: countdown.remaining,
     startedAt: countdown.startedAt,
     formatClock: countdown.formatClock,
-    submit,
   });
 }

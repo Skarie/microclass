@@ -2,12 +2,13 @@
 import { computed } from 'vue';
 import QuizOptionCard from './QuizOptionCard.vue';
 import { optionIndices } from '@/utils/quiz';
-import type { GradedItem, QuestionView } from '@/api/types';
+import type { GradedItem } from '@/api/types';
+import type { QuizQuestion } from '@/utils/quiz';
 import type { OptionState } from './quiz-types';
 
 /** 单选/多选/判断的大卡片选项：选中态与解析态都在这里计算 */
 const props = defineProps<{
-  q: QuestionView;
+  q: QuizQuestion;
   answer: string;
   picked: string[];
   graded: GradedItem | null;
