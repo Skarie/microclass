@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -57,7 +57,7 @@ test.describe('微课堂端到端', () => {
     await expect(page.getByRole('heading', { name: /课后练习 · E2E 课时/ })).toBeVisible();
 
     // 作答（学习通式单题流）：题干顺序会被打乱，逐题识别题干后作答并前进
-    const answers: Record<string, (card: typeof page.locator) => Promise<void>> = {
+    const answers: Record<string, (card: Locator) => Promise<void>> = {
       定义常量的关键字: async (card) => {
         // 原生 radio 视觉隐藏，点可见的选项卡片
         await card.locator('.opt').nth(1).click();
