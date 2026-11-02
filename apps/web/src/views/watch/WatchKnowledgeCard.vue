@@ -28,7 +28,7 @@ function total(): number {
       <span class="mc-card__title">知识点</span>
       <div class="head-actions">
         <span class="mc-muted">{{ total() }} 条</span>
-        <button v-if="canEdit" class="mc-btn mc-btn--sm" type="button" @click="emit('edit')">
+        <button v-if="canEdit" class="edit-pill" type="button" @click="emit('edit')">
           <Icon name="edit" :size="14" />
           编辑
         </button>
@@ -59,6 +59,31 @@ function total(): number {
 </template>
 
 <style scoped>
+.edit-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mc-space-1);
+  padding: var(--mc-space-1) var(--mc-space-3);
+  border: 0;
+  border-radius: var(--mc-radius-pill);
+  background: transparent;
+  color: var(--mc-primary-fg);
+  font: inherit;
+  font-size: var(--mc-text-xs);
+  font-weight: var(--mc-font-medium);
+  cursor: pointer;
+  transition: background var(--mc-transition);
+}
+
+.edit-pill:hover {
+  background: var(--mc-primary-soft);
+}
+
+.edit-pill:focus-visible {
+  outline: 2px solid var(--mc-primary);
+  outline-offset: 2px;
+}
+
 .head-actions {
   display: flex;
   align-items: center;

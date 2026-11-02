@@ -94,6 +94,9 @@ const percentValue = computed(() =>
   display: flex;
   flex-direction: column;
   gap: var(--mc-space-2);
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
   padding: var(--mc-space-3) var(--mc-space-4);
   border: 1px solid var(--mc-border);
   border-radius: var(--mc-radius-lg);

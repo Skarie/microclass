@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Icon from '@/components/Icon.vue';
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 /**
@@ -54,8 +55,8 @@ onBeforeUnmount(() => {
       >
         <header class="mc-card__header">
           <span class="mc-card__title">{{ title }}</span>
-          <button class="mc-btn mc-btn--ghost mc-btn--sm" type="button" aria-label="关闭" @click="emit('close')">
-            ×
+          <button class="modal-close" type="button" aria-label="关闭" @click="emit('close')">
+            <Icon name="close" :size="16" />
           </button>
         </header>
         <div class="mc-card__body modal-body">
@@ -70,6 +71,26 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--mc-radius-pill);
+  background: transparent;
+  color: var(--mc-text-muted);
+  cursor: pointer;
+  transition: background var(--mc-transition);
+}
+
+.modal-close:hover {
+  background: var(--mc-bg-hover);
+  color: var(--mc-text);
+}
+
 .modal-root {
   position: fixed;
   inset: 0;

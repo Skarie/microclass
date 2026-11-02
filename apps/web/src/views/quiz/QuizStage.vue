@@ -123,14 +123,18 @@ useQuizHotkeys({
 <style scoped>
 .quiz__body {
   display: grid;
-  grid-template-columns: minmax(0, 900px) 240px;
+  grid-template-columns: minmax(0, 800px) 260px;
   gap: var(--mc-space-5);
   align-items: start;
   justify-content: center;
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
 }
 
 .quiz__body--solo {
-  grid-template-columns: minmax(0, 900px);
+  grid-template-columns: minmax(0, 800px);
+  max-width: 800px;
 }
 
 .quiz__main {

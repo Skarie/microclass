@@ -25,6 +25,8 @@ const props = withDefaults(
     /** 错题本/考试没有随机题数可换 */
     showCount?: boolean;
     showSubmit?: boolean;
+    /** 抽屉里需要关闭按钮；桌面停靠面板不需要（避免关掉后右侧空一块） */
+    closable?: boolean;
   }>(),
   { mode: 'quiz', masteredIds: () => new Set<number>(), showCount: true, showSubmit: true },
 );
@@ -55,7 +57,13 @@ function onCountChange(event: Event): void {
     <div class="sheet__head">
       <span class="sheet__title">答题卡</span>
       <span class="sheet__count">{{ countLabel }} {{ answered }} / {{ questions.length }}</span>
-      <button class="sheet__close" type="button" aria-label="关闭答题卡" @click="emit('close')">
+      <button
+        v-if="closable !== false"
+        class="sheet__close"
+        type="button"
+        aria-label="关闭答题卡"
+        @click="emit('close')"
+      >
         <Icon name="close" :size="16" />
       </button>
     </div>
@@ -155,10 +163,16 @@ function onCountChange(event: Event): void {
   height: 28px;
   padding: 0;
   border: 0;
-  border-radius: var(--mc-radius-sm);
+  border-radius: var(--mc-radius-pill);
   background: transparent;
   color: var(--mc-text-muted);
   cursor: pointer;
+  transition: background var(--mc-transition);
+}
+
+.sheet__close:hover {
+  background: var(--mc-bg-hover);
+  color: var(--mc-text);
 }
 
 .sheet__close:hover {

@@ -62,6 +62,7 @@ function changeCount(value: number): void {
   <aside v-if="open" class="quiz__aside mc-card">
     <QuizAnswerSheet
       v-bind="sheetProps"
+      :closable="false"
       @jump="jump"
       @submit="submit"
       @close="emit('close-sheet')"
