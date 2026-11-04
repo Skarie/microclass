@@ -118,8 +118,8 @@ function onTextInput(event: Event): void {
 .question {
   display: flex;
   flex-direction: column;
-  gap: var(--mc-space-3);
-  padding: var(--mc-space-4) var(--mc-space-5);
+  gap: var(--mc-space-4);
+  padding: var(--mc-space-5);
   border-radius: var(--mc-radius-xs);
   box-shadow: var(--mc-shadow-xs);
   scroll-margin-top: calc(var(--mc-topbar-height) + var(--mc-space-12) + var(--mc-space-8) + var(--mc-space-4));
@@ -146,7 +146,7 @@ function onTextInput(event: Event): void {
 }
 .question__stem {
   color: var(--mc-text);
-  font-size: var(--mc-quiz-font-size);
+  font-size: var(--mc-text-md);
   font-weight: var(--mc-font-medium);
   line-height: var(--mc-quiz-line-height);
   white-space: pre-wrap;
