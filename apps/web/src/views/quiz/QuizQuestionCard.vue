@@ -79,7 +79,7 @@ function onTextInput(event: Event): void {
       </button>
     </header>
 
-    <RichText class="question__stem" :text="q.stem" />
+    <RichText class="question__stem" :text="q.stem" figure-images />
 
     <img v-if="imageUrl" class="question__image" :src="imageUrl" :alt="`第 ${index + 1} 题配图`" loading="lazy" />
 

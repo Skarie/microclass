@@ -112,7 +112,10 @@ const emit = defineEmits<{ toggle: [value: string] }>();
 .opt__text {
   flex: 1;
   min-width: 0;
+  display: flex;
+  align-items: center;
   font-size: var(--mc-text-sm);
+  line-height: var(--mc-leading-snug);
   line-height: var(--mc-leading);
 }
 

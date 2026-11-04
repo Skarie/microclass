@@ -134,3 +134,15 @@ export function judgeLocally(type: QuestionType, given: string, answer: string |
   }
   return null;
 }
+
+/** 题型展示顺序：选择/判断在前，填空、简答在后（与考试卷习惯一致） */
+const TYPE_ORDER: QuestionType[] = ['single', 'multiple', 'judge', 'fill', 'short'];
+
+/**
+ * 按题型稳定排序：同一题型内保持原顺序。
+ * 随机练习时题目是打乱的，直接展示会让答题卡出现「1、3、4、7」这种跳号；
+ * 排序后每种题型是连续题号，答题卡分组区间和图例才说得通。
+ */
+export function sortQuestionsByType<T extends { type: QuestionType }>(questions: readonly T[]): T[] {
+  return [...questions].sort((a, b) => TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type));
+}

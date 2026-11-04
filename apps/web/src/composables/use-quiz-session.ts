@@ -4,7 +4,7 @@ import { api } from '@/api/client';
 import { errorMessage, useAsync } from '@/composables/useAsync';
 import { useQuizFlow } from '@/composables/use-quiz-flow';
 import { useToastStore } from '@/stores/toast';
-import { summarizeQuiz } from '@/utils/quiz';
+import { sortQuestionsByType, summarizeQuiz } from '@/utils/quiz';
 import type { GradedItem, QuestionView, QuizSubmitResult } from '@/api/types';
 
 export interface QuizResponse {
@@ -32,7 +32,8 @@ export function useQuizSession() {
     api.get<QuizResponse>(`/lessons/${lessonId.value}/quiz`, count.value > 0 ? { count: count.value } : undefined),
   );
 
-  const questions = computed<QuestionView[]>(() => data.value?.questions ?? []);
+  // 按题型稳定排序：题号连续，答题卡的题型分组区间才有意义
+  const questions = computed<QuestionView[]>(() => sortQuestionsByType(data.value?.questions ?? []));
   const flow = useQuizFlow(questions, { summary: () => summarizeQuiz(result.value, questions.value.length) });
   const lesson = computed(() => data.value?.lesson ?? null);
   const unlocked = computed(() => data.value?.unlocked ?? false);
