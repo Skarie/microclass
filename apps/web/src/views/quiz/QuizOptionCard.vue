@@ -114,7 +114,7 @@ const emit = defineEmits<{ toggle: [value: string] }>();
   min-width: 0;
   display: flex;
   align-items: center;
-  font-size: var(--mc-text-md);
+  font-size: var(--mc-quiz-font-size);
   line-height: var(--mc-leading-snug);
   line-height: var(--mc-leading);
 }

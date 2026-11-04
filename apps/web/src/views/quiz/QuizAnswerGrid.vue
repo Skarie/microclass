@@ -124,8 +124,8 @@ function stateLabel(q: QuizQuestion): string {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   padding: 0;
   border: 1px solid var(--mc-border);
   border-radius: var(--mc-radius-xs);
