@@ -177,7 +177,9 @@ function stateLabel(q: QuizQuestion): string {
 .qb[aria-current='step'] {
   z-index: 1;
   outline: 2px solid var(--mc-primary);
-  outline-offset: 1px;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px var(--mc-primary-soft);
+  font-weight: var(--mc-font-semibold);
 }
 .qb__dot {
   position: absolute;
