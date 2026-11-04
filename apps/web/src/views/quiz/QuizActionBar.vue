@@ -172,3 +172,5 @@ const emit = defineEmits<{
   }
 }
 </style>
+
+@media (max-width: 1023px) { /* 底部固定条按钮按移动端触控目标放大 */ .bar__btn { min-height: 44px; } }

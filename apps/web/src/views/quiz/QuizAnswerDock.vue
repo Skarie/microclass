@@ -73,6 +73,7 @@ function changeCount(value: number): void {
   flex-direction: column;
   /* 题少时按内容自然高度；题多时才由 max-height 收口，网格内部滚动 */
   max-height: min(72vh, 640px);
+  max-height: min(72dvh, 640px);
   padding: var(--mc-space-3);
   border-radius: var(--mc-radius-xs);
   box-shadow: var(--mc-shadow-xs);

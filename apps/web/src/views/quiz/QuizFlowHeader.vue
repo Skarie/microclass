@@ -65,7 +65,7 @@ const percentValue = computed(() =>
           aria-valuemin="0"
           aria-valuemax="100"
         >
-          <span class="qhead__bar-fill" :style="{ width: `${percentValue}%` }" />
+          <span class="qhead__bar-fill" :style="{ transform: `scaleX(${percentValue / 100})` }" />
         </div>
 
         <slot name="actions" />
@@ -159,10 +159,12 @@ const percentValue = computed(() =>
 }
 .qhead__bar-fill {
   display: block;
+  width: 100%;
   height: 100%;
   border-radius: var(--mc-radius-pill);
   background: var(--mc-primary);
-  transition: width var(--mc-transition);
+  transform-origin: left center;
+  transition: transform var(--mc-transition);
 }
 .qhead__submit {
   flex: none;

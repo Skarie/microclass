@@ -190,3 +190,6 @@ function stateLabel(q: QuizQuestion): string {
   background: var(--mc-amber);
 }
 </style>
+
+@media (max-width: 1023px) { /* 抽屉里题号格子按 6 列排，单格不小于 44px 触控目标 */ .qgrid { grid-template-columns:
+repeat(6, 1fr); } .qb { width: 100%; height: 44px; } }
