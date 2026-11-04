@@ -91,6 +91,7 @@ const emit = defineEmits<{ toggle: [value: string] }>();
 .opt__marker {
   display: inline-flex;
   flex: none;
+  align-self: center;
   align-items: center;
   justify-content: center;
   width: 24px;

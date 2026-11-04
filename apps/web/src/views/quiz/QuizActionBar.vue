@@ -26,9 +26,7 @@ const emit = defineEmits<{
 <template>
   <nav class="bar" aria-label="答题操作">
     <span class="bar__hint">
-      <span class="bar__key">← →</span> 切题
-      <span class="bar__sep">·</span>
-      <span class="bar__key">A/B/C/D</span> 选择
+      <span class="bar__key">← →</span><span>切题</span> <span class="bar__key">A/B/C/D</span><span>选择</span>
     </span>
 
     <button
@@ -79,6 +77,10 @@ const emit = defineEmits<{
 }
 
 .bar__hint {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: var(--mc-space-1) var(--mc-space-2);
   color: var(--mc-text-muted);
   font-size: var(--mc-text-xs);
   white-space: nowrap;
