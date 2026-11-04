@@ -131,8 +131,8 @@ const percentValue = computed(() =>
   flex: 1;
   overflow: hidden;
   color: var(--mc-text);
-  font-size: var(--mc-quiz-font-size);
-  font-weight: var(--mc-font-medium);
+  font-size: var(--mc-text-md);
+  font-weight: var(--mc-font-semibold);
   line-height: var(--mc-leading-snug);
   text-overflow: ellipsis;
   white-space: nowrap;
