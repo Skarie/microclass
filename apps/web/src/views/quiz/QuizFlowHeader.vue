@@ -91,6 +91,7 @@ const percentValue = computed(() =>
   z-index: var(--mc-z-sticky);
   width: 100%;
   max-width: 1120px;
+  border-radius: var(--mc-radius-xs);
   margin: 0 auto;
   padding: var(--mc-space-2) var(--mc-space-4);
   border-top: 1px solid var(--mc-border);
