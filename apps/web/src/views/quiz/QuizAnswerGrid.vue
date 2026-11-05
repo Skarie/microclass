@@ -114,8 +114,8 @@ function stateLabel(q: QuizQuestion): string {
 }
 .qgrid {
   display: grid;
-  grid-template-columns: repeat(8, 30px);
-  gap: var(--mc-space-2);
+  grid-template-columns: repeat(8, 28px);
+  gap: var(--mc-space-1);
   align-content: start;
   justify-content: start;
 }
