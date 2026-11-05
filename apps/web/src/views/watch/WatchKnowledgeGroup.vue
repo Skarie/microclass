@@ -71,7 +71,7 @@ defineProps<{
           <Icon class="item__chevron" name="chevron-down" :size="14" />
         </button>
         <div v-if="openId === item.id" class="item__panel">
-          <RichText class="item__content" :text="item.content" figure-images />
+          <RichText class="item__content" :text="renderContent(item.content)" figure-images />
         </div>
       </li>
     </ul>
