@@ -12,6 +12,17 @@ function toggle(id: number): void {
 }
 
 /**
+ * 导入的知识点是 Markdown 原文，标题语法（# / ##）不能直接渲染成正文，
+ * 这里把标题行转成加粗行，其余内容交给 RichText（公式、图片照常渲染）。
+ */
+function renderContent(raw: string | null | undefined): string {
+  return (raw ?? '')
+    .split('\n')
+    .map((line) => line.replace(/^\s*#{1,6}\s+(.+)$/, '**$1**'))
+    .join('\n');
+}
+
+/**
  * 观看页侧栏的一组知识点：文本（details 展开，支持导入的图片）/ 链接 / 附件。
  * 课时知识点与课程知识点共用；`title` 为空时不渲染分组标题（保持只有课时知识点的原样）。
  */
