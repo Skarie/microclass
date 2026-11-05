@@ -64,12 +64,13 @@ withDefaults(
   flex: 1 1 160px;
   padding: var(--mc-space-4);
   background: var(--mc-bg-elevated);
-  background-image: var(--mc-gradient-surface);
   border: 1px solid var(--mc-border);
-  border-radius: var(--mc-radius-xl);
-  box-shadow: var(--mc-shadow-sm);
+  border-radius: var(--mc-radius-md);
+  box-shadow: none;
   text-align: left;
-  transition: var(--mc-transition-all);
+  transition:
+    border-color var(--mc-transition),
+    background-color var(--mc-transition);
 }
 
 .stat--clickable {
@@ -79,8 +80,6 @@ withDefaults(
 @media (hover: hover) and (pointer: fine) {
   .stat:hover {
     border-color: var(--mc-primary-border);
-    box-shadow: var(--mc-shadow-md);
-    transform: translateY(var(--mc-hover-lift-sm));
   }
 }
 
@@ -90,11 +89,10 @@ withDefaults(
   justify-content: center;
   width: 38px;
   height: 38px;
-  border-radius: var(--mc-radius-md);
+  border-radius: var(--mc-radius-sm);
   flex: none;
   background: var(--mc-bg-sunken);
   color: var(--mc-text-secondary);
-  box-shadow: var(--mc-shadow-xs);
 }
 
 .stat--primary .stat__icon {

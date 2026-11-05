@@ -67,7 +67,8 @@
   display: flex;
   align-items: center;
   gap: var(--mc-space-2);
-  flex-wrap: nowrap;
+  /* 窄屏必须换行：nowrap 会把「新建题目」主按钮挤出卡片右边缘 */
+  flex-wrap: wrap;
 }
 
 .question-panel .mc-card__body {

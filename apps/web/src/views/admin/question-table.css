@@ -210,7 +210,7 @@
   top: 0;
   z-index: 1;
   padding: var(--mc-space-3) var(--mc-space-3);
-  background: var(--mc-bg-elev, var(--mc-surface-2));
+  background: var(--mc-bg-elevated);
   border-bottom: 1px solid var(--mc-border-strong);
   font-size: var(--mc-text-xs);
   font-weight: var(--mc-font-semibold);

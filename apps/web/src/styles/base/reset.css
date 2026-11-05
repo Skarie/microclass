@@ -21,10 +21,8 @@ body,
 }
 
 body {
-  /* 第 12/26 条：纯色背景单调 → 极淡的品牌氛围渐变 + 细网格线（克制，不抢内容） */
+  /* 现代扁平：整页只用一个中性底色，不要氛围渐变/网格纹理（AI 味来源之一） */
   background-color: var(--mc-bg);
-  background-image: var(--mc-bg-art);
-  background-attachment: fixed;
   color: var(--mc-text);
   /* 第 23 条：英文与数字用拉丁字体，中文回退到中文字体（数字不再偏松） */
   font-family: var(--mc-font-num);

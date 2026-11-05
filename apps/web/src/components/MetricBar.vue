@@ -120,11 +120,13 @@ defineProps<{ items: MetricItem[] }>();
   display: block;
   height: 100%;
   border-radius: var(--mc-radius-pill);
-  background-image: var(--mc-gradient-progress);
+  background: var(--mc-primary);
 }
 
 .metrics__hint {
+  display: block;
   font-size: var(--mc-text-xs);
+  line-height: var(--mc-leading-snug);
   color: var(--mc-text-muted);
 }
 

@@ -15,10 +15,7 @@ const emit = defineEmits<{ 'toggle-fav': [course: Course] }>();
 </script>
 
 <template>
-  <article
-    class="course-card course-card--tile mc-card mc-card--interactive"
-    :class="`course-card--g${Math.abs(course.id) % 6}`"
-  >
+  <article class="course-card course-card--tile mc-card mc-card--interactive">
     <HallCourseCover :course="course" :progress="progress" />
 
     <div class="course-card__tile-body">
@@ -72,11 +69,22 @@ const emit = defineEmits<{ 'toggle-fav': [course: Course] }>();
   padding: 0;
 }
 
+/* 扁平卡片的悬停：描边变主色、标题变主色，不抬升、不加阴影 */
+@media (hover: hover) and (pointer: fine) {
+  .course-card--tile:hover {
+    border-color: var(--mc-primary);
+  }
+
+  .course-card--tile:hover .course-card__name {
+    color: var(--mc-primary-fg);
+  }
+}
+
 .course-card__tile-body {
   display: flex;
   flex-direction: column;
   gap: var(--mc-space-2);
-  padding: var(--mc-space-3);
+  padding: var(--mc-space-4);
   min-width: 0;
 }
 

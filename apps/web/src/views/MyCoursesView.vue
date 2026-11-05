@@ -82,12 +82,7 @@ const isEmpty = computed(() => learning.value.length + finished.value.length + f
         </header>
 
         <ul class="my__list">
-          <li
-            v-for="course in group.list"
-            :key="course.id"
-            class="my__row course-card course-card--row"
-            :class="`course-card--g${Math.abs(course.id) % 6}`"
-          >
+          <li v-for="course in group.list" :key="course.id" class="my__row course-card course-card--row">
             <RouterLink
               class="course-card__thumb"
               :to="{ name: 'course', params: { id: course.id } }"
@@ -206,9 +201,10 @@ const isEmpty = computed(() => learning.value.length + finished.value.length + f
   justify-content: center;
   width: 64px;
   height: 44px;
+  border: 1px solid var(--mc-border);
   border-radius: var(--mc-radius-sm);
   overflow: hidden;
-  background-image: var(--mc-gradient-brand-soft);
+  background: var(--mc-bg-sunken);
   color: var(--mc-primary-fg);
   flex: none;
 }
@@ -217,23 +213,6 @@ const isEmpty = computed(() => learning.value.length + finished.value.length + f
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-
-.course-card--g1 .course-card__thumb {
-  background-image: var(--mc-gradient-thumb-2);
-  color: var(--mc-accent-fg);
-}
-.course-card--g2 .course-card__thumb {
-  background-image: var(--mc-gradient-thumb-3);
-  color: var(--mc-success-fg);
-}
-.course-card--g3 .course-card__thumb {
-  background-image: var(--mc-gradient-thumb-4);
-  color: var(--mc-warning-fg);
-}
-.course-card--g5 .course-card__thumb {
-  background-image: var(--mc-gradient-thumb-6);
-  color: var(--mc-seal-fg);
 }
 
 .course-card__row-main {

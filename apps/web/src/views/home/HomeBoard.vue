@@ -55,9 +55,9 @@ defineProps<{
   gap: var(--mc-space-5);
   padding: var(--mc-space-5);
   border: 1px solid var(--mc-border);
-  border-radius: var(--mc-radius-xl);
+  border-radius: var(--mc-radius-md);
   background: var(--mc-bg-elevated);
-  box-shadow: var(--mc-shadow-sm);
+  box-shadow: none;
 }
 
 .board__metrics {

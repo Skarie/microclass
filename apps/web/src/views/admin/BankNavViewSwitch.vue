@@ -43,7 +43,7 @@ const VIEWS: { key: BankNavView; label: string; icon: IconName }[] = [
   padding: var(--mc-space-1);
   border: 1px solid var(--mc-border);
   border-radius: var(--mc-radius);
-  background: var(--mc-bg-subtle);
+  background: var(--mc-bg-sunken);
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -74,7 +74,6 @@ const VIEWS: { key: BankNavView; label: string; icon: IconName }[] = [
   color: var(--mc-primary-fg);
   background: var(--mc-bg-elevated);
   border-color: var(--mc-border);
-  box-shadow: var(--mc-shadow-sm);
   font-weight: var(--mc-font-medium);
 }
 </style>

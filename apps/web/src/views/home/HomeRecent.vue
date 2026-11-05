@@ -37,9 +37,9 @@ defineProps<{ courses: Course[]; progressOf: (course: Course) => number }>();
 }
 
 .recent__title {
-  font-size: var(--mc-text-sm);
+  font-size: var(--mc-text-md);
   font-weight: var(--mc-font-semibold);
-  color: var(--mc-text-secondary);
+  color: var(--mc-text);
 }
 
 .recent__more {

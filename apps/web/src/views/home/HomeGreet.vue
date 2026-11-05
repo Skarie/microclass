@@ -54,13 +54,14 @@ const auth = useAuthStore();
   font-size: var(--mc-text-xs);
   font-weight: var(--mc-font-medium);
   letter-spacing: 0.06em;
-  color: var(--mc-primary-fg);
+  /* 眉标是装饰信息：用中性色，主色只留给按钮与选中态 */
+  color: var(--mc-text-muted);
 }
 
 .home__title {
   margin: 0;
   font-size: var(--mc-text-2xl);
-  font-weight: var(--mc-font-bold);
+  font-weight: var(--mc-font-semibold);
   line-height: var(--mc-leading-display);
   letter-spacing: var(--mc-tracking-tight);
   color: var(--mc-text);

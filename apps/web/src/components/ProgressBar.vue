@@ -81,7 +81,7 @@ const clamped = computed(() => Math.max(0, Math.min(100, Math.round(props.value)
 }
 
 .pb__bar--primary {
-  background-image: var(--mc-gradient-progress);
+  background: var(--mc-primary);
 }
 
 .pb__bar--success {

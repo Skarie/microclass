@@ -129,8 +129,9 @@ withDefaults(
   width: 38px;
   height: 38px;
   border-radius: var(--mc-radius);
-  background: var(--mc-primary-soft);
-  color: var(--mc-primary-fg);
+  /* 标题图标是装饰，不占主色：主色只留给可操作与选中 */
+  background: var(--mc-bg-sunken);
+  color: var(--mc-text-muted);
   flex: none;
 }
 

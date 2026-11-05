@@ -4,12 +4,15 @@
  */
 
 /* ---------- 卡片 ---------- */
+/* 现代扁平：卡片靠 1px 边框与留白分层，12px 圆角、无阴影；hover 只换边框/底色 */
 .mc-card {
   background: var(--mc-bg-elevated);
   border: 1px solid var(--mc-border);
-  border-radius: var(--mc-radius-xl);
-  box-shadow: var(--mc-shadow-sm);
-  transition: var(--mc-transition-all);
+  border-radius: var(--mc-radius-md);
+  box-shadow: none;
+  transition:
+    border-color var(--mc-transition),
+    background-color var(--mc-transition);
 }
 
 .mc-card__header {
@@ -18,8 +21,8 @@
   justify-content: space-between;
   gap: var(--mc-space-3);
   padding: var(--mc-space-4) var(--mc-space-5);
-  /* 第 24 条：分隔"线"改成分隔"面"，版面更干净 */
-  background: var(--mc-bg-sunken);
+  /* 扁平：卡头不再铺底色，用一条 1px 分隔线与卡身分层 */
+  border-bottom: 1px solid var(--mc-border);
 }
 
 .mc-card__title {
@@ -36,8 +39,6 @@
 .mc-card__footer {
   padding: var(--mc-space-3) var(--mc-space-5);
   border-top: 1px solid var(--mc-border);
-  background: var(--mc-bg-sunken);
-  border-radius: var(--mc-radius) var(--mc-radius) var(--mc-radius-2xl) var(--mc-radius-2xl);
 }
 
 /* ---------- 按钮 ---------- */
@@ -49,14 +50,17 @@
   min-height: 34px;
   padding: 0 var(--mc-space-4);
   border: 1px solid var(--mc-border-strong);
-  border-radius: var(--mc-radius-md);
+  border-radius: var(--mc-radius);
   background: var(--mc-bg-elevated);
   color: var(--mc-text);
   font: inherit;
   font-size: var(--mc-text-sm);
   font-weight: var(--mc-font-medium);
   cursor: pointer;
-  transition: var(--mc-transition-all);
+  transition:
+    border-color var(--mc-transition),
+    background-color var(--mc-transition),
+    color var(--mc-transition);
   white-space: nowrap;
 }
 
@@ -77,20 +81,17 @@
 }
 
 .mc-btn--primary {
-  /* 第 15 条：主按钮要一眼看出优先级；第 26 条：极弱同色渐变提升质感 */
+  /* 扁平：纯主色实底，不做同色渐变、不发光 */
   background-color: var(--mc-primary);
-  background-image: var(--mc-gradient-primary);
-  border-color: transparent;
+  border-color: var(--mc-primary);
   color: var(--mc-text-inverse);
-  box-shadow: var(--mc-shadow-brand);
+  box-shadow: none;
 }
 
 @media (hover: hover) and (pointer: fine) {
   .mc-btn--primary:hover:not(:disabled) {
     background-color: var(--mc-primary-hover);
-    background-image: var(--mc-gradient-primary);
-    border-color: transparent;
-    box-shadow: var(--mc-shadow-brand-strong);
+    border-color: var(--mc-primary-hover);
   }
 }
 
@@ -103,7 +104,6 @@
   color: var(--mc-danger-fg);
   border-color: var(--mc-danger);
   background: transparent;
-  transition: var(--mc-transition-all);
 }
 
 .mc-btn--danger:hover:not(:disabled) {

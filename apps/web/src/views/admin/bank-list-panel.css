@@ -12,7 +12,6 @@
   flex: none;
   gap: var(--mc-space-2);
   padding: var(--mc-space-4) var(--mc-space-4) var(--mc-space-3);
-  background: var(--mc-bg-elev, var(--mc-surface-2));
   border-bottom: 1px solid var(--mc-border);
 }
 

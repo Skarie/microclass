@@ -44,18 +44,19 @@
   min-height: var(--mc-control-h-sm);
 }
 
-/* ---- 卡片：可交互态（悬停抬升） ---- */
+/* ---- 卡片：可交互态（扁平：只换边框，不抬升、不加阴影） ---- */
 .mc-card--interactive {
   transition:
-    box-shadow var(--mc-duration) var(--mc-ease),
-    border-color var(--mc-duration) var(--mc-ease),
-    transform var(--mc-duration) var(--mc-ease-out);
+    border-color var(--mc-transition),
+    background-color var(--mc-transition);
 }
 
 .mc-card--interactive:hover {
-  box-shadow: var(--mc-elev-hover);
   border-color: var(--mc-primary-border);
-  transform: translateY(-2px);
+}
+
+.mc-card--interactive:active {
+  background: var(--mc-bg-hover);
 }
 
 /* ---- 工具条里的输入控件：统一高度与宽度语义 ---- */

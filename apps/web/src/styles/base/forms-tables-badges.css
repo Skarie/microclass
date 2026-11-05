@@ -59,9 +59,9 @@
 .mc-input:focus,
 .mc-select:focus,
 .mc-textarea:focus {
-  outline: none;
   border-color: var(--mc-primary);
-  box-shadow: var(--mc-focus-ring);
+  outline: 2px solid var(--mc-primary);
+  outline-offset: 1px;
 }
 
 .mc-input[aria-invalid='true'] {
@@ -143,7 +143,7 @@
   align-items: center;
   gap: var(--mc-space-1);
   padding: 4px var(--mc-space-2);
-  border-radius: var(--mc-radius-sm);
+  border-radius: var(--mc-radius-xs);
   font-size: var(--mc-text-xs);
   font-weight: var(--mc-font-medium);
   background: var(--mc-bg-sunken);

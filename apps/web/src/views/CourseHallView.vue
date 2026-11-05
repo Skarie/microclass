@@ -90,7 +90,7 @@ const catalog = useHallCatalog();
   flex-direction: column;
 }
 
-/* 分组 */
+/* 分组：组间距、组标题到卡片的间距统一 24 */
 .hall__group + .hall__group {
   margin-top: var(--mc-space-6);
 }
@@ -99,14 +99,13 @@ const catalog = useHallCatalog();
   display: flex;
   align-items: baseline;
   gap: var(--mc-space-2);
-  margin-bottom: var(--mc-space-3);
+  margin-bottom: var(--mc-space-6);
 }
 
 .hall__group-title {
-  font-size: var(--mc-text-sm);
+  font-size: var(--mc-text-md);
   font-weight: var(--mc-font-semibold);
-  color: var(--mc-text-secondary);
-  letter-spacing: 0.02em;
+  color: var(--mc-text);
 }
 
 .hall__group-count {
@@ -118,7 +117,7 @@ const catalog = useHallCatalog();
 .hall__cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
-  gap: var(--mc-space-3);
+  gap: var(--mc-space-4);
 }
 
 /* 紧凑列表 */

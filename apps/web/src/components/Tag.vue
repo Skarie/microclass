@@ -29,7 +29,8 @@ withDefaults(
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  border-radius: var(--mc-radius-pill);
+  /* 小标签 8px：不再用胶囊形（胶囊 + 大圆角是"模板感"来源） */
+  border-radius: var(--mc-radius-xs);
   font-weight: var(--mc-font-medium);
   white-space: nowrap;
   line-height: var(--mc-leading-display);

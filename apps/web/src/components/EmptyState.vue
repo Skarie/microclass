@@ -96,9 +96,8 @@ const isIconName = (v: string): v is IconName => Object.prototype.hasOwnProperty
   justify-content: center;
   width: 44px;
   height: 44px;
-  border-radius: var(--mc-radius-lg);
+  border-radius: var(--mc-radius-md);
   background: var(--mc-bg-elevated);
-  box-shadow: var(--mc-shadow-sm);
   color: var(--mc-primary-fg);
 }
 

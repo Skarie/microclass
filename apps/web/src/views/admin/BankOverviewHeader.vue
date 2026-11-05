@@ -53,9 +53,9 @@ const emit = defineEmits<{ 'pick-unbound': [] }>();
   gap: var(--mc-space-1);
   padding: var(--mc-space-4) var(--mc-space-5);
   border: 1px solid var(--mc-border);
-  border-radius: var(--mc-radius-lg);
-  background: var(--mc-bg-elev, var(--mc-surface-2));
-  box-shadow: var(--mc-shadow-xs);
+  border-radius: var(--mc-radius-md);
+  background: var(--mc-bg-elevated);
+  box-shadow: none;
   text-align: left;
 }
 
@@ -63,6 +63,9 @@ const emit = defineEmits<{ 'pick-unbound': [] }>();
   cursor: pointer;
   font: inherit;
   color: inherit;
+  transition:
+    border-color var(--mc-transition),
+    background-color var(--mc-transition);
 }
 
 .kpi__card--action:hover {

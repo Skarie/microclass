@@ -6,53 +6,16 @@
 /* ================= 2.1 现代视觉工具层 ================= */
 
 /**
- * 动态卡片：悬浮抬升 + 阴影加深 + 描边微染 + 掠过式高光。
+ * 可交互卡片（扁平）：悬停只加主色描边，不抬升、不加阴影、没有掠过高光。
  * 只在支持 hover 的设备上生效（触屏不产生"卡住的高亮"）。
  */
 .mc-card--interactive {
-  position: relative;
-  overflow: hidden;
   cursor: pointer;
 }
 
-.mc-card--interactive::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: var(--mc-gradient-sheen);
-  opacity: 0;
-  transform: translateX(-35%);
-  transition:
-    opacity var(--mc-duration) var(--mc-ease),
-    transform var(--mc-duration-slow) var(--mc-ease-out);
-  pointer-events: none;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .mc-card--interactive:hover {
-    transform: translateY(var(--mc-hover-lift));
-    box-shadow: var(--mc-shadow-md);
-    border-color: var(--mc-border-strong);
-  }
-}
-
-.mc-card--interactive:active {
-  background: var(--mc-bg-hover);
-}
-
-/* 卡片顶部渐变描边（"旗帜鲜明"的强调卡） */
+/* 品牌强调卡：用 1px 主色描边表达强调，不再用顶部渐变条 */
 .mc-card--brand {
-  position: relative;
-}
-
-.mc-card--brand::before {
-  content: '';
-  position: absolute;
-  inset-inline: 0;
-  top: 0;
-  height: 3px;
-  background-image: var(--mc-gradient-brand);
-  border-radius: var(--mc-radius-xl) var(--mc-radius-xl) 0 0;
+  border-color: var(--mc-primary-border);
 }
 
 /* 渐变文字：用于大标题、数字看板 */

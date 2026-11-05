@@ -58,7 +58,7 @@ const manageJumps: Jump[] = [
       </header>
       <nav class="jumps__grid">
         <RouterLink v-for="j in manageJumps" :key="j.to" class="jumps__item" :to="j.to">
-          <span class="jumps__icon jumps__icon--manage"><Icon :name="j.icon" :size="18" /></span>
+          <span class="jumps__icon"><Icon :name="j.icon" :size="18" /></span>
           <span class="jumps__text">
             <span class="jumps__label">{{ j.label }}</span>
             <span class="jumps__hint2">{{ j.hint }}</span>
@@ -82,9 +82,9 @@ const manageJumps: Jump[] = [
 }
 
 .jumps__title {
-  font-size: var(--mc-text-sm);
+  font-size: var(--mc-text-md);
   font-weight: var(--mc-font-semibold);
-  color: var(--mc-text-secondary);
+  color: var(--mc-text);
 }
 
 .jumps__hint {
@@ -93,8 +93,8 @@ const manageJumps: Jump[] = [
 
 .jumps__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: var(--mc-space-3);
+  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  gap: var(--mc-space-4);
 }
 
 .jumps__item {
@@ -103,15 +103,22 @@ const manageJumps: Jump[] = [
   gap: var(--mc-space-3);
   padding: var(--mc-space-3) var(--mc-space-4);
   border: 1px solid var(--mc-border);
-  border-radius: var(--mc-radius-lg);
+  border-radius: var(--mc-radius-md);
   background: var(--mc-bg-elevated);
-  transition: var(--mc-transition-all);
+  transition:
+    border-color var(--mc-transition),
+    background-color var(--mc-transition);
 }
 
 @media (hover: hover) and (pointer: fine) {
   .jumps__item:hover {
     border-color: var(--mc-primary-border);
-    box-shadow: var(--mc-shadow-sm);
+  }
+
+  /* 默认中性；hover 才出现主色，不再每卡一色 */
+  .jumps__item:hover .jumps__icon {
+    background: var(--mc-primary-soft);
+    color: var(--mc-primary-fg);
   }
 }
 
@@ -121,15 +128,13 @@ const manageJumps: Jump[] = [
   justify-content: center;
   width: 36px;
   height: 36px;
-  border-radius: var(--mc-radius-md);
-  background: var(--mc-primary-soft);
-  color: var(--mc-primary-fg);
+  border-radius: var(--mc-radius-xs);
+  background: var(--mc-bg-sunken);
+  color: var(--mc-text-muted);
   flex: none;
-}
-
-.jumps__icon--manage {
-  background: var(--mc-accent-soft);
-  color: var(--mc-accent-fg);
+  transition:
+    color var(--mc-transition),
+    background-color var(--mc-transition);
 }
 
 .jumps__text {

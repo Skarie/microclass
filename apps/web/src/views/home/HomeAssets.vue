@@ -44,7 +44,7 @@ defineProps<{
   gap: var(--mc-space-1);
   padding: var(--mc-space-3);
   border: 1px solid var(--mc-border);
-  border-radius: var(--mc-radius-lg);
+  border-radius: var(--mc-radius-md);
   background: var(--mc-bg-elevated);
 }
 

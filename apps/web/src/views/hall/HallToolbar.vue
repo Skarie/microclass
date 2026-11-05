@@ -87,18 +87,22 @@ const state = reactive(props.catalog);
   border-radius: var(--mc-radius);
   background: var(--mc-bg-elevated);
   color: var(--mc-text-muted);
-  transition: var(--mc-transition-all);
+  transition:
+    border-color var(--mc-transition),
+    background-color var(--mc-transition);
 }
 
 .hall__search:focus-within {
   border-color: var(--mc-primary);
-  box-shadow: var(--mc-focus-ring);
+  outline: 2px solid var(--mc-primary);
+  outline-offset: 1px;
 }
 
 /* 用后代选择器压过 .mc-input 的边框，避免 !important */
 .hall__search .hall__search-input {
   min-width: 200px;
   border: none;
+  outline: none;
   box-shadow: none;
   background: transparent;
 }
@@ -115,5 +119,17 @@ const state = reactive(props.catalog);
 .hall__views {
   display: flex;
   gap: var(--mc-space-1);
+}
+
+@media (max-width: 640px) {
+  /* 窄屏：搜索独占一行，避免和分类下拉挤在同一条里参差不齐 */
+  .hall__search {
+    flex: 1 1 100%;
+  }
+
+  .hall__search .hall__search-input {
+    min-width: 0;
+    width: 100%;
+  }
 }
 </style>

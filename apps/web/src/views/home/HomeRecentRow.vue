@@ -13,7 +13,7 @@ defineProps<{ course: Course; progress: number }>();
 </script>
 
 <template>
-  <li class="recent__row course-card course-card--row" :class="`course-card--g${Math.abs(course.id) % 6}`">
+  <li class="recent__row course-card course-card--row">
     <RouterLink
       class="course-card__thumb"
       :to="{ name: 'course', params: { id: course.id } }"
@@ -54,9 +54,15 @@ defineProps<{ course: Course; progress: number }>();
   grid-template-columns: 64px minmax(0, 1fr) 160px auto;
   align-items: center;
   gap: var(--mc-space-4);
+  min-height: 64px;
   padding: var(--mc-space-2) var(--mc-space-3);
-  border-radius: var(--mc-radius);
-  transition: var(--mc-transition-colors);
+  border-radius: var(--mc-radius-sm);
+  border-bottom: 1px solid var(--mc-border);
+  transition: background-color var(--mc-transition);
+}
+
+.recent__row:last-child {
+  border-bottom: 0;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -71,9 +77,11 @@ defineProps<{ course: Course; progress: number }>();
   justify-content: center;
   width: 64px;
   height: 44px;
+  border: 1px solid var(--mc-border);
   border-radius: var(--mc-radius-sm);
   overflow: hidden;
-  background-image: var(--mc-gradient-brand-soft);
+  /* 统一中性缩略图：不再按课程 id 轮换橙/紫渐变 */
+  background: var(--mc-bg-sunken);
   color: var(--mc-primary-fg);
   flex: none;
 }
@@ -82,19 +90,6 @@ defineProps<{ course: Course; progress: number }>();
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-
-.course-card--g1 .course-card__thumb {
-  background-image: var(--mc-gradient-thumb-2);
-  color: var(--mc-accent-fg);
-}
-.course-card--g2 .course-card__thumb {
-  background-image: var(--mc-gradient-thumb-3);
-  color: var(--mc-success-fg);
-}
-.course-card--g5 .course-card__thumb {
-  background-image: var(--mc-gradient-thumb-6);
-  color: var(--mc-seal-fg);
 }
 
 .course-card__row-main {
