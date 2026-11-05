@@ -65,10 +65,9 @@ function stateLabel(q: QuizQuestion): string {
       :aria-label="`${group.label}，共 ${group.items.length} 题`"
     >
       <div class="qgroup__head">
-        <span class="qgroup__title">
-          {{ group.label }}<template v-if="group.range"> ({{ group.range }})</template>
-        </span>
+        <span class="qgroup__title">{{ group.label }}</span>
         <span class="qgroup__meta">{{ group.items.length }} 题</span>
+        <span class="qgroup__line" aria-hidden="true" />
       </div>
 
       <div class="qgrid">
@@ -103,14 +102,19 @@ function stateLabel(q: QuizQuestion): string {
   margin-bottom: var(--mc-space-3);
 }
 .qgroup__title {
-  color: var(--mc-text-secondary);
-  font-size: var(--mc-text-xs);
+  color: var(--mc-text);
+  font-size: var(--mc-text-sm);
   font-weight: var(--mc-font-semibold);
 }
 .qgroup__meta {
   color: var(--mc-text-muted);
   font-size: var(--mc-text-xs);
   font-variant-numeric: tabular-nums;
+}
+.qgroup__line {
+  flex: 1;
+  height: 1px;
+  background: var(--mc-border);
 }
 .qgrid {
   display: grid;
@@ -124,8 +128,8 @@ function stateLabel(q: QuizQuestion): string {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: 1px solid var(--mc-border);
   border-radius: var(--mc-radius-xs);
@@ -146,8 +150,8 @@ function stateLabel(q: QuizQuestion): string {
 }
 .qb--done {
   border-color: var(--mc-primary);
-  background: var(--mc-primary);
-  color: var(--mc-text-inverse);
+  background: var(--mc-primary-soft);
+  color: var(--mc-primary-fg);
   font-weight: var(--mc-font-semibold);
 }
 .qb--correct {
@@ -175,9 +179,10 @@ function stateLabel(q: QuizQuestion): string {
   border-color: var(--mc-amber);
 }
 .qb[aria-current='step'] {
-  z-index: 1;
-  outline: 2px solid var(--mc-primary);
-  outline-offset: 1px;
+  border-color: var(--mc-primary);
+  background: var(--mc-primary);
+  color: var(--mc-text-inverse);
+  box-shadow: inset 0 0 0 2px var(--mc-bg-elevated);
   font-weight: var(--mc-font-semibold);
 }
 .qb__dot {
