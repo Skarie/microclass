@@ -4,8 +4,8 @@ import { api } from '@/api/client';
 import { errorMessage } from '@/composables/useAsync';
 import { useToastStore } from '@/stores/toast';
 import AppModal from '@/components/AppModal.vue';
-import EmptyState from '@/components/EmptyState.vue';
-import type { Knowledge, KnowledgeKind, Lesson } from '@/api/types';
+import KnowledgeList from '@/components/lessons/KnowledgeList.vue';
+import type { Knowledge, Lesson } from '@/api/types';
 
 /**
  * 知识点弹窗：某个课时的文本 / 外链 / 附件知识点的增删改。
@@ -181,12 +181,6 @@ async function onKnowledgeFilePicked(event: Event): Promise<void> {
   }
 }
 
-function knowledgeKindLabel(kind: KnowledgeKind): string {
-  if (kind === 'file') return '附件';
-  if (kind === 'link') return '外链';
-  return '文本';
-}
-
 // 打开弹窗（或切换课时）时重新拉取该课时的知识点
 watch([() => props.open, () => props.lesson?.id ?? null], ([open]) => {
   if (!open) return;
@@ -200,26 +194,19 @@ watch([() => props.open, () => props.lesson?.id ?? null], ([open]) => {
   <AppModal :open="props.open" :title="`知识点 · ${props.lesson?.title ?? ''}`" width="720px" @close="emit('close')">
     <div class="mc-col">
       <div class="kn-form mc-col">
-        <div class="mc-row mc-row--wrap">
+        <div class="kn-form__row">
           <input
             v-model="form.title"
             class="mc-input kn-form__title"
             type="text"
             maxlength="200"
-            placeholder="知识点标题"
+            placeholder="知识点标题，例如：正数和负数的概念"
           />
           <select v-model="form.kind" class="mc-select kn-form__kind" :disabled="editingId !== null">
             <option value="text">文本</option>
             <option value="link">外链</option>
             <option value="file" disabled>附件</option>
           </select>
-          <button class="mc-btn mc-btn--sm" type="button" :disabled="saving" @click="pickKnowledgeFile">
-            上传附件
-          </button>
-          <button class="mc-btn mc-btn--primary mc-btn--sm" type="button" :disabled="saving" @click="saveKnowledge">
-            {{ editingId === null ? '添加' : '保存修改' }}
-          </button>
-          <button v-if="editingId !== null" class="mc-btn mc-btn--sm" type="button" @click="resetForm">取消编辑</button>
         </div>
 
         <input
@@ -236,7 +223,26 @@ watch([() => props.open, () => props.lesson?.id ?? null], ([open]) => {
           placeholder="正文内容（支持多行，学生观看视频时会在右侧看到）"
         />
 
-        <span class="mc-hint">附件方式：点击「上传附件」选择课件 / 讲义 / 图片，上传后自动成为文件类知识点。</span>
+        <div class="kn-form__actions">
+          <span class="mc-hint">支持文本 / 外链 / 附件；附件可直接上传课件、讲义或图片。</span>
+          <div class="kn-form__btns">
+            <button class="mc-btn mc-btn--sm" type="button" :disabled="saving" @click="pickKnowledgeFile">
+              上传附件
+            </button>
+            <button
+              v-if="editingId !== null"
+              class="mc-btn mc-btn--sm"
+              type="button"
+              :disabled="saving"
+              @click="resetForm"
+            >
+              取消
+            </button>
+            <button class="mc-btn mc-btn--primary mc-btn--sm" type="button" :disabled="saving" @click="saveKnowledge">
+              {{ editingId === null ? '添加知识点' : '保存修改' }}
+            </button>
+          </div>
+        </div>
       </div>
 
       <input
@@ -248,56 +254,7 @@ watch([() => props.open, () => props.lesson?.id ?? null], ([open]) => {
         @change="onKnowledgeFilePicked"
       />
 
-      <div v-if="loading" class="mc-skeleton loading__row" />
-
-      <EmptyState
-        v-else-if="items.length === 0"
-        icon="copy"
-        title="该课时还没有知识点"
-        description="可以添加文本讲义、外部链接，或直接上传课件附件。"
-      />
-
-      <ul v-else class="kn-list">
-        <li v-for="item in items" :key="item.id" class="kn-item">
-          <div class="kn-item__main">
-            <div class="mc-row mc-row--wrap">
-              <span
-                class="mc-badge"
-                :class="item.kind === 'file' ? 'mc-badge--primary' : item.kind === 'link' ? 'mc-badge--success' : ''"
-              >
-                {{ knowledgeKindLabel(item.kind) }}
-              </span>
-              <strong>{{ item.title }}</strong>
-            </div>
-            <span v-if="item.kind === 'text'" class="mc-muted mc-clamp-2 kn-item__preview">{{
-              item.content || '（空）'
-            }}</span>
-            <span v-else-if="item.kind === 'link'" class="mc-muted mc-truncate kn-item__preview">{{ item.url }}</span>
-            <span v-else class="mc-muted mc-truncate kn-item__preview">附件：{{ item.file_name }}</span>
-          </div>
-          <div class="row-actions">
-            <a
-              v-if="item.kind === 'file'"
-              class="mc-btn mc-btn--sm"
-              :href="`/api/v1/knowledge/${item.id}/file`"
-              target="_blank"
-              rel="noopener"
-            >
-              下载
-            </a>
-            <a
-              v-else-if="item.kind === 'link'"
-              class="mc-btn mc-btn--sm"
-              :href="item.url"
-              target="_blank"
-              rel="noopener"
-              >打开</a
-            >
-            <button class="mc-btn mc-btn--sm" type="button" @click="editKnowledge(item)">编辑</button>
-            <button class="mc-btn mc-btn--sm mc-btn--danger" type="button" @click="removeKnowledge(item)">删除</button>
-          </div>
-        </li>
-      </ul>
+      <KnowledgeList :items="items" :loading="loading" @edit="editKnowledge" @remove="removeKnowledge" />
     </div>
 
     <template #footer>
@@ -326,10 +283,28 @@ watch([() => props.open, () => props.lesson?.id ?? null], ([open]) => {
 
 <style scoped>
 .kn-form {
-  padding: var(--mc-space-3);
-  border: 1px solid var(--mc-border);
-  border-radius: var(--mc-radius);
-  background: var(--mc-bg-sunken);
+  padding-bottom: var(--mc-space-4);
+  border-bottom: 1px solid var(--mc-border);
+}
+
+.kn-form__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mc-space-2);
+}
+
+.kn-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mc-space-2);
+}
+
+.kn-form__btns {
+  display: flex;
+  align-items: center;
+  gap: var(--mc-space-2);
 }
 
 .kn-form__title {
@@ -341,51 +316,11 @@ watch([() => props.open, () => props.lesson?.id ?? null], ([open]) => {
   width: 110px;
 }
 
-.kn-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: var(--mc-space-2);
-  max-height: 320px;
-  overflow-y: auto;
-}
-
-.kn-item {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--mc-space-3);
-  padding: var(--mc-space-3);
-  border: 1px solid var(--mc-border);
-  border-radius: var(--mc-radius);
-}
-
-.kn-item__main {
-  display: flex;
-  flex-direction: column;
-  gap: var(--mc-space-1);
-  min-width: 0;
-  flex: 1;
-}
-
-.kn-item__preview {
-  font-size: var(--mc-text-xs);
-}
-
 .hidden-input {
   display: none;
 }
 
 .loading__row {
   height: 48px;
-}
-
-.row-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--mc-space-2);
-  flex-wrap: wrap;
 }
 </style>
