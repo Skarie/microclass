@@ -127,5 +127,9 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: flex-end;
   gap: var(--mc-space-2);
+  /* 底部操作区跟随面板圆角：透明底 + 顶部细线，不再有灰直角露在圆角外 */
+  border-radius: 0 0 var(--mc-radius-md) var(--mc-radius-md);
+  background: transparent;
+  border-top: 1px solid var(--mc-border);
 }
 </style>
