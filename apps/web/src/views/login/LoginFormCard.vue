@@ -99,7 +99,7 @@ const agreed = defineModel<boolean>('agreed', { required: true });
         {{ submitting ? '处理中…' : isLogin ? '登录' : '注册并登录' }}
       </button>
 
-      <label class="agree">
+      <label class="agree login__agree">
         <input v-model="agreed" type="checkbox" />
         <span>
           我已了解：本平台是自托管的内部学习系统，账号由管理员创建，学习记录只保存在本机；
