@@ -71,7 +71,7 @@ const emit = defineEmits<{ toggle: [value: string] }>();
   }
 }
 
-.opt:focus-within {
+.opt:has(.opt__native:focus-visible) {
   outline: 2px solid var(--mc-primary);
   outline-offset: 1px;
 }

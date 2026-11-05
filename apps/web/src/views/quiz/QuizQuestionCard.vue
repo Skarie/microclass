@@ -118,7 +118,7 @@ function onTextInput(event: Event): void {
 .question {
   display: flex;
   flex-direction: column;
-  gap: var(--mc-space-4);
+  gap: var(--mc-space-3);
   padding: var(--mc-space-5);
   border-radius: var(--mc-radius-xs);
   box-shadow: var(--mc-shadow-xs);

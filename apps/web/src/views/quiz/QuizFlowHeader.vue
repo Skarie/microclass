@@ -164,6 +164,7 @@ const percentValue = computed(() =>
   height: 100%;
   border-radius: var(--mc-radius-pill);
   background: var(--mc-primary);
+  min-width: 6px;
   transform-origin: left center;
   transition: transform var(--mc-transition);
 }
