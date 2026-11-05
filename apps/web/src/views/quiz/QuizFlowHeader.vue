@@ -152,8 +152,8 @@ const percentValue = computed(() =>
   white-space: nowrap;
 }
 .qhead__bar {
-  width: 96px;
-  height: 4px;
+  width: 120px;
+  height: 6px;
   overflow: hidden;
   border-radius: var(--mc-radius-pill);
   background: var(--mc-bg-sunken);
