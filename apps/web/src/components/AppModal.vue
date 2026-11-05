@@ -114,6 +114,8 @@ onBeforeUnmount(() => {
   max-height: 88vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--mc-radius-md);
   box-shadow: var(--mc-shadow-lg);
 }
 
