@@ -18,7 +18,7 @@ function toggle(id: number): void {
 function renderContent(raw: string | null | undefined): string {
   return (raw ?? '')
     .split('\n')
-    .map((line) => line.replace(/^\s*#{1,6}\s+(.+)$/, '**$1**'))
+    .map((line) => line.replace(/^\s*#{1,6}\s+(.+)$/, '$1').replace(/\*\*|__/g, ''))
     .join('\n');
 }
 
