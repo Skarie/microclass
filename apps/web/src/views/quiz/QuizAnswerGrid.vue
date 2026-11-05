@@ -94,13 +94,13 @@ function stateLabel(q: QuizQuestion): string {
 .qgroups {
   display: flex;
   flex-direction: column;
-  gap: var(--mc-space-3);
+  gap: var(--mc-space-4);
 }
 .qgroup__head {
   display: flex;
   align-items: baseline;
   gap: var(--mc-space-2);
-  margin-bottom: var(--mc-space-2);
+  margin-bottom: var(--mc-space-3);
 }
 .qgroup__title {
   color: var(--mc-text-secondary);
@@ -114,8 +114,8 @@ function stateLabel(q: QuizQuestion): string {
 }
 .qgrid {
   display: grid;
-  grid-template-columns: repeat(8, 28px);
-  gap: var(--mc-space-1);
+  grid-template-columns: repeat(8, 30px);
+  gap: var(--mc-space-2);
   align-content: start;
   justify-content: start;
 }
@@ -177,8 +177,7 @@ function stateLabel(q: QuizQuestion): string {
 .qb[aria-current='step'] {
   z-index: 1;
   outline: 2px solid var(--mc-primary);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 3px var(--mc-primary-soft);
+  outline-offset: 1px;
   font-weight: var(--mc-font-semibold);
 }
 .qb__dot {

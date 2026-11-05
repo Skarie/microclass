@@ -128,7 +128,7 @@ const emit = defineEmits<{ toggle: [value: string] }>();
 .opt--selected {
   border-color: var(--mc-primary);
   background: var(--mc-primary-soft);
-  box-shadow: inset 3px 0 0 var(--mc-primary);
+  box-shadow: none;
 }
 
 .opt--selected .opt__marker {
