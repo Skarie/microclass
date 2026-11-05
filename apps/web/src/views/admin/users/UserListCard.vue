@@ -58,13 +58,13 @@ const emit = defineEmits<{
         </thead>
         <tbody>
           <tr v-for="user in users" :key="user.id">
-            <td class="mc-mono">{{ user.username }}</td>
-            <td>{{ user.display_name || '—' }}</td>
-            <td>
+            <td class="mc-mono col-user">{{ user.username }}</td>
+            <td class="col-name">{{ user.display_name || '—' }}</td>
+            <td class="col-role">
               <span class="mc-badge" :class="ROLE_BADGE[user.role]">{{ ROLE_LABEL[user.role] }}</span>
             </td>
-            <td class="mc-muted">{{ formatTime(user.created_at) }}</td>
-            <td>
+            <td class="mc-muted col-time">{{ formatTime(user.created_at) }}</td>
+            <td class="col-ops">
               <div class="row-actions">
                 <button class="mc-btn mc-btn--sm" type="button" @click="emit('edit', user)">编辑</button>
                 <button
@@ -105,5 +105,80 @@ const emit = defineEmits<{
   display: flex;
   align-items: center;
   gap: var(--mc-space-2);
+}
+
+/* 移动端（≤900px）：账号表 → 卡片行，不改数据与事件 */
+@media (max-width: 900px) {
+  .table-wrap {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .mc-table,
+  .mc-table tbody {
+    display: block;
+  }
+
+  .mc-table thead {
+    display: none;
+  }
+
+  .mc-table tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'user role'
+      'name name'
+      'time time'
+      'ops ops';
+    gap: var(--mc-space-2) var(--mc-space-3);
+    margin-bottom: var(--mc-space-2);
+    padding: var(--mc-space-3);
+    border: 1px solid var(--mc-border);
+    border-radius: var(--mc-radius-md);
+    background: var(--mc-bg-elevated);
+  }
+
+  .mc-table tbody tr:nth-child(even) td {
+    background: transparent;
+  }
+
+  .mc-table tbody td {
+    display: block;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .col-user {
+    grid-area: user;
+    font-size: var(--mc-text-sm);
+    font-weight: var(--mc-font-semibold);
+    color: var(--mc-text);
+  }
+
+  .col-name {
+    grid-area: name;
+    font-size: var(--mc-text-sm);
+    color: var(--mc-text-secondary);
+  }
+
+  .col-role {
+    grid-area: role;
+    justify-self: end;
+  }
+
+  .col-time {
+    grid-area: time;
+    font-size: var(--mc-text-xs);
+  }
+
+  .col-ops {
+    grid-area: ops;
+  }
+
+  .row-actions {
+    justify-content: flex-end;
+  }
 }
 </style>

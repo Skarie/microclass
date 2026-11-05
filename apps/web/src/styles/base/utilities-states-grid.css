@@ -137,10 +137,13 @@
 }
 
 .mc-progress__bar {
+  width: 100%;
   height: 100%;
   border-radius: inherit;
   background: var(--mc-primary);
-  transition: width var(--mc-transition);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--mc-transition);
 }
 
 .mc-progress__bar--success {

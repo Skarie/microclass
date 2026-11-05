@@ -73,7 +73,7 @@ const summary = computed(() => (props.courseStats ? courseSummary(props.courseSt
                     <div
                       class="mc-progress__bar"
                       :class="{ 'mc-progress__bar--success': row.finish_rate >= 100 }"
-                      :style="{ width: `${Math.min(100, Math.max(0, row.finish_rate))}%` }"
+                      :style="{ transform: `scaleX(${Math.min(100, Math.max(0, row.finish_rate)) / 100})` }"
                     />
                   </div>
                   <span class="mc-muted progress-cell__text">{{ row.finish_rate }}%</span>
@@ -82,7 +82,10 @@ const summary = computed(() => (props.courseStats ? courseSummary(props.courseSt
               <td>
                 <div class="progress-cell">
                   <div class="mc-progress">
-                    <div class="mc-progress__bar" :style="{ width: `${Math.min(100, Math.max(0, row.quiz_rate))}%` }" />
+                    <div
+                      class="mc-progress__bar"
+                      :style="{ transform: `scaleX(${Math.min(100, Math.max(0, row.quiz_rate)) / 100})` }"
+                    />
                   </div>
                   <span class="mc-muted progress-cell__text">{{ row.quiz_rate }}%</span>
                 </div>

@@ -68,9 +68,7 @@ withDefaults(
   border-radius: var(--mc-radius-md);
   box-shadow: none;
   text-align: left;
-  transition:
-    border-color var(--mc-transition),
-    background-color var(--mc-transition);
+  transition: var(--mc-transition-all);
 }
 
 .stat--clickable {
@@ -78,11 +76,15 @@ withDefaults(
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .stat:hover {
-    border-color: var(--mc-primary-border);
+  .stat--clickable:hover {
+    border-color: var(--mc-primary);
+    box-shadow: var(--mc-shadow-xs);
+    transform: translateY(var(--mc-hover-lift));
   }
 }
 
+/* KPI 图标块统一：所有指标共用主色软底 + 主色图标，不再「一个 tone 一种底色」；
+   语义交给数值颜色（正确率高 → success，待办/异常 → accent）。 */
 .stat__icon {
   display: inline-flex;
   align-items: center;
@@ -91,33 +93,8 @@ withDefaults(
   height: 38px;
   border-radius: var(--mc-radius-sm);
   flex: none;
-  background: var(--mc-bg-sunken);
-  color: var(--mc-text-secondary);
-}
-
-.stat--primary .stat__icon {
   background: var(--mc-primary-soft);
   color: var(--mc-primary-fg);
-}
-
-.stat--success .stat__icon {
-  background: var(--mc-success-soft);
-  color: var(--mc-success-fg);
-}
-
-.stat--warning .stat__icon {
-  background: var(--mc-warning-soft);
-  color: var(--mc-warning-fg);
-}
-
-.stat--danger .stat__icon {
-  background: var(--mc-danger-soft);
-  color: var(--mc-danger-fg);
-}
-
-.stat--info .stat__icon {
-  background: var(--mc-info-soft);
-  color: var(--mc-info);
 }
 
 .stat__body {
@@ -140,6 +117,15 @@ withDefaults(
   letter-spacing: var(--mc-tracking-tight);
   color: var(--mc-text);
   font-variant-numeric: tabular-nums;
+}
+
+.stat--success .stat__value {
+  color: var(--mc-success-fg);
+}
+
+.stat--warning .stat__value,
+.stat--danger .stat__value {
+  color: var(--mc-accent-fg);
 }
 
 .stat__unit {

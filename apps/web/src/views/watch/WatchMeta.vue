@@ -47,7 +47,7 @@ defineProps<{
       aria-valuemin="0"
       aria-valuemax="100"
     >
-      <div class="mc-progress__bar" :style="{ width: `${watchedPercent}%` }" />
+      <div class="mc-progress__bar" :style="{ transform: `scaleX(${watchedPercent / 100})` }" />
     </div>
   </div>
 </template>

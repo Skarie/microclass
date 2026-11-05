@@ -5,6 +5,7 @@
  */
 import { RouterLink } from 'vue-router';
 import Icon from '@/components/Icon.vue';
+import SectionHead from '@/components/SectionHead.vue';
 import type { IconName } from '@/components/icons';
 
 defineProps<{ isAdmin: boolean }>();
@@ -37,10 +38,9 @@ const manageJumps: Jump[] = [
 
 <template>
   <section class="jumps" aria-label="快捷跳转">
-    <header class="jumps__head">
-      <h2 class="jumps__title">快捷跳转</h2>
-      <span class="jumps__hint mc-muted">常用功能一站直达</span>
-    </header>
+    <SectionHead title="快捷跳转" icon="sparkles">
+      <template #meta>常用功能一站直达</template>
+    </SectionHead>
     <nav class="jumps__grid">
       <RouterLink v-for="j in learnJumps" :key="j.to" class="jumps__item" :to="j.to">
         <span class="jumps__icon"><Icon :name="j.icon" :size="18" /></span>
@@ -52,10 +52,11 @@ const manageJumps: Jump[] = [
     </nav>
 
     <template v-if="isAdmin">
-      <header class="jumps__head jumps__head--sub">
-        <h2 class="jumps__title">教学管理</h2>
-        <span class="jumps__hint mc-muted">管理员可见</span>
-      </header>
+      <div class="jumps__sub">
+        <SectionHead title="教学管理" icon="shield">
+          <template #meta>管理员可见</template>
+        </SectionHead>
+      </div>
       <nav class="jumps__grid">
         <RouterLink v-for="j in manageJumps" :key="j.to" class="jumps__item" :to="j.to">
           <span class="jumps__icon"><Icon :name="j.icon" :size="18" /></span>
@@ -70,25 +71,8 @@ const manageJumps: Jump[] = [
 </template>
 
 <style scoped>
-.jumps__head {
-  display: flex;
-  align-items: baseline;
-  gap: var(--mc-space-2);
-  margin-bottom: var(--mc-space-2);
-}
-
-.jumps__head--sub {
-  margin-top: var(--mc-space-6);
-}
-
-.jumps__title {
-  font-size: var(--mc-text-md);
-  font-weight: var(--mc-font-semibold);
-  color: var(--mc-text);
-}
-
-.jumps__hint {
-  font-size: var(--mc-text-xs);
+.jumps__sub {
+  margin-top: var(--mc-space-8);
 }
 
 .jumps__grid {
@@ -105,14 +89,14 @@ const manageJumps: Jump[] = [
   border: 1px solid var(--mc-border);
   border-radius: var(--mc-radius-md);
   background: var(--mc-bg-elevated);
-  transition:
-    border-color var(--mc-transition),
-    background-color var(--mc-transition);
+  transition: var(--mc-transition-all);
 }
 
 @media (hover: hover) and (pointer: fine) {
   .jumps__item:hover {
-    border-color: var(--mc-primary-border);
+    border-color: var(--mc-primary);
+    box-shadow: var(--mc-shadow-xs);
+    transform: translateY(var(--mc-hover-lift));
   }
 
   /* 默认中性；hover 才出现主色，不再每卡一色 */

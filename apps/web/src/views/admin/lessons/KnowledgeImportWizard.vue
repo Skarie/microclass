@@ -53,7 +53,7 @@ function pick(): void {
 
       <div v-if="importer.busy" class="progress-block">
         <div class="mc-progress">
-          <div class="mc-progress__bar" :style="{ width: `${importer.percent}%` }" />
+          <div class="mc-progress__bar" :style="{ transform: `scaleX(${importer.percent / 100})` }" />
         </div>
         <span class="mc-muted progress-block__text">{{ importer.busyText }}</span>
       </div>

@@ -95,17 +95,14 @@ function onMenu(course: Course, key: string): void {
   background: var(--mc-bg-elevated, var(--mc-bg));
   overflow: hidden;
   cursor: pointer;
-  transition:
-    box-shadow 0.15s ease,
-    border-color 0.15s ease,
-    transform 0.15s ease;
+  transition: var(--mc-transition-all);
 }
 
 .card:hover,
 .card:focus-visible {
   border-color: var(--mc-primary);
-  box-shadow: var(--mc-elev-hover);
-  transform: translateY(-2px);
+  box-shadow: var(--mc-shadow-xs);
+  transform: translateY(var(--mc-hover-lift));
   outline: none;
 }
 

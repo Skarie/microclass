@@ -10,7 +10,6 @@
  *    `/users` 仅管理员可见；重查询不阻塞首屏（卡片各自独立加载）。
  */
 import { computed, onMounted, ref } from 'vue';
-import { RouterLink } from 'vue-router';
 import { api } from '@/api/client';
 import { errorMessage } from '@/composables/useAsync';
 import { useAuthStore } from '@/stores/auth';
@@ -18,7 +17,8 @@ import { useToastStore } from '@/stores/toast';
 import Icon from '@/components/Icon.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import MetricBar from '@/components/MetricBar.vue';
-import Tag from '@/components/Tag.vue';
+import LinksCard from './overview/LinksCard.vue';
+import TodoCard from './overview/TodoCard.vue';
 import type { IconName } from '@/components/icons';
 import type { Course, Category, User } from '@/api/types';
 
@@ -247,229 +247,25 @@ onMounted(async () => {
       </template>
     </PageHeader>
 
-    <section class="mc-card">
-      <div class="mc-card__header">
-        <span class="mc-row overview__cardtitle">
-          <Icon name="alert" :size="16" />
-          <span class="mc-card__title">需要处理</span>
-        </span>
-        <Tag v-if="todosOf().length === 0" tone="success" size="sm" icon="check">暂无待办</Tag>
-        <div class="mc-spacer" />
-        <span v-if="health" class="mc-muted">
-          体检缓存时间 {{ fmtTime(health.cachedAt) }}
-          <template v-if="healthLoading">（更新中…）</template>
-        </span>
-      </div>
+    <TodoCard
+      :todos="todosOf()"
+      :loading="loading"
+      :health-error="healthError"
+      :health-loading="healthLoading"
+      :cached-text="health ? fmtTime(health.cachedAt) : ''"
+    />
 
-      <div class="mc-card__body">
-        <p v-if="healthError" class="mc-error-text">体检数据加载失败：{{ healthError }}</p>
-
-        <p v-if="loading" class="mc-skeleton loading__row" />
-
-        <div v-else-if="todosOf().length === 0" class="overview__clear">
-          <Icon name="check-circle" :size="26" />
-          <div>
-            <div class="overview__clear-title">当前没有待处理的数据问题</div>
-            <p class="mc-muted">冲突题已核对完、难度已标注、解析都有文字、课时都归好类。</p>
-          </div>
-        </div>
-
-        <ul v-else class="overview__todos">
-          <li v-for="todo in todosOf()" :key="todo.key" class="overview__todo">
-            <span class="overview__todo-icon" :class="`overview__todo-icon--${todo.tone}`">
-              <Icon :name="todo.icon" :size="18" />
-            </span>
-            <span class="overview__todo-body">
-              <span class="overview__todo-label">{{ todo.label }}</span>
-              <span class="mc-muted overview__todo-hint">{{ todo.hint }}</span>
-            </span>
-            <span class="overview__todo-count">{{ todo.count }}</span>
-            <RouterLink class="mc-btn mc-btn--soft mc-btn--sm" :to="todo.to">
-              去处理
-              <Icon name="arrow-right" :size="14" />
-            </RouterLink>
-          </li>
-        </ul>
-      </div>
-    </section>
-
-    <section class="mc-card">
-      <div class="mc-card__header">
-        <span class="mc-row overview__cardtitle">
-          <Icon name="courses" :size="16" />
-          <span class="mc-card__title">常用入口</span>
-        </span>
-      </div>
-      <div class="mc-card__body overview__links">
-        <RouterLink class="overview__link" to="/admin/courses">
-          <Icon name="courses" :size="18" />
-          <span>课程与课时</span>
-          <em>建课、上传视频、归类</em>
-        </RouterLink>
-        <RouterLink class="overview__link" to="/admin/banks">
-          <Icon name="bank" :size="18" />
-          <span>题库管理</span>
-          <em>导入导出、体检、难度</em>
-        </RouterLink>
-        <RouterLink class="overview__link" to="/admin/exams">
-          <Icon name="exam" :size="18" />
-          <span>考试与组卷</span>
-          <em>挑题排卷、成绩单</em>
-        </RouterLink>
-        <RouterLink class="overview__link" to="/admin/stats">
-          <Icon name="stats" :size="18" />
-          <span>学习统计</span>
-          <em>观看时长与练习成绩</em>
-        </RouterLink>
-        <RouterLink class="overview__link" to="/admin/question-conflicts">
-          <Icon name="conflict" :size="18" />
-          <span>冲突题核对</span>
-          <em>同题不同答案</em>
-        </RouterLink>
-        <RouterLink v-if="auth.isAdmin" class="overview__link" to="/admin/users">
-          <Icon name="users" :size="18" />
-          <span>学员与账号</span>
-          <em>建号、改角色、审计</em>
-        </RouterLink>
-      </div>
-    </section>
+    <LinksCard :is-admin="auth.isAdmin" />
   </section>
 </template>
 
 <style scoped>
-.overview__cardtitle {
-  align-items: center;
-  gap: var(--mc-space-2);
+/* 后台区块之间 32；页头自带的 24 外边距在总览里让位给统一 gap */
+.overview {
+  gap: var(--mc-space-8);
 }
 
-.overview__todos {
-  display: flex;
-  flex-direction: column;
-  gap: var(--mc-space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.overview__todo {
-  display: flex;
-  align-items: center;
-  gap: var(--mc-space-3);
-  padding: var(--mc-space-3);
-  border: 1px solid var(--mc-border);
-  border-radius: var(--mc-radius-sm);
-  background: var(--mc-bg-elevated);
-}
-
-.overview__todo-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: var(--mc-radius-xs);
-  flex: none;
-  background: var(--mc-bg-sunken);
-  color: var(--mc-text-secondary);
-}
-
-.overview__todo-icon--danger {
-  background: var(--mc-danger-soft);
-  color: var(--mc-danger-fg);
-}
-
-.overview__todo-icon--warning {
-  background: var(--mc-warning-soft);
-  color: var(--mc-warning-fg);
-}
-
-.overview__todo-icon--info {
-  background: var(--mc-info-soft);
-  color: var(--mc-info-fg);
-}
-
-.overview__todo-icon--primary {
-  background: var(--mc-primary-soft);
-  color: var(--mc-primary-fg);
-}
-
-.overview__todo-body {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-  flex: 1;
-}
-
-.overview__todo-label {
-  font-size: var(--mc-text-sm);
-  font-weight: var(--mc-font-medium);
-  color: var(--mc-text);
-}
-
-.overview__todo-hint {
-  font-size: var(--mc-text-xs);
-}
-
-.overview__todo-count {
-  font-size: var(--mc-text-xl);
-  font-weight: var(--mc-font-semibold);
-  font-variant-numeric: tabular-nums;
-  color: var(--mc-text);
-  min-width: 3ch;
-  text-align: right;
-}
-
-.overview__clear {
-  display: flex;
-  align-items: center;
-  gap: var(--mc-space-3);
-  padding: var(--mc-space-4);
-  border-radius: var(--mc-radius);
-  background: var(--mc-success-soft);
-  color: var(--mc-success-fg);
-}
-
-.overview__clear-title {
-  font-weight: var(--mc-font-semibold);
-}
-
-.overview__clear p {
-  margin: 4px 0 0;
-}
-
-.overview__links {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: var(--mc-space-4);
-}
-
-.overview__link {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: var(--mc-space-3);
-  border: 1px solid var(--mc-border);
-  border-radius: var(--mc-radius-md);
-  color: var(--mc-text);
-  transition:
-    border-color var(--mc-transition),
-    background-color var(--mc-transition);
-}
-
-.overview__link:hover {
-  border-color: var(--mc-primary-border);
-  background: var(--mc-bg-hover);
-}
-
-.overview__link span {
-  font-size: var(--mc-text-sm);
-  font-weight: var(--mc-font-medium);
-}
-
-.overview__link em {
-  font-style: normal;
-  font-size: var(--mc-text-xs);
-  color: var(--mc-text-muted);
+.overview :deep(.ph) {
+  margin-bottom: 0;
 }
 </style>

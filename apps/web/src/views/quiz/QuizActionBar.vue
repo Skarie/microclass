@@ -122,8 +122,9 @@ const emit = defineEmits<{
 }
 
 .bar__mark--on {
-  background: var(--mc-warning-soft);
-  color: var(--mc-warning-fg);
+  /* 标记疑问：accent 落点之二 */
+  background: var(--mc-accent-soft);
+  color: var(--mc-accent-fg);
 }
 
 .bar__btn {

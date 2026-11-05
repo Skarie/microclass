@@ -44,6 +44,7 @@ const emit = defineEmits<{ 'toggle-fav': [course: Course] }>();
           :class="progress > 0 ? 'mc-btn--soft' : 'mc-btn--ghost'"
           :to="{ name: 'course', params: { id: course.id } }"
         >
+          <span v-if="progress > 0" class="course-card__dot" aria-hidden="true" />
           {{ progress > 0 ? '继续学习' : '开始学习' }}
         </RouterLink>
         <button
@@ -133,7 +134,17 @@ const emit = defineEmits<{ 'toggle-fav': [course: Course] }>();
   gap: var(--mc-space-1);
 }
 
+/* 「继续学习」文字前的进度点：accent 落点之三 */
+.course-card__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--mc-radius-pill);
+  background: var(--mc-accent);
+  flex: none;
+}
+
 .course-card__fav--on {
-  color: var(--mc-warning-fg);
+  /* 收藏星标：全站 5 类 accent 落点之一 */
+  color: var(--mc-accent);
 }
 </style>

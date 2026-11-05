@@ -16,7 +16,7 @@ const questionsState = reactive(questionApi);
 
 <template>
   <div class="pager">
-    <span class="mc-muted"
+    <span class="mc-muted pager__sum"
       >共 {{ questionsState.total }} 题 · 第 {{ questionsState.page }} / {{ questionsState.totalPages }} 页</span
     >
     <label class="pager__size">
@@ -81,6 +81,31 @@ const questionsState = reactive(questionApi);
   display: inline-flex;
   align-items: center;
   gap: var(--mc-space-1);
+  flex: none;
   font-size: var(--mc-text-sm);
+  white-space: nowrap;
+}
+
+.pager__sum {
+  white-space: nowrap;
+}
+
+/* 窄屏：统计文字独占一行（不竖排），翻页按钮换行但保持 44px 触控目标 */
+@media (max-width: 640px) {
+  /* 统计与每页条数各占一行，四个翻页按钮平分一行 */
+  .pager {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--mc-space-2);
+  }
+
+  .pager__sum,
+  .pager__size {
+    grid-column: 1 / -1;
+  }
+
+  .pager > .mc-spacer {
+    display: none;
+  }
 }
 </style>

@@ -20,7 +20,7 @@ defineProps<{ course: Course; progress: number }>();
   >
     <img v-if="course.cover" :src="`/api/v1/course-cover/${course.id}`" :alt="course.name" loading="lazy" />
     <span v-else class="course-card__cover-fallback" aria-hidden="true">
-      <Icon name="graduation" :size="28" />
+      <Icon name="graduation" :size="32" />
     </span>
     <span v-if="course.category_name" class="course-card__cover-chip">{{ course.category_name }}</span>
     <span v-if="progress >= 100" class="course-card__cover-done">
@@ -50,9 +50,14 @@ defineProps<{ course: Course; progress: number }>();
 }
 
 .course-card__cover-fallback {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
+  height: 100%;
+  /* 无封面兜底：中性底 + 单色 6% 几何斜线纹理 + 中央主色图标（不用多色渐变） */
+  background-color: var(--mc-bg-sunken);
+  background-image: var(--mc-cover-pattern);
 }
 
 .course-card__cover-chip {

@@ -15,6 +15,7 @@
 import EmptyState from '@/components/EmptyState.vue';
 import Icon from '@/components/Icon.vue';
 import PageHeader from '@/components/PageHeader.vue';
+import SectionHead from '@/components/SectionHead.vue';
 import { useHallCatalog } from '@/composables/use-hall-catalog';
 import HallCourseCard from './hall/HallCourseCard.vue';
 import HallCourseRow from './hall/HallCourseRow.vue';
@@ -54,10 +55,11 @@ const catalog = useHallCatalog();
     />
 
     <section v-for="group in catalog.groups" v-else :key="group.name" class="hall__group">
-      <header class="hall__group-head">
-        <h2 class="hall__group-title">{{ group.name }}</h2>
-        <span class="hall__group-count mc-num">{{ group.list.length }}</span>
-      </header>
+      <SectionHead :title="group.name">
+        <template #meta
+          ><span class="mc-num">{{ group.list.length }} 门</span></template
+        >
+      </SectionHead>
 
       <!-- 卡片网格 -->
       <div v-if="catalog.viewMode === 'cards'" class="hall__cards">
@@ -90,27 +92,9 @@ const catalog = useHallCatalog();
   flex-direction: column;
 }
 
-/* 分组：组间距、组标题到卡片的间距统一 24 */
+/* 分组之间 32；标题到内容 12 由 SectionHead 负责 */
 .hall__group + .hall__group {
-  margin-top: var(--mc-space-6);
-}
-
-.hall__group-head {
-  display: flex;
-  align-items: baseline;
-  gap: var(--mc-space-2);
-  margin-bottom: var(--mc-space-6);
-}
-
-.hall__group-title {
-  font-size: var(--mc-text-md);
-  font-weight: var(--mc-font-semibold);
-  color: var(--mc-text);
-}
-
-.hall__group-count {
-  font-size: var(--mc-text-xs);
-  color: var(--mc-text-muted);
+  margin-top: var(--mc-space-8);
 }
 
 /* 卡片网格 */

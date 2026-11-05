@@ -147,7 +147,7 @@ async function toggleFav(): Promise<void> {
             <div
               class="mc-progress__bar"
               :class="{ 'mc-progress__bar--success': stats.percent >= 100 }"
-              :style="{ width: `${stats.percent}%` }"
+              :style="{ transform: `scaleX(${stats.percent / 100})` }"
             />
           </div>
           <span class="mc-muted detail__stats-text">

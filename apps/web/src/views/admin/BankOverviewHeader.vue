@@ -88,4 +88,16 @@ const emit = defineEmits<{ 'pick-unbound': [] }>();
 .kpi__sub {
   font-size: var(--mc-text-xs);
 }
+
+/* 移动端：KPI 两列排，避免四张全宽卡片把题目列表挤到三屏之后 */
+@media (max-width: 640px) {
+  .kpi {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--mc-space-3);
+  }
+
+  .kpi__card {
+    padding: var(--mc-space-3) var(--mc-space-4);
+  }
+}
 </style>

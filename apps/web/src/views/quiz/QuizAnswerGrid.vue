@@ -176,7 +176,7 @@ function stateLabel(q: QuizQuestion): string {
   color: var(--mc-text-muted);
 }
 .qb--marked {
-  border-color: var(--mc-amber);
+  border-color: var(--mc-accent);
 }
 .qb[aria-current='step'] {
   border-color: var(--mc-primary);
@@ -193,9 +193,18 @@ function stateLabel(q: QuizQuestion): string {
   height: 8px;
   border: 1px solid var(--mc-bg-elevated);
   border-radius: var(--mc-radius-pill);
-  background: var(--mc-amber);
+  background: var(--mc-accent);
+}
+
+@media (max-width: 1023px) {
+  /* 抽屉里题号格子按 6 列排，单格不小于 44px 触控目标 */
+  .qgrid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+
+  .qb {
+    width: 100%;
+    height: var(--mc-touch-target-mobile);
+  }
 }
 </style>
-
-@media (max-width: 1023px) { /* 抽屉里题号格子按 6 列排，单格不小于 44px 触控目标 */ .qgrid { grid-template-columns:
-repeat(6, 1fr); } .qb { width: 100%; height: 44px; } }

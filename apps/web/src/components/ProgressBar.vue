@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /**
- * 进度条：统一学习进度/任务进度外观（以前是裸 div + 内联宽度，还出现过"只剩一个点"的样子）。
+ * 进度条：统一学习进度/任务进度外观。
+ * 动画走 transform: scaleX()（不再动 width），条形末端用 accent 点提示「进行中」。
  */
 import { computed } from 'vue';
 
@@ -21,6 +22,9 @@ const props = withDefaults(
 );
 
 const clamped = computed(() => Math.max(0, Math.min(100, Math.round(props.value))));
+/** 进度很小时（如 1/30 ≈ 3%）保留一个最小可见刻度，否则看起来像坏掉的一个点 */
+const fill = computed(() => (clamped.value === 0 ? 0 : Math.max(clamped.value, 3) / 100));
+const showEnd = computed(() => clamped.value > 0 && clamped.value < 100);
 </script>
 
 <template>
@@ -33,11 +37,8 @@ const clamped = computed(() => Math.max(0, Math.min(100, Math.round(props.value)
       aria-valuemax="100"
       :aria-label="label || ariaLabel"
     >
-      <div
-        class="pb__bar"
-        :class="[`pb__bar--${tone}`, { 'pb__bar--tiny': clamped > 0 && clamped < 6 }]"
-        :style="{ width: `${clamped}%` }"
-      />
+      <div class="pb__bar" :class="`pb__bar--${tone}`" :style="{ transform: `scaleX(${fill})` }" />
+      <span v-if="showEnd" class="pb__end" :style="{ left: `${clamped}%` }" aria-hidden="true" />
     </div>
     <span v-if="label" class="pb__label">{{ label }}</span>
     <span v-else-if="showValue" class="pb__label">{{ clamped }}%</span>
@@ -53,11 +54,11 @@ const clamped = computed(() => Math.max(0, Math.min(100, Math.round(props.value)
 }
 
 .pb__track {
+  position: relative;
   flex: 1;
   min-width: 40px;
   background: var(--mc-bg-sunken);
   border-radius: var(--mc-radius-pill);
-  overflow: hidden;
 }
 
 .pb--sm .pb__track {
@@ -69,15 +70,25 @@ const clamped = computed(() => Math.max(0, Math.min(100, Math.round(props.value)
 }
 
 .pb__bar {
+  width: 100%;
   height: 100%;
   border-radius: var(--mc-radius-pill);
-  transition: width var(--mc-duration) var(--mc-ease-out);
+  transform-origin: left center;
+  transition: transform var(--mc-duration) var(--mc-ease-out);
   background: var(--mc-primary);
 }
 
-/* 进度很小时（如 1/30 ≈ 3%）给一个最小可见宽度，否则看起来像"坏掉的一个点" */
-.pb__bar--tiny {
-  min-width: 8px;
+/* 学习进度末端的强调点：全站只有这一处用 accent 画"进行中" */
+.pb__end {
+  position: absolute;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--mc-radius-pill);
+  background: var(--mc-accent);
+  transform: translate(-50%, -50%);
+  transition: left var(--mc-duration) var(--mc-ease-out);
+  pointer-events: none;
 }
 
 .pb__bar--primary {

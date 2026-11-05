@@ -18,6 +18,7 @@
 .bank-list-panel__count {
   font-size: var(--mc-text-xs);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .bank-list-panel__body {
@@ -162,5 +163,25 @@
   .bank-list-panel {
     position: static;
     max-height: none;
+  }
+}
+
+/* 移动/平板：没有 hover，行内操作常显；行本身按 44px 触控目标加高 */
+@media (max-width: 1023px) {
+  .bank-list-panel__head {
+    flex-wrap: nowrap;
+  }
+
+  .bank-item {
+    align-items: center;
+    padding: var(--mc-space-3);
+  }
+
+  .bank-item__actions {
+    display: flex;
+  }
+
+  .bank-item__bind {
+    display: none;
   }
 }

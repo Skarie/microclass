@@ -79,7 +79,7 @@ onMounted(async () => {
   border-radius: var(--mc-radius);
   background: var(--mc-bg-elevated);
   color: var(--mc-text);
-  box-shadow: var(--mc-shadow-md);
+  box-shadow: var(--mc-shadow-sm);
   transform: translateY(-200%);
 }
 

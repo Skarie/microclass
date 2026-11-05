@@ -46,9 +46,8 @@ const iconNames: Record<string, IconName> = {
   padding: var(--mc-space-3) var(--mc-space-4);
   background: var(--mc-bg-elevated);
   border: 1px solid var(--mc-border);
-  border-left-width: 3px;
-  border-radius: var(--mc-radius);
-  box-shadow: var(--mc-shadow-md);
+  border-radius: var(--mc-radius-md);
+  box-shadow: var(--mc-shadow-sm);
   animation: toast-in 180ms ease;
 }
 
@@ -65,19 +64,23 @@ const iconNames: Record<string, IconName> = {
 }
 
 .toast--success {
-  border-left-color: var(--mc-success);
+  background: var(--mc-success-soft);
+  border-color: var(--mc-success);
 }
 
 .toast--error {
-  border-left-color: var(--mc-danger);
+  background: var(--mc-danger-soft);
+  border-color: var(--mc-danger);
 }
 
 .toast--warning {
-  border-left-color: var(--mc-warning);
+  background: var(--mc-warning-soft);
+  border-color: var(--mc-warning);
 }
 
 .toast--info {
-  border-left-color: var(--mc-info);
+  background: var(--mc-info-soft);
+  border-color: var(--mc-info);
 }
 
 .toast__icon {

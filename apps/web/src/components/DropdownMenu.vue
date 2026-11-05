@@ -179,7 +179,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick));
   background: var(--mc-bg-elevated);
   border: 1px solid var(--mc-border);
   border-radius: var(--mc-radius);
-  box-shadow: var(--mc-elev-overlay);
+  box-shadow: var(--mc-shadow-sm);
   display: flex;
   flex-direction: column;
   gap: 1px;

@@ -67,6 +67,7 @@ const emit = defineEmits<{ 'toggle-fav': [course: Course] }>();
         :class="progress > 0 ? 'mc-btn--soft' : 'mc-btn--ghost'"
         :to="{ name: 'course', params: { id: course.id } }"
       >
+        <span v-if="progress > 0" class="course-card__dot" aria-hidden="true" />
         {{ progress > 0 ? '继续学习' : '开始学习' }}
       </RouterLink>
     </div>
@@ -99,8 +100,9 @@ const emit = defineEmits<{ 'toggle-fav': [course: Course] }>();
   border: 1px solid var(--mc-border);
   border-radius: var(--mc-radius-sm);
   overflow: hidden;
-  /* 与大厅封面同一套中性缩略图，不再按 id 换渐变底色 */
-  background: var(--mc-bg-sunken);
+  /* 与大厅封面同一套中性缩略图：中性底 + 单色纹理，不再按 id 换渐变底色 */
+  background-color: var(--mc-bg-sunken);
+  background-image: var(--mc-cover-pattern);
   color: var(--mc-primary-fg);
   flex: none;
 }
@@ -152,8 +154,16 @@ const emit = defineEmits<{ 'toggle-fav': [course: Course] }>();
   gap: var(--mc-space-1);
 }
 
+.course-card__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--mc-radius-pill);
+  background: var(--mc-accent);
+  flex: none;
+}
+
 .course-card__fav--on {
-  color: var(--mc-warning-fg);
+  color: var(--mc-accent);
 }
 
 @media (max-width: 900px) {

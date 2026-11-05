@@ -135,3 +135,17 @@
 .mc-btn--block {
   width: 100%;
 }
+
+/* 触控目标（WCAG 2.2）：移动/平板上所有小按钮与表格行内操作至少 44px 高。
+   桌面端保持 32px 的紧凑密度，不受影响。 */
+@media (max-width: 1023px) {
+  .mc-btn--sm,
+  .mc-btn--lg {
+    min-height: var(--mc-touch-target-mobile);
+  }
+
+  .mc-table .mc-btn,
+  .mc-table .mc-btn--sm {
+    min-height: var(--mc-touch-target-mobile);
+  }
+}

@@ -87,7 +87,6 @@ function onLoadedMetadata(e: Event): void {
 .player {
   overflow: hidden;
   background: var(--mc-player-bg);
-  box-shadow: var(--mc-elev-raised);
 }
 
 /* 播放器工具条：倍速 + 快捷键提示（对标主流学习平台） */

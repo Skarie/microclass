@@ -20,6 +20,7 @@ import HomeBoard from './home/HomeBoard.vue';
 import HomeAssets from './home/HomeAssets.vue';
 import HomeRecent from './home/HomeRecent.vue';
 import HomeJumps from './home/HomeJumps.vue';
+import SectionHead from '@/components/SectionHead.vue';
 import { useHomeDashboard } from '@/composables/use-home-dashboard';
 import { usePanelStore } from '@/stores/panel';
 
@@ -48,26 +49,35 @@ onMounted(() => void load());
     <HomeGreet :learning="learning" />
 
     <!-- ② 我的学习看板 -->
-    <HomeBoard
-      :metrics="metrics"
-      :level="summary?.level ?? '—'"
-      :level-hint="levelHint"
-      :learning-done="learningDone"
-      :learning-total="learningTotal"
-      :learning-percent="learningPercent"
-      :learning-count="learning.length"
-    />
+    <section class="home__block">
+      <SectionHead title="我的学习" icon="chartBar" />
+      <HomeBoard
+        :metrics="metrics"
+        :level="summary?.level ?? '—'"
+        :level-hint="levelHint"
+        :learning-done="learningDone"
+        :learning-total="learningTotal"
+        :learning-percent="learningPercent"
+        :learning-count="learning.length"
+      />
+    </section>
 
     <!-- ③ 学习资产 -->
-    <HomeAssets
-      :learning-count="learning.length"
-      :finished-count="finishedCourses.length"
-      :favorite-count="favoriteCourses.length"
-      :wrong-total="wrong?.total ?? 0"
-    />
+    <section class="home__block">
+      <SectionHead title="学习资产" icon="folder" />
+      <HomeAssets
+        :learning-count="learning.length"
+        :finished-count="finishedCourses.length"
+        :favorite-count="favoriteCourses.length"
+        :wrong-total="wrong?.total ?? 0"
+      />
+    </section>
 
     <!-- ④ 最近在学 -->
-    <HomeRecent :courses="learning" :progress-of="progressOf" />
+    <section v-if="learning.length > 0" class="home__block">
+      <SectionHead title="最近在学" icon="play" action-text="全部课程" action-to="/my-courses" />
+      <HomeRecent :courses="learning" :progress-of="progressOf" />
+    </section>
 
     <!-- ⑤ 快捷跳转 -->
     <HomeJumps :is-admin="panel.isAdminPanel.value" />
@@ -78,6 +88,11 @@ onMounted(() => void load());
 .home {
   display: flex;
   flex-direction: column;
-  gap: var(--mc-space-4);
+  gap: var(--mc-space-8);
+}
+
+.home__block {
+  display: flex;
+  flex-direction: column;
 }
 </style>

@@ -44,19 +44,29 @@
   min-height: var(--mc-control-h-sm);
 }
 
-/* ---- 卡片：可交互态（扁平：只换边框，不抬升、不加阴影） ---- */
+/* ---- 卡片：可交互态（唯一允许 hover 抬升的地方） ---- */
+/* 只给"整张卡可点"的卡片加；静态卡片保持无阴影。150ms，抬 2px + 主色描边 + 最轻阴影。 */
 .mc-card--interactive {
   transition:
     border-color var(--mc-transition),
-    background-color var(--mc-transition);
+    box-shadow var(--mc-transition),
+    transform var(--mc-transition);
 }
 
 .mc-card--interactive:hover {
-  border-color: var(--mc-primary-border);
+  border-color: var(--mc-primary);
+  box-shadow: var(--mc-shadow-xs);
+  transform: translateY(var(--mc-hover-lift));
 }
 
 .mc-card--interactive:active {
   background: var(--mc-bg-hover);
+  transform: translateY(0);
+}
+
+.mc-card--interactive:focus-visible {
+  outline: 2px solid var(--mc-primary);
+  outline-offset: 2px;
 }
 
 /* ---- 工具条里的输入控件：统一高度与宽度语义 ---- */
@@ -159,4 +169,12 @@
   color: var(--mc-warning-fg, var(--mc-text));
   box-shadow: var(--mc-shadow-md);
   font-size: var(--mc-text-sm);
+}
+
+/* 移动端：图标按钮同样按 44px 触控目标放大（桌面保持 32px 紧凑） */
+@media (max-width: 1023px) {
+  .mc-btn--icon.mc-btn--sm {
+    width: var(--mc-touch-target-mobile);
+    min-height: var(--mc-touch-target-mobile);
+  }
 }

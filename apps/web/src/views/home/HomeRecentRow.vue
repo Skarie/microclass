@@ -80,8 +80,9 @@ defineProps<{ course: Course; progress: number }>();
   border: 1px solid var(--mc-border);
   border-radius: var(--mc-radius-sm);
   overflow: hidden;
-  /* 统一中性缩略图：不再按课程 id 轮换橙/紫渐变 */
-  background: var(--mc-bg-sunken);
+  /* 统一中性缩略图：中性底 + 单色纹理，不再按课程 id 轮换橙/紫渐变 */
+  background-color: var(--mc-bg-sunken);
+  background-image: var(--mc-cover-pattern);
   color: var(--mc-primary-fg);
   flex: none;
 }

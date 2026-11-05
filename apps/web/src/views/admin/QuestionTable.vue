@@ -136,7 +136,7 @@ function onRowMenu(question: QuestionView, key: string): void {
               </label>
             </td>
             <td class="mc-mono col-no">{{ rowNumber(question) }}</td>
-            <td>
+            <td class="col-stem">
               <div class="stem" :class="{ 'stem--clamped': !questionsState.isStemExpanded(question.id) }">
                 <RichText class="stem__text" :text="question.stem" />
               </div>
@@ -232,3 +232,5 @@ function onRowMenu(question: QuestionView, key: string): void {
 </template>
 
 <style scoped src="./question-table.css"></style>
+
+<style scoped src="./question-table-mobile.css"></style>

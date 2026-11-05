@@ -1,0 +1,144 @@
+/* ================= 移动端：表格行 → 卡片行（≤900px） =================
+   不重写数据逻辑，只改展示：每条题目一张卡，主标题是题干，下面是题型/答案与操作。
+   表头隐藏，复选框与行内操作保留 44px 触控目标。 */
+@media (max-width: 900px) {
+  .question-table {
+    overflow-x: visible;
+  }
+
+  .question-table .mc-table,
+  .question-table .mc-table tbody {
+    display: block;
+  }
+
+  .question-table .mc-table thead {
+    display: none;
+  }
+
+  .question-table .mc-table tbody tr {
+    margin-bottom: var(--mc-space-2);
+  }
+
+  /* 章节分组行：变成卡片上方的小节标题 */
+  .question-table .mc-table tbody tr.qgroup {
+    display: block;
+    padding: var(--mc-space-2) var(--mc-space-1) 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .question-table .mc-table tbody tr.qgroup td {
+    display: block;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .qgroup__inner {
+    flex-wrap: wrap;
+  }
+
+  /* 题目行卡片：勾选/序号/操作一行，题干一行，题型/答案一行 */
+  .question-table .mc-table tbody tr:not(.qgroup) {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'check no ops'
+      'stem stem stem'
+      'type answer answer';
+    gap: var(--mc-space-2) var(--mc-space-3);
+    padding: var(--mc-space-3);
+    border: 1px solid var(--mc-border);
+    border-radius: var(--mc-radius-md);
+    background: var(--mc-bg-elevated);
+  }
+
+  .question-table .mc-table tbody tr:nth-child(even) td {
+    background: transparent;
+  }
+
+  .question-table .mc-table tbody tr:not(.qgroup) > td {
+    display: block;
+    width: auto;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    white-space: normal;
+  }
+
+  .col-check {
+    grid-area: check;
+    align-self: center;
+  }
+
+  .col-no {
+    grid-area: no;
+    align-self: center;
+    font-size: var(--mc-text-xs);
+    color: var(--mc-text-muted);
+  }
+
+  .col-stem {
+    grid-area: stem;
+  }
+
+  .col-type {
+    grid-area: type;
+    align-self: end;
+  }
+
+  .col-type::before,
+  .col-answer::before {
+    display: inline;
+    margin-right: var(--mc-space-1);
+    font-size: var(--mc-text-xs);
+    font-weight: var(--mc-font-normal);
+    color: var(--mc-text-muted);
+  }
+
+  .col-type::before {
+    content: '题型';
+  }
+
+  .col-answer::before {
+    content: '答案';
+  }
+
+  .col-answer {
+    grid-area: answer;
+    align-self: end;
+    font-size: var(--mc-text-sm);
+    font-weight: var(--mc-font-normal);
+  }
+
+  /* 答案列的 2 行截断在卡片里会另起一行，移动端改为行内自然换行 */
+  .col-answer .answer-clamp {
+    display: inline;
+    overflow: visible;
+    -webkit-line-clamp: unset;
+  }
+
+  .col-ops {
+    grid-area: ops;
+    align-self: center;
+    text-align: right;
+  }
+
+  .stem {
+    min-width: 0;
+    max-width: none;
+  }
+
+  .row--active td {
+    box-shadow: none;
+  }
+
+  .stem__toggle {
+    min-height: var(--mc-touch-target-mobile);
+  }
+
+  .stem__section-link {
+    min-height: var(--mc-touch-target-mobile);
+    padding: 0 var(--mc-space-1);
+  }
+}

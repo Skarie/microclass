@@ -181,7 +181,8 @@
   --mc-gradient-thumb-4: linear-gradient(135deg, var(--mc-warning-soft), var(--mc-amber-soft));
   --mc-gradient-thumb-5: linear-gradient(135deg, var(--mc-primary-soft), var(--mc-cyan-soft));
   --mc-gradient-thumb-6: linear-gradient(135deg, var(--mc-seal-soft), var(--mc-accent-soft));
-
+  /* 无封面兜底纹理：单色 45° 细斜线（6%），颜色只在这里定义 */
+  --mc-cover-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpath d='M-6 30 30-6M-6 18 18-6M6 30 30 6' stroke='%2384847e' stroke-opacity='0.06' stroke-width='1'/%3E%3C/svg%3E");
   /* 图文融合时的渐变蒙版（第 30 条） */
   --mc-gradient-veil: linear-gradient(180deg, transparent 30%, rgb(18 16 40 / 68%) 100%);
   /* 掠过高光：彻底不要（装饰性亮面是 AI 味来源） */
@@ -195,11 +196,9 @@
     var(--mc-bg-sunken) 63%
   );
   --mc-gradient-sheen-sweep: linear-gradient(90deg, transparent, var(--mc-surface-2-strong), transparent);
-
   /* 渐变遮罩（装饰性渐隐）；tokens 里必须写字面量色值 */
   --mc-mask-fade-b: linear-gradient(180deg, #000 0%, transparent 100%);
   --mc-mask-fade-r: linear-gradient(90deg, #000 0%, transparent 100%);
-
   /* ================= 动效（短、不弹） ================= */
   --mc-transition: 150ms cubic-bezier(0.32, 0.72, 0, 1);
 
@@ -262,6 +261,7 @@
   --mc-control-h-lg: 40px;
   --mc-row-h: 44px;
   --mc-touch-target: 32px;
+  --mc-touch-target-mobile: 44px;
   --mc-icon-sm: 16px;
   --mc-icon-md: 20px;
   --mc-icon-lg: 24px;
@@ -281,10 +281,10 @@
     color var(--mc-duration-fast) var(--mc-ease), background-color var(--mc-duration-fast) var(--mc-ease),
     border-color var(--mc-duration-fast) var(--mc-ease), box-shadow var(--mc-duration) var(--mc-ease-out),
     transform var(--mc-duration) var(--mc-ease-out);
-  /* 悬浮只做描边加深，不抬升、不放大 */
-  --mc-hover-lift: 0px;
+  /* 悬浮：可点击卡片只抬 2px（transform）+ 主色描边 + 一层最轻阴影，150ms */
+  --mc-hover-lift: -2px;
   --mc-hover-scale: 1;
-  --mc-hover-lift-sm: 0px;
+  --mc-hover-lift-sm: -2px;
 }
 
 /* ================= 暗色主题 ================= */

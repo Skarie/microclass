@@ -232,7 +232,7 @@ async function logout(): Promise<void> {
               <div
                 class="mc-progress__bar"
                 :class="{ 'mc-progress__bar--success': levelPercent >= 100 }"
-                :style="{ width: `${levelPercent}%` }"
+                :style="{ transform: `scaleX(${levelPercent / 100})` }"
               />
             </div>
           </div>

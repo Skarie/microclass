@@ -83,7 +83,7 @@ const summary = computed(() => (props.lessonStats ? lessonSummary(props.lessonSt
                     <div
                       class="mc-progress__bar"
                       :class="{ 'mc-progress__bar--success': row.finished }"
-                      :style="{ width: `${Math.min(100, Math.max(0, row.percent))}%` }"
+                      :style="{ transform: `scaleX(${Math.min(100, Math.max(0, row.percent)) / 100})` }"
                     />
                   </div>
                   <span class="mc-muted progress-cell__text">{{ row.percent }}%</span>
