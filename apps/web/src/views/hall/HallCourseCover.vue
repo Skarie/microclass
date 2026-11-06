@@ -7,6 +7,7 @@ import { computed, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import CourseCoverTag from '@/components/CourseCoverTag.vue';
 import Icon from '@/components/Icon.vue';
+import { COVER_CARD_WIDTH, coverUrl } from '@/utils/course-cover';
 import { STATUS_LABEL, statusOf, tintVars } from '@/utils/course-meta';
 import type { Course } from '@/api/types';
 
@@ -35,9 +36,10 @@ watch(
   >
     <img
       v-if="course.cover && !failed"
-      :src="`/api/v1/course-cover/${course.id}`"
+      :src="coverUrl(course.id, COVER_CARD_WIDTH)"
       :alt="course.name"
       loading="lazy"
+      decoding="async"
       @error="failed = true"
     />
     <span v-else class="cover__fallback" aria-hidden="true">

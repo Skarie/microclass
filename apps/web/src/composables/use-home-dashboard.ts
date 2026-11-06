@@ -10,6 +10,7 @@ import { computed, ref } from 'vue';
 import { api } from '@/api/client';
 import { useAsync } from '@/composables/useAsync';
 import { progressOf as courseProgress, statusOf } from '@/utils/course-meta';
+import { pickRecommendations } from '@/utils/course-recommend';
 import type { Category, Course } from '@/api/types';
 
 interface CoursesResponse {
@@ -73,6 +74,9 @@ export function useHomeDashboard() {
   /** 首页 hero：在学课程里进度最高的一门（接口没有"最近访问时间"，不编造） */
   const heroCourse = computed<Course | null>(() => learning.value[0] ?? null);
 
+  /** 推荐课程：排除在学/已学完/已收藏，同类优先、新上线其次（纯前端派生，最多 3 门） */
+  const recommended = computed(() => pickRecommendations(courses.value, 3));
+
   /** 「我的课程」横滑卡列：在学 → 已学完 → 未开始，最多 5 门 */
   const myCourses = computed<Course[]>(() => {
     const rest = courses.value.filter((c) => statusOf(c) === 'new');
@@ -111,6 +115,7 @@ export function useHomeDashboard() {
     learning,
     heroCourse,
     myCourses,
+    recommended,
     wrongPending,
     practiceCount,
     hasTodo,

@@ -6,6 +6,7 @@
 import { ref, watch } from 'vue';
 import CourseCoverTag from '@/components/CourseCoverTag.vue';
 import Icon from '@/components/Icon.vue';
+import { COVER_HERO_WIDTH, coverUrl } from '@/utils/course-cover';
 import { tintVars } from '@/utils/course-meta';
 import type { Course } from '@/api/types';
 
@@ -23,8 +24,10 @@ watch(
   <div class="hero-cover" :style="tintVars(course)">
     <img
       v-if="course.cover && !failed"
-      :src="`/api/v1/course-cover/${course.id}`"
+      :src="coverUrl(course.id, COVER_HERO_WIDTH)"
       :alt="course.name"
+      loading="lazy"
+      decoding="async"
       @error="failed = true"
     />
     <span v-else class="hero-cover__fallback" aria-hidden="true">

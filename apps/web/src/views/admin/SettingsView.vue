@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useToastStore } from '@/stores/toast';
 import PageHeader from '@/components/PageHeader.vue';
 import Icon from '@/components/Icon.vue';
+import AnnouncementAdminPanel from './AnnouncementAdminPanel.vue';
 
 interface SettingsResponse {
   settings: { allow_register: string };
@@ -125,6 +126,8 @@ onMounted(() => {
         </p>
       </div>
     </section>
+
+    <AnnouncementAdminPanel />
 
     <section class="mc-card">
       <div class="mc-card__header">

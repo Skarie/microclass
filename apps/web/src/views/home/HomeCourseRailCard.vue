@@ -7,6 +7,7 @@ import { RouterLink } from 'vue-router';
 import CourseCoverTag from '@/components/CourseCoverTag.vue';
 import Icon from '@/components/Icon.vue';
 import ProgressBar from '@/components/ProgressBar.vue';
+import { COVER_CARD_WIDTH, coverUrl } from '@/utils/course-cover';
 import { STATUS_LABEL, statusOf, tintVars } from '@/utils/course-meta';
 import type { Course } from '@/api/types';
 
@@ -27,7 +28,13 @@ const statusTone = computed(() =>
       tabindex="-1"
       :aria-label="`进入课程 ${course.name}`"
     >
-      <img v-if="course.cover" :src="`/api/v1/course-cover/${course.id}`" :alt="course.name" loading="lazy" />
+      <img
+        v-if="course.cover"
+        :src="coverUrl(course.id, COVER_CARD_WIDTH)"
+        :alt="course.name"
+        loading="lazy"
+        decoding="async"
+      />
       <Icon v-else name="graduation" :size="32" />
       <CourseCoverTag v-if="course.category_name" :label="course.category_name" corner="left" />
       <CourseCoverTag :label="STATUS_LABEL[status]" corner="right" :tone="statusTone" dot />
