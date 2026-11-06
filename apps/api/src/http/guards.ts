@@ -49,6 +49,10 @@ export const ADMIN_ROUTES = new Set([
   'GET /api/v1/settings',
   'PUT /api/v1/settings',
   'GET /api/v1/admin/me',
+  'GET /api/v1/admin/announcements',
+  'POST /api/v1/admin/announcements',
+  'PUT /api/v1/admin/announcements/:id',
+  'DELETE /api/v1/admin/announcements/:id',
 ]);
 
 /** 教师或管理员可访问（内容建设、题库、考试组卷、统计） */

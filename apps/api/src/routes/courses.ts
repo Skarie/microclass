@@ -1,11 +1,9 @@
 /**
  * 课程路由：列表/详情/增删改、封面、收藏、分类、知识点讲义导出。
  */
-import fs from 'node:fs';
 import type { FastifyInstance } from 'fastify';
 import { AppError } from '@microclass/shared';
 import { requireAdmin, requireTeacherOrAdmin, requireUser } from '../http/guards.js';
-import { mimeFor } from '../utils/mime.js';
 import { textHeaders, docxHeaders } from '../utils/download.js';
 import type { Deps } from '../app.js';
 
@@ -204,18 +202,6 @@ export async function registerCourseRoutes(app: FastifyInstance, deps: Deps): Pr
     });
     deps.courseService.setCover(user, id, saved.relPath);
     return { ok: true, cover: saved.relPath };
-  });
-
-  app.get('/course-cover/:id', async (req, reply) => {
-    requireUser(req, reply);
-    const id = Number((req.params as { id: string }).id);
-    const course = deps.courses.findById(id);
-    if (!course || !course.cover) throw AppError.notFound('课程无封面');
-    const abs = deps.storage.resolve(course.cover);
-    if (!abs || !fs.existsSync(abs)) throw AppError.notFound('封面已被移除');
-    reply.header('content-type', mimeFor(abs));
-    reply.header('cache-control', 'private, max-age=3600');
-    return reply.send(fs.createReadStream(abs));
   });
 
   app.get('/categories', async (req, reply) => {
