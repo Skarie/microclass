@@ -81,8 +81,8 @@ export function useAnalytics() {
     syncQuery();
     loading.value = true;
     try {
-      await loadOverview();
-      await loadTab();
+      // overview 与当前页签的数据互不依赖，并行请求，少一个网络往返
+      await Promise.all([loadOverview(), loadTab()]);
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
@@ -120,8 +120,13 @@ export function useAnalytics() {
     const qDays = Number.parseInt(String(route.query.days ?? ''), 10);
     if (!Number.isNaN(qDays) && [7, 30, 90, 0].includes(qDays)) filters.value.days = qDays;
 
-    await loadCourses();
-    await loadAll();
+    // 课程下拉与统计互不依赖：并行拉取，避免串行等待
+    loading.value = true;
+    try {
+      await Promise.all([loadCourses(), loadAll()]);
+    } finally {
+      loading.value = false;
+    }
   }
 
   return reactive({
