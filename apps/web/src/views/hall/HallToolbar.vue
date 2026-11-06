@@ -25,10 +25,6 @@ const state = reactive(props.catalog);
           aria-label="搜索课程"
         />
       </label>
-      <select v-model="state.categoryId" class="mc-select hall__select" aria-label="按分类筛选">
-        <option value="">全部分类</option>
-        <option v-for="c in state.categories" :key="c.id" :value="c.id">{{ c.name }}</option>
-      </select>
       <label class="mc-checkbox">
         <input v-model="state.onlyFav" type="checkbox" />
         只看收藏
@@ -105,11 +101,6 @@ const state = reactive(props.catalog);
   outline: none;
   box-shadow: none;
   background: transparent;
-}
-
-.hall__select {
-  width: auto;
-  min-width: 140px;
 }
 
 .hall__count {

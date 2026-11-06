@@ -9,6 +9,7 @@
 import { computed, ref } from 'vue';
 import { api } from '@/api/client';
 import { useAsync } from '@/composables/useAsync';
+import { progressOf as courseProgress, statusOf } from '@/utils/course-meta';
 import type { Category, Course } from '@/api/types';
 
 interface CoursesResponse {
@@ -56,15 +57,9 @@ export function useHomeDashboard() {
 
   const courses = computed(() => data.value?.courses ?? []);
 
-  function progressOf(course: Course): number {
-    const total = course.total ?? 0;
-    if (total === 0) return 0;
-    return Math.min(100, Math.round(((course.finished ?? 0) / total) * 100));
-  }
-
   /** 只看"在学"课程的进度：全站总进度对个人没有行动意义 */
   const learning = computed(() =>
-    courses.value.filter((c) => progressOf(c) > 0 && progressOf(c) < 100).sort((a, b) => progressOf(b) - progressOf(a)),
+    courses.value.filter((c) => statusOf(c) === 'learning').sort((a, b) => courseProgress(b) - courseProgress(a)),
   );
   const learningTotal = computed(() => learning.value.reduce((s, c) => s + (c.total ?? 0), 0));
   const learningDone = computed(() => learning.value.reduce((s, c) => s + (c.finished ?? 0), 0));
@@ -72,8 +67,22 @@ export function useHomeDashboard() {
     learningTotal.value > 0 ? Math.round((learningDone.value / learningTotal.value) * 100) : 0,
   );
 
-  const finishedCourses = computed(() => courses.value.filter((c) => (c.total ?? 0) > 0 && progressOf(c) >= 100));
+  const finishedCourses = computed(() => courses.value.filter((c) => statusOf(c) === 'finished'));
   const favoriteCourses = computed(() => courses.value.filter((c) => c.fav));
+
+  /** 首页 hero：在学课程里进度最高的一门（接口没有"最近访问时间"，不编造） */
+  const heroCourse = computed<Course | null>(() => learning.value[0] ?? null);
+
+  /** 「我的课程」横滑卡列：在学 → 已学完 → 未开始，最多 5 门 */
+  const myCourses = computed<Course[]>(() => {
+    const rest = courses.value.filter((c) => statusOf(c) === 'new');
+    return [...learning.value, ...finishedCourses.value, ...rest].slice(0, 5);
+  });
+
+  /** 今日待办：错题待复习 + 已开始但没学完的课程 */
+  const wrongPending = computed(() => wrong.value?.pending ?? 0);
+  const practiceCount = computed(() => learning.value.length);
+  const hasTodo = computed(() => wrongPending.value + practiceCount.value > 0);
 
   /** 看板头条指标：全部真实 */
   const metrics = computed<HomeMetric[]>(() => [
@@ -100,6 +109,11 @@ export function useHomeDashboard() {
     summary,
     wrong,
     learning,
+    heroCourse,
+    myCourses,
+    wrongPending,
+    practiceCount,
+    hasTodo,
     learningDone,
     learningTotal,
     learningPercent,
@@ -107,7 +121,7 @@ export function useHomeDashboard() {
     favoriteCourses,
     metrics,
     levelHint,
-    progressOf,
+    progressOf: courseProgress,
     load,
   };
 }

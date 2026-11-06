@@ -1,24 +1,26 @@
 <script setup lang="ts">
 /**
- * 首页 · 数据看板（课程已迁到独立的「课程大厅」页）
+ * 首页 · 学习看板
  *
  * 结构：
- *   ① 问候 + 一句话现状（今天/总体一句能读懂的话）
- *   ② 我的学习看板：学习时长、已完成课时、完成练习、错题待复习、等级进度
- *   ③ 学习资产：在学 / 已学完 / 收藏 + 总课时完成率（真实数据）
- *   ④ 最近在学：前 3 门，直接继续
- *   ⑤ 快捷跳转：学习入口 + 教学管理入口（管理员）
+ *   ① 问候
+ *   ② 继续学习 hero：最近在学的一门课 + 全页唯一橙色 CTA
+ *   ③ 我的学习：学习时长、已完成课时、完成练习、错题待复习、等级进度
+ *   ④ 今日待办：错题待复习 + 未完成练习（都为 0 时显示空态）
+ *   ⑤ 我的课程：横向卡列（最多 5 门）
+ *   ⑥ 学习资产：在学 / 已学完 / 收藏 / 错题收录
+ *   ⑦ 快捷跳转：学习入口 + 教学管理入口（管理员）
  *
- * 页面只做编排：
- *   - 取数与派生指标在 composables/use-home-dashboard.ts；
- *   - 五个区块在 ./home/*，各自带走自己的 scoped 样式；
- *   - 所有数字仍来自真实接口：/me/summary、/me/wrong-questions、/courses。
+ * 取数与派生指标在 composables/use-home-dashboard.ts；
+ * 所有数字来自 /me/summary、/me/wrong-questions、/courses。
  */
 import { onMounted } from 'vue';
 import HomeGreet from './home/HomeGreet.vue';
+import HomeHero from './home/HomeHero.vue';
 import HomeBoard from './home/HomeBoard.vue';
+import HomeTodo from './home/HomeTodo.vue';
+import HomeCourseRail from './home/HomeCourseRail.vue';
 import HomeAssets from './home/HomeAssets.vue';
-import HomeRecent from './home/HomeRecent.vue';
 import HomeJumps from './home/HomeJumps.vue';
 import SectionHead from '@/components/SectionHead.vue';
 import { useHomeDashboard } from '@/composables/use-home-dashboard';
@@ -28,6 +30,10 @@ const {
   summary,
   wrong,
   learning,
+  heroCourse,
+  myCourses,
+  wrongPending,
+  practiceCount,
   learningDone,
   learningTotal,
   learningPercent,
@@ -48,7 +54,10 @@ onMounted(() => void load());
     <!-- ① 问候 -->
     <HomeGreet :learning="learning" />
 
-    <!-- ② 我的学习看板 -->
+    <!-- ② 继续学习 -->
+    <HomeHero :course="heroCourse" :progress="heroCourse ? progressOf(heroCourse) : 0" />
+
+    <!-- ③ 我的学习 -->
     <section class="home__block">
       <SectionHead title="我的学习" icon="chartBar" />
       <HomeBoard
@@ -62,7 +71,13 @@ onMounted(() => void load());
       />
     </section>
 
-    <!-- ③ 学习资产 -->
+    <!-- ④ 今日待办 -->
+    <HomeTodo :wrong-pending="wrongPending" :practice-count="practiceCount" />
+
+    <!-- ⑤ 我的课程 -->
+    <HomeCourseRail :courses="myCourses" :progress-of="progressOf" />
+
+    <!-- ⑥ 学习资产 -->
     <section class="home__block">
       <SectionHead title="学习资产" icon="folder" />
       <HomeAssets
@@ -73,13 +88,7 @@ onMounted(() => void load());
       />
     </section>
 
-    <!-- ④ 最近在学 -->
-    <section v-if="learning.length > 0" class="home__block">
-      <SectionHead title="最近在学" icon="play" action-text="全部课程" action-to="/my-courses" />
-      <HomeRecent :courses="learning" :progress-of="progressOf" />
-    </section>
-
-    <!-- ⑤ 快捷跳转 -->
+    <!-- ⑦ 快捷跳转 -->
     <HomeJumps :is-admin="panel.isAdminPanel.value" />
   </section>
 </template>

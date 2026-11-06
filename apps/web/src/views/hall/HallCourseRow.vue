@@ -1,22 +1,33 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import Icon from '@/components/Icon.vue';
 import ProgressBar from '@/components/ProgressBar.vue';
 import Tag from '@/components/Tag.vue';
+import { STATUS_LABEL, statusOf, tintVars } from '@/utils/course-meta';
 import type { Course } from '@/api/types';
 
-/**
- * 课程大厅「列表」行（从 CourseHallView 抽出）：缩略图 + 标题/统计 + 进度 + 收藏/学习按钮。
- * 窄屏（≤900px）隐藏进度列，给标题和按钮让位。
- */
-defineProps<{ course: Course; progress: number }>();
+/** 课程大厅「列表」行：分类 tint 缩略图、状态、统计、进度与收藏/学习按钮。 */
+const props = defineProps<{
+  course: Course;
+  progress: number;
+}>();
 const emit = defineEmits<{ 'toggle-fav': [course: Course] }>();
+
+const status = computed(() => statusOf(props.course));
+const statusTone = computed(() =>
+  status.value === 'learning' ? 'primary' : status.value === 'finished' ? 'success' : 'neutral',
+);
+const actionLabel = computed(() =>
+  status.value === 'finished' ? '复习' : props.progress > 0 ? '继续学习' : '开始学习',
+);
 </script>
 
 <template>
   <li class="course-card course-card--row">
     <RouterLink
       class="course-card__thumb"
+      :style="tintVars(course)"
       :to="{ name: 'course', params: { id: course.id } }"
       tabindex="-1"
       :aria-label="`进入课程 ${course.name}`"
@@ -26,9 +37,12 @@ const emit = defineEmits<{ 'toggle-fav': [course: Course] }>();
     </RouterLink>
 
     <div class="course-card__row-main">
-      <RouterLink class="course-card__name" :to="{ name: 'course', params: { id: course.id } }">
-        {{ course.name }}
-      </RouterLink>
+      <div class="course-card__row-title">
+        <RouterLink class="course-card__name" :to="{ name: 'course', params: { id: course.id } }">
+          {{ course.name }}
+        </RouterLink>
+        <Tag :tone="statusTone" size="sm">{{ STATUS_LABEL[status] }}</Tag>
+      </div>
       <div class="course-card__meta">
         <span class="course-card__stat">
           <Icon name="video" :size="13" />
@@ -38,22 +52,23 @@ const emit = defineEmits<{ 'toggle-fav': [course: Course] }>();
           <Icon name="check-circle" :size="13" />
           已完成 {{ course.finished ?? 0 }}
         </span>
+        <Tag v-if="course.category_name" tone="neutral" size="sm">{{ course.category_name }}</Tag>
         <Tag v-if="(course.quiz ?? 0) > 0" tone="success" size="sm" icon="pen-line"> 已练习 {{ course.quiz }} </Tag>
-        <Tag v-if="course.published !== 1" tone="warning" size="sm">草稿</Tag>
       </div>
     </div>
 
     <div class="course-card__row-progress">
       <ProgressBar
         :value="progress"
-        :tone="progress >= 100 ? 'success' : 'primary'"
+        :tone="status === 'finished' ? 'success' : 'primary'"
+        :show-end="false"
         :label="`${course.finished ?? 0}/${course.total ?? 0}`"
       />
     </div>
 
     <div class="course-card__row-actions">
       <button
-        class="mc-btn mc-btn--ghost mc-btn--sm mc-btn--icon"
+        class="mc-btn mc-btn--ghost mc-btn--sm mc-btn--icon course-card__fav"
         :class="{ 'course-card__fav--on': course.fav }"
         type="button"
         :aria-label="course.fav ? '取消收藏' : '收藏课程'"
@@ -62,13 +77,8 @@ const emit = defineEmits<{ 'toggle-fav': [course: Course] }>();
       >
         <Icon name="star" :size="16" :filled="course.fav" />
       </button>
-      <RouterLink
-        class="mc-btn mc-btn--sm"
-        :class="progress > 0 ? 'mc-btn--soft' : 'mc-btn--ghost'"
-        :to="{ name: 'course', params: { id: course.id } }"
-      >
-        <span v-if="progress > 0" class="course-card__dot" aria-hidden="true" />
-        {{ progress > 0 ? '继续学习' : '开始学习' }}
+      <RouterLink class="course-card__cta" :to="{ name: 'course', params: { id: course.id } }">
+        {{ actionLabel }}
       </RouterLink>
     </div>
   </li>
@@ -82,7 +92,6 @@ const emit = defineEmits<{ 'toggle-fav': [course: Course] }>();
   gap: var(--mc-space-4);
   padding: var(--mc-space-2) var(--mc-space-3);
   border-radius: var(--mc-radius);
-  transition: var(--mc-transition-colors);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -97,14 +106,11 @@ const emit = defineEmits<{ 'toggle-fav': [course: Course] }>();
   justify-content: center;
   width: 64px;
   height: 44px;
+  overflow: hidden;
   border: 1px solid var(--mc-border);
   border-radius: var(--mc-radius-sm);
-  overflow: hidden;
-  /* 与大厅封面同一套中性缩略图：中性底 + 单色纹理，不再按 id 换渐变底色 */
-  background-color: var(--mc-bg-sunken);
-  background-image: var(--mc-cover-pattern);
-  color: var(--mc-primary-fg);
-  flex: none;
+  background-color: var(--cover-tint);
+  color: var(--cover-ink);
 }
 
 .course-card__thumb img {
@@ -120,24 +126,26 @@ const emit = defineEmits<{ 'toggle-fav': [course: Course] }>();
   min-width: 0;
 }
 
+.course-card__row-title {
+  display: flex;
+  align-items: center;
+  gap: var(--mc-space-2);
+  min-width: 0;
+}
+
 .course-card__name {
+  overflow: hidden;
   font-size: var(--mc-text-base);
   font-weight: var(--mc-font-semibold);
   color: var(--mc-text);
-  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.course-card__name:hover {
-  color: var(--mc-primary-fg);
 }
 
 .course-card__meta {
   display: flex;
   align-items: center;
   gap: var(--mc-space-3);
-  flex-wrap: wrap;
   font-size: var(--mc-text-xs);
   color: var(--mc-text-muted);
 }
@@ -154,16 +162,21 @@ const emit = defineEmits<{ 'toggle-fav': [course: Course] }>();
   gap: var(--mc-space-1);
 }
 
-.course-card__dot {
-  width: 6px;
-  height: 6px;
-  border-radius: var(--mc-radius-pill);
-  background: var(--mc-accent);
-  flex: none;
+.course-card__cta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 var(--mc-space-3);
+  border: 1px solid var(--mc-primary-soft);
+  border-radius: var(--mc-radius);
+  background: var(--mc-primary-soft);
+  color: var(--mc-primary-fg);
+  font-size: var(--mc-text-xs);
+  font-weight: var(--mc-font-medium);
 }
 
 .course-card__fav--on {
-  color: var(--mc-accent);
+  color: var(--mc-warning-fg);
 }
 
 @media (max-width: 900px) {
@@ -173,6 +186,12 @@ const emit = defineEmits<{ 'toggle-fav': [course: Course] }>();
 
   .course-card__row-progress {
     display: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  .course-card__cta {
+    min-height: var(--mc-touch-target-mobile);
   }
 }
 </style>

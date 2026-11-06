@@ -1,26 +1,21 @@
 <script setup lang="ts">
 /**
- * 课程大厅：纯浏览页
+ * 课程大厅：欢迎条 → 分类 chips → 搜索/筛选/视图 → 按分类分组的课程。
  *
- * 去掉了与首页/工具条重复的东西：
- *  - 主视觉（品牌主张 + 大搜索 + 「浏览全部课程」+ 刷新）→ 首页承担品牌与看板，这里不需要第二遍
- *  - 实力数据带（课程/课时/分类/已学完/在学）→ 首页数据看板已有
- *  - 分类金刚区 → 与工具条的"分类"下拉筛选完全重复
- *  - 继续学习主推块 → 首页「最近在学」与「我的课程」已覆盖
- * 只保留：标题描述 → 搜索/筛选/呈现切换 → 课程（卡片或列表，按分类分组）
- *
- * 页面只做编排：数据与筛选在 composables/use-hall-catalog.ts；
- * 界面按「工具条 / 平铺卡片 / 列表行 / 封面 / 骨架」拆到 ./hall/*。
+ * 数据与筛选在 composables/use-hall-catalog.ts；
+ * 界面按「欢迎条 / 分类 chips / 工具条 / 平铺卡片 / 列表行 / 封面 / 骨架」拆分。
  */
 import EmptyState from '@/components/EmptyState.vue';
 import Icon from '@/components/Icon.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import SectionHead from '@/components/SectionHead.vue';
 import { useHallCatalog } from '@/composables/use-hall-catalog';
+import HallWelcome from './hall/HallWelcome.vue';
+import HallCategoryChips from './hall/HallCategoryChips.vue';
+import HallToolbar from './hall/HallToolbar.vue';
 import HallCourseCard from './hall/HallCourseCard.vue';
 import HallCourseRow from './hall/HallCourseRow.vue';
 import HallSkeleton from './hall/HallSkeleton.vue';
-import HallToolbar from './hall/HallToolbar.vue';
 
 const catalog = useHallCatalog();
 </script>
@@ -41,48 +36,57 @@ const catalog = useHallCatalog();
       </template>
     </PageHeader>
 
-    <HallToolbar :catalog="catalog" />
+    <div class="hall__body">
+      <HallWelcome :catalog="catalog" />
 
-    <HallSkeleton v-if="catalog.loading && catalog.courses.length === 0" />
-
-    <EmptyState
-      v-else-if="catalog.filtered.length === 0"
-      icon="search"
-      title="没有匹配的课程"
-      description="换个关键词或清空筛选条件试试。若还没有课程，请联系管理员在「课程管理」中创建。"
-      action-text="重置筛选"
-      @action="catalog.resetFilters"
-    />
-
-    <section v-for="group in catalog.groups" v-else :key="group.name" class="hall__group">
-      <SectionHead :title="group.name">
-        <template #meta
-          ><span class="mc-num">{{ group.list.length }} 门</span></template
-        >
-      </SectionHead>
-
-      <!-- 卡片网格 -->
-      <div v-if="catalog.viewMode === 'cards'" class="hall__cards">
-        <HallCourseCard
-          v-for="course in group.list"
-          :key="course.id"
-          :course="course"
-          :progress="catalog.progressOf(course)"
-          @toggle-fav="catalog.toggleFav"
-        />
+      <div class="hall__filters">
+        <HallCategoryChips :catalog="catalog" />
+        <HallToolbar :catalog="catalog" />
       </div>
 
-      <!-- 紧凑列表 -->
-      <ul v-else class="hall__list">
-        <HallCourseRow
-          v-for="course in group.list"
-          :key="course.id"
-          :course="course"
-          :progress="catalog.progressOf(course)"
-          @toggle-fav="catalog.toggleFav"
+      <div id="hall-list" class="hall__results">
+        <HallSkeleton v-if="catalog.loading && catalog.courses.length === 0" :view-mode="catalog.viewMode" />
+
+        <EmptyState
+          v-else-if="catalog.filtered.length === 0"
+          icon="search"
+          title="没有匹配的课程"
+          description="换个关键词或清空筛选条件试试。若还没有课程，请联系管理员在「课程管理」中创建。"
+          action-text="重置筛选"
+          @action="catalog.resetFilters"
         />
-      </ul>
-    </section>
+
+        <template v-else>
+          <section class="hall__group">
+            <SectionHead :title="catalog.activeCategoryName">
+              <template #meta
+                ><span class="mc-num">{{ catalog.filtered.length }} 门</span></template
+              >
+            </SectionHead>
+
+            <div v-if="catalog.viewMode === 'cards'" class="hall__cards">
+              <HallCourseCard
+                v-for="course in catalog.filtered"
+                :key="course.id"
+                :course="course"
+                :progress="catalog.progressOf(course)"
+                @toggle-fav="catalog.toggleFav"
+              />
+            </div>
+
+            <ul v-else class="hall__list">
+              <HallCourseRow
+                v-for="course in catalog.filtered"
+                :key="course.id"
+                :course="course"
+                :progress="catalog.progressOf(course)"
+                @toggle-fav="catalog.toggleFav"
+              />
+            </ul>
+          </section>
+        </template>
+      </div>
+    </div>
   </section>
 </template>
 
@@ -92,19 +96,30 @@ const catalog = useHallCatalog();
   flex-direction: column;
 }
 
-/* 分组之间 32；标题到内容 12 由 SectionHead 负责 */
-.hall__group + .hall__group {
-  margin-top: var(--mc-space-8);
+.hall__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mc-space-8);
+  margin-top: var(--mc-space-2);
 }
 
-/* 卡片网格 */
+.hall__filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mc-space-4);
+}
+
+.hall__results {
+  display: flex;
+  flex-direction: column;
+}
+
 .hall__cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
   gap: var(--mc-space-4);
 }
 
-/* 紧凑列表 */
 .hall__list {
   display: flex;
   flex-direction: column;

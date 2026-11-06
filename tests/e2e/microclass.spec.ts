@@ -28,7 +28,8 @@ test.describe('微课堂端到端', () => {
     // 别的用例造的「E2E 课程 xxx」也会被 hasText 子串命中（真机表现：resolved to 3 elements）。
     const card = page.locator('.course-card').filter({ has: page.locator(`a[href$="/courses/${seeded.courseId}"]`) });
     await expect(card).toBeVisible();
-    await card.getByRole('link', { name: /开始学习|继续学习/ }).click();
+    // 卡片 CTA 改成 hover 出现，直接点课程标题链接进入详情
+    await card.locator(`a[href$="/courses/${seeded.courseId}"]`).first().click();
     await expect(page.getByRole('heading', { name: seeded.courseName })).toBeVisible();
 
     // 3. 章节分组与课时

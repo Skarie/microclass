@@ -17,14 +17,16 @@ const props = withDefaults(
     label?: string;
     /** 无可见标签时的可访问名（axe 要求 progressbar 必须有名字） */
     ariaLabel?: string;
+    /** 末端进行中圆点；页面要控制橙色 accent 数量时关掉 */
+    showEnd?: boolean;
   }>(),
-  { tone: 'primary', size: 'sm', showValue: false, label: '', ariaLabel: '进度' },
+  { tone: 'primary', size: 'sm', showValue: false, label: '', ariaLabel: '进度', showEnd: true },
 );
 
 const clamped = computed(() => Math.max(0, Math.min(100, Math.round(props.value))));
 /** 进度很小时（如 1/30 ≈ 3%）保留一个最小可见刻度，否则看起来像坏掉的一个点 */
 const fill = computed(() => (clamped.value === 0 ? 0 : Math.max(clamped.value, 3) / 100));
-const showEnd = computed(() => clamped.value > 0 && clamped.value < 100);
+const showEnd = computed(() => props.showEnd && clamped.value > 0 && clamped.value < 100);
 </script>
 
 <template>

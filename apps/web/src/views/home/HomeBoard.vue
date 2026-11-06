@@ -43,7 +43,7 @@ defineProps<{
         课时
         <template v-if="learningCount === 0">（暂无在学课程）</template>
       </p>
-      <ProgressBar :value="learningPercent" tone="primary" :label="`${learningPercent}%`" />
+      <ProgressBar :value="learningPercent" tone="primary" :show-end="false" :label="`${learningPercent}%`" />
     </div>
   </section>
 </template>

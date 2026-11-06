@@ -23,9 +23,7 @@ const auth = useAuthStore();
       <h1 class="home__title">你好，{{ auth.user?.display_name || auth.user?.username || '同学' }}</h1>
       <p class="home__sub">
         <template v-if="learning.length > 0">
-          有 <strong class="mc-num">{{ learning.length }}</strong> 门课正在进行，最近在学
-          <strong>{{ learning[0]?.name }}</strong
-          >（已完成 {{ learning[0]?.finished ?? 0 }}/{{ learning[0]?.total ?? 0 }} 课时）。
+          有 <strong class="mc-num">{{ learning.length }}</strong> 门课正在进行，按自己的节奏继续推进。
         </template>
         <template v-else> 还没有在学课程 —— 去课程大厅挑一门开始吧。 </template>
       </p>
@@ -72,5 +70,11 @@ const auth = useAuthStore();
   max-width: 68ch;
   font-size: var(--mc-text-sm);
   color: var(--mc-text-secondary);
+}
+
+@media (max-width: 1023px) {
+  .home__greet > .mc-btn {
+    min-height: var(--mc-touch-target-mobile);
+  }
 }
 </style>
