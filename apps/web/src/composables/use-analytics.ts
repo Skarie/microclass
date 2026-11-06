@@ -81,8 +81,12 @@ export function useAnalytics() {
     syncQuery();
     loading.value = true;
     try {
-      // overview 与当前页签的数据互不依赖，并行请求，少一个网络往返
-      await Promise.all([loadOverview(), loadTab()]);
+      // overview 与当前页签的数据互不依赖，并行请求；概览先到就先渲染，不让列表拖住首屏
+      const overviewTask = loadOverview();
+      const tabTask = loadTab();
+      await overviewTask;
+      loading.value = false;
+      await tabTask;
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
