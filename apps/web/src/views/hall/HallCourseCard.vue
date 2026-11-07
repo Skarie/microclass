@@ -82,6 +82,11 @@ const actionLabel = computed(() => (done.value ? '复习' : props.progress > 0 ?
     box-shadow: var(--mc-shadow-xs);
     transform: translateY(var(--mc-hover-lift));
   }
+
+  /* 卡片 hover：封面的几何构图轻微放大 1.02，角标不动 */
+  .course-card--tile:hover :deep(.cover__art) {
+    transform: scale(1.02);
+  }
 }
 
 .course-card__body {
@@ -99,8 +104,8 @@ const actionLabel = computed(() => (done.value ? '复习' : props.progress > 0 ?
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   line-clamp: 2;
-  min-height: calc(var(--mc-text-base) * var(--mc-leading) * 2);
-  font-size: var(--mc-text-base);
+  min-height: calc(var(--mc-text-md) * var(--mc-leading) * 2);
+  font-size: var(--mc-text-md);
   font-weight: var(--mc-font-semibold);
   line-height: var(--mc-leading);
   color: var(--mc-text);
@@ -181,14 +186,14 @@ const actionLabel = computed(() => (done.value ? '复习' : props.progress > 0 ?
 
   .course-card--tile:hover .course-card__cta:not(.course-card__cta--done),
   .course-card--tile:focus-within .course-card__cta:not(.course-card__cta--done) {
-    border-color: var(--mc-accent-fg);
-    background: var(--mc-accent-fg);
+    border-color: var(--mc-primary);
+    background: var(--mc-primary);
     color: var(--mc-text-inverse);
   }
 
   .course-card__cta:not(.course-card__cta--done):hover {
-    border-color: var(--mc-accent-hover);
-    background: var(--mc-accent-hover);
+    border-color: var(--mc-primary-hover);
+    background: var(--mc-primary-hover);
   }
 }
 

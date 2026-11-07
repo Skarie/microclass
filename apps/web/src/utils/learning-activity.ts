@@ -6,14 +6,14 @@
  */
 import type { ActivityDay } from '@/api/activity';
 
-export type ActivityLevel = 0 | 1 | 2 | 3;
+export type ActivityLevel = 0 | 1 | 2 | 3 | 4;
 
 export interface CalendarCell {
   /** YYYY-MM-DD；窗口外补位为 null */
   date: string | null;
   lessons: number;
   quizzes: number;
-  /** 0 无活动；1~3 有活动，数字越大强度越高 */
+  /** 0 无活动；1~4 有活动，数字越大强度越高 */
   level: ActivityLevel;
   today: boolean;
 }
@@ -40,13 +40,14 @@ function shiftDays(base: Date, offset: number): Date {
   return new Date(base.getFullYear(), base.getMonth(), base.getDate() + offset);
 }
 
-/** 强度分档：lessons + quizzes 1~2 / 3~5 / 6+ 三档，0 为无活动 */
+/** 强度分档：lessons + quizzes 1~2 / 3~5 / 6~9 / 10+ 四档，0 为无活动 */
 export function activityLevel(day: { lessons: number; quizzes: number }): ActivityLevel {
   const total = day.lessons + day.quizzes;
   if (total <= 0) return 0;
   if (total <= 2) return 1;
   if (total <= 5) return 2;
-  return 3;
+  if (total <= 9) return 3;
+  return 4;
 }
 
 function blankCell(): CalendarCell {

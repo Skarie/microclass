@@ -19,7 +19,7 @@ defineProps<{ items: Recommendation[] }>();
     </SectionHead>
 
     <ul class="rec__list">
-      <HomeRecommendCard v-for="item in items" :key="item.course.id" :recommendation="item" />
+      <HomeRecommendCard v-for="(item, index) in items" :key="item.course.id" :recommendation="item" :index="index" />
     </ul>
   </section>
 </template>

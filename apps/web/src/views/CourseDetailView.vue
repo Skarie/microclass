@@ -312,7 +312,7 @@ async function toggleFav(): Promise<void> {
 }
 
 .detail__title {
-  font-size: var(--mc-text-xl);
+  font-size: var(--mc-text-2xl);
 }
 
 .detail__desc {

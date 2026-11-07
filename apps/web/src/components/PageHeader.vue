@@ -116,8 +116,8 @@ withDefaults(
   gap: var(--mc-space-2);
   margin: 0;
   font-size: var(--mc-text-2xl);
-  line-height: var(--mc-leading-tight);
-  letter-spacing: var(--mc-tracking-tight);
+  line-height: var(--mc-leading-display);
+  letter-spacing: var(--mc-tracking-cn);
   font-weight: var(--mc-font-semibold);
   color: var(--mc-text);
 }

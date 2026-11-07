@@ -41,7 +41,7 @@ defineProps<{ viewMode: 'cards' | 'list' }>();
 }
 
 .hall__skeleton-cover {
-  height: 144px;
+  height: 148px;
 }
 
 .hall__skeleton-body {
@@ -75,14 +75,14 @@ defineProps<{ viewMode: 'cards' | 'list' }>();
 
 .hall__row-skeleton {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) 180px;
+  grid-template-columns: 40px minmax(0, 1fr) 180px;
   align-items: center;
   gap: var(--mc-space-4);
   padding: var(--mc-space-3);
 }
 
 .hall__skeleton-thumb {
-  height: 44px;
-  border-radius: var(--mc-radius-sm);
+  height: 40px;
+  border-radius: var(--mc-radius-xs);
 }
 </style>

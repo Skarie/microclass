@@ -423,7 +423,7 @@ async function logout(): Promise<void> {
 }
 
 .stat__value {
-  font-size: var(--mc-text-xl);
+  font-size: var(--mc-text-2xl);
   font-weight: var(--mc-font-bold);
   line-height: var(--mc-leading-display);
 }

@@ -1,10 +1,11 @@
 <script setup lang="ts">
 /**
- * 课程大厅 · 欢迎条：一句真实状态 + 两个入口（继续上次 / 浏览全部）。
- * 浅主色底，高度约 72px；不使用渐变。
+ * 课程大厅 · 欢迎条：主色实底 + 白字 + 白色主按钮 / 描边次按钮，右侧几何装饰。
+ * 文案只讲真实状态：上次在学什么、共有多少门课。
  */
 import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
+import GeoArt from '@/components/GeoArt.vue';
 import Icon from '@/components/Icon.vue';
 import type { HallCatalog } from '@/composables/use-hall-catalog';
 
@@ -18,12 +19,16 @@ const continueTo = computed(() =>
 
 <template>
   <section class="welcome" aria-label="课程大厅引导">
-    <span class="welcome__icon" aria-hidden="true"><Icon name="hall" :size="20" /></span>
+    <GeoArt class="welcome__art" />
 
     <div class="welcome__text">
+      <p class="welcome__eyebrow">
+        <Icon name="hall" :size="14" />
+        课程大厅
+      </p>
       <p v-if="course" class="welcome__line">
         上次在学 <strong>{{ course.name }}</strong
-        >，已完成 {{ course.finished ?? 0 }}/{{ course.total ?? 0 }} 课时。
+        >，已完成 <span class="mc-num">{{ course.finished ?? 0 }}/{{ course.total ?? 0 }}</span> 课时。
       </p>
       <p v-else class="welcome__line">还没有在学的课程，从下面挑一门开始；学完第一节课后会自动出现在首页。</p>
       <p class="welcome__hint">
@@ -45,41 +50,43 @@ const continueTo = computed(() =>
 
 <style scoped>
 .welcome {
+  position: relative;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--mc-space-4);
-  min-height: 72px;
-  padding: var(--mc-space-4) var(--mc-space-5);
-  border: 1px solid var(--mc-primary-border);
-  border-radius: var(--mc-radius-md);
-  background: var(--mc-primary-soft);
-}
-
-.welcome__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  flex: none;
-  border: 1px solid var(--mc-primary-border);
-  border-radius: var(--mc-radius);
-  background: var(--mc-bg-elevated);
-  color: var(--mc-primary-fg);
+  gap: var(--mc-space-5);
+  overflow: hidden;
+  padding: var(--mc-space-6);
+  border-radius: var(--mc-radius-lg);
+  background: var(--mc-hero-bg);
+  color: var(--mc-hero-fg);
 }
 
 .welcome__text {
+  position: relative;
+  z-index: 1;
   display: flex;
-  flex: 1;
+  flex: 1 1 360px;
   flex-direction: column;
   gap: var(--mc-space-1);
   min-width: 0;
 }
 
+.welcome__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mc-space-2);
+  margin: 0 0 var(--mc-space-1);
+  font-size: var(--mc-text-xs);
+  font-weight: var(--mc-font-semibold);
+  letter-spacing: 0.08em;
+}
+
 .welcome__line {
   margin: 0;
-  font-size: var(--mc-text-sm);
-  color: var(--mc-text);
+  font-size: var(--mc-text-md);
+  font-weight: var(--mc-font-medium);
+  line-height: var(--mc-leading-snug);
 }
 
 .welcome__line strong {
@@ -89,13 +96,16 @@ const continueTo = computed(() =>
 .welcome__hint {
   margin: 0;
   font-size: var(--mc-text-xs);
-  color: var(--mc-text-secondary);
+  line-height: var(--mc-leading-snug);
+  color: var(--mc-hero-muted);
 }
 
 .welcome__actions {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
-  gap: var(--mc-space-2);
+  gap: var(--mc-space-3);
   flex: none;
 }
 
@@ -103,52 +113,52 @@ const continueTo = computed(() =>
 .welcome__browse {
   display: inline-flex;
   align-items: center;
-  gap: var(--mc-space-1);
-  min-height: 32px;
-  padding: 0 var(--mc-space-3);
+  justify-content: center;
+  gap: var(--mc-space-2);
+  min-height: var(--mc-control-h-lg);
+  padding: 0 var(--mc-space-4);
   border-radius: var(--mc-radius);
-  font-size: var(--mc-text-xs);
-  font-weight: var(--mc-font-medium);
+  font-size: var(--mc-text-sm);
+  font-weight: var(--mc-font-semibold);
   white-space: nowrap;
+  transition: var(--mc-transition-colors);
 }
 
 .welcome__cta {
-  border: 1px solid var(--mc-primary);
-  background: var(--mc-primary);
-  color: var(--mc-text-inverse);
+  border: 1px solid var(--mc-hero-fg);
+  background: var(--mc-hero-fg);
+  color: var(--mc-player-bg);
 }
 
 .welcome__cta:hover {
-  border-color: var(--mc-primary-hover);
-  background: var(--mc-primary-hover);
+  background: var(--mc-hero-muted);
 }
 
 .welcome__browse {
-  border: 1px solid var(--mc-border);
-  background: var(--mc-bg-elevated);
-  color: var(--mc-text-secondary);
+  border: 1px solid color-mix(in srgb, var(--mc-hero-fg) 62%, transparent);
+  color: var(--mc-hero-fg);
 }
 
 .welcome__browse:hover {
-  border-color: var(--mc-primary-border);
-  color: var(--mc-primary-fg);
+  border-color: var(--mc-hero-fg);
+  background: color-mix(in srgb, var(--mc-hero-fg) 12%, transparent);
 }
 
 .welcome__cta:focus-visible,
 .welcome__browse:focus-visible {
-  outline: none;
-  box-shadow: var(--mc-focus-ring);
+  outline: 2px solid var(--mc-hero-fg);
+  outline-offset: 2px;
 }
 
 @media (max-width: 900px) {
   .welcome {
     align-items: flex-start;
-    flex-wrap: wrap;
+    padding: var(--mc-space-5);
   }
 
   .welcome__actions {
     width: 100%;
-    padding-left: var(--mc-space-10);
+    flex-wrap: wrap;
   }
 }
 

@@ -61,7 +61,7 @@ const auth = useAuthStore();
   font-size: var(--mc-text-2xl);
   font-weight: var(--mc-font-semibold);
   line-height: var(--mc-leading-display);
-  letter-spacing: var(--mc-tracking-tight);
+  letter-spacing: var(--mc-tracking-cn);
   color: var(--mc-text);
 }
 

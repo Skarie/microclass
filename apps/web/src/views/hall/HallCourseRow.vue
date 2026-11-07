@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
+import CourseCoverArt from '@/components/CourseCoverArt.vue';
 import Icon from '@/components/Icon.vue';
 import ProgressBar from '@/components/ProgressBar.vue';
 import Tag from '@/components/Tag.vue';
-import { STATUS_LABEL, statusOf, tintVars } from '@/utils/course-meta';
+import { STATUS_LABEL, statusOf } from '@/utils/course-meta';
 import type { Course } from '@/api/types';
 
-/** 课程大厅「列表」行：分类 tint 缩略图、状态、统计、进度与收藏/学习按钮。 */
+/** 课程大厅「列表」行：40px 分类色块 + 首字、状态、统计、进度与收藏/学习按钮。 */
 const props = defineProps<{
   course: Course;
   progress: number;
@@ -27,13 +28,11 @@ const actionLabel = computed(() =>
   <li class="course-card course-card--row">
     <RouterLink
       class="course-card__thumb"
-      :style="tintVars(course)"
       :to="{ name: 'course', params: { id: course.id } }"
       tabindex="-1"
       :aria-label="`进入课程 ${course.name}`"
     >
-      <img v-if="course.cover" :src="`/api/v1/course-cover/${course.id}`" :alt="course.name" loading="lazy" />
-      <Icon v-else name="graduation" :size="20" />
+      <CourseCoverArt :course="course" compact />
     </RouterLink>
 
     <div class="course-card__row-main">
@@ -87,7 +86,7 @@ const actionLabel = computed(() =>
 <style scoped>
 .course-card--row {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) 180px auto;
+  grid-template-columns: 40px minmax(0, 1fr) 180px auto;
   align-items: center;
   gap: var(--mc-space-4);
   padding: var(--mc-space-2) var(--mc-space-3);
@@ -102,21 +101,10 @@ const actionLabel = computed(() =>
 
 .course-card__thumb {
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 64px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   overflow: hidden;
-  border: 1px solid var(--mc-border);
-  border-radius: var(--mc-radius-sm);
-  background-color: var(--cover-tint);
-  color: var(--cover-ink);
-}
-
-.course-card__thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  border-radius: var(--mc-radius-xs);
 }
 
 .course-card__row-main {
@@ -181,11 +169,40 @@ const actionLabel = computed(() =>
 
 @media (max-width: 900px) {
   .course-card--row {
-    grid-template-columns: 56px minmax(0, 1fr) auto;
+    grid-template-columns: 40px minmax(0, 1fr);
+    row-gap: var(--mc-space-2);
+  }
+
+  .course-card__thumb {
+    grid-row: 1 / span 2;
+    align-self: start;
+  }
+
+  .course-card__row-actions {
+    grid-column: 2;
+    justify-content: flex-end;
   }
 
   .course-card__row-progress {
     display: none;
+  }
+
+  .course-card__name {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    white-space: normal;
+  }
+
+  .course-card__meta {
+    flex-wrap: wrap;
+    row-gap: var(--mc-space-1);
+  }
+
+  .course-card__stat {
+    white-space: nowrap;
   }
 }
 

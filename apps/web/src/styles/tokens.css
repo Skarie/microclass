@@ -21,6 +21,8 @@
   --mc-primary-soft: #e5f4ef;
   --mc-primary-border: #b0dcd0;
   --mc-primary-fg: #00694e;
+  /* 主色最深一档：KPI 数字与图表主序列的文字色 */
+  --mc-primary-strong: #005740;
   /* 第二品牌色（哑光赭）：只做数据高亮与图表 */
   --mc-accent: #ea580c;
   --mc-accent-hover: #c2410c;
@@ -37,6 +39,24 @@
   --mc-cyan-soft: #e4f6fa;
   --mc-cyan-border: #b3e2ee;
   --mc-cyan-fg: #0e7490;
+  --mc-cyan-strong: #155e75;
+
+  /* ================= 四组语义域（全站固定，不随机） =================
+     学习内容 = primary / 数据统计 = indigo / 提醒待办 = terra / 系统管理 = neutral。
+     每组都有 soft（块面底）、fg（图标与文字）、strong（大数字）三档。 */
+  --mc-indigo: #4f46e5;
+  --mc-indigo-hover: #4338ca;
+  --mc-indigo-soft: #eef0ff;
+  --mc-indigo-border: #c7cdfb;
+  --mc-indigo-fg: #4338ca;
+  --mc-indigo-strong: #3730a3;
+  --mc-terra: #b45309;
+  --mc-terra-hover: #92400e;
+  --mc-terra-soft: #fdf0e4;
+  --mc-terra-border: #f0c9a4;
+  --mc-terra-fg: #9a3412;
+  --mc-terra-strong: #7c2d12;
+  --mc-neutral-strong: #31312d;
 
   /* 砖红（徽记/点睛） */
   --mc-seal: #7c3aed;
@@ -80,19 +100,18 @@
   /* 拉丁字母与数字用拉丁字体族：中文字体的数字偏松、字重不均（第 23 条） */
   --mc-font-num: 'SF Pro Text', Roboto, 'Helvetica Neue', Arial, var(--mc-font-sans);
   --mc-font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
-  /* 自查清单 #2：文字层级控制在 4~5 级（12 辅助 / 14 正文 / 15 区块标题 / 20 小标题 / 26 页面标题） */
+  /* 5 档字阶：12 辅助 / 14 正文 / 16 区块与卡片标题 / 30 页面标题与 KPI / 34 展示标题 */
   --mc-text-xs: 12px;
   --mc-text-sm: 14px;
   --mc-text-base: 14px;
-  --mc-text-md: 15px;
-  --mc-text-lg: 15px;
-  --mc-text-xl: 20px;
-  --mc-text-2xl: 26px;
+  --mc-text-md: 16px;
+  --mc-text-lg: 16px;
+  --mc-text-2xl: 30px;
   /* 行高规则（第 29 条）：字越小行高越大 */
   --mc-leading-display: 1.2;
   --mc-leading-tight: 1.3;
   --mc-leading-snug: 1.4;
-  --mc-leading: 1.6;
+  --mc-leading: 1.65;
   --mc-leading-loose: 1.75;
   /* 泛雅式答题页的阅读尺：题干与题头 15px / 1.7，比通用正文略大、更接近考试系统 */
   --mc-quiz-font-size: 15px;
@@ -153,34 +172,19 @@
   --mc-surface-2-strong: rgb(27 27 26 / 8%);
   --mc-bg-soft: color-mix(in srgb, var(--mc-text-muted) 12%, transparent);
   --mc-player-bg: #0a0a0a;
+  /* 首页 / 大厅主色横幅：纯色底 + 白字；暗色主题用深绿，避免亮绿底白字对比不足 */
+  --mc-hero-bg: var(--mc-primary);
+  --mc-hero-fg: #ffffff;
+  --mc-hero-muted: #f4fbf8;
 
   /* 毛玻璃：几乎不可见（大模糊本身就是"AI 味"） */
   --mc-glass-bg: rgb(255 255 255 / 92%);
   --mc-glass-border: rgb(255 255 255 / 60%);
   --mc-glass-blur: saturate(105%) blur(3px);
 
-  /* ================= 渐变（全部收敛为「平涂」） ================= */
+  /* ================= 渐变（只保留功能性与单色，不做装饰） ================= */
   --mc-gradient-brand: linear-gradient(135deg, #00a67d 0%, #00805f 100%);
   --mc-gradient-brand-soft: linear-gradient(135deg, #e8f6f1 0%, #eef4ff 100%);
-  --mc-gradient-primary: linear-gradient(180deg, #00855f 0%, #006b4f 100%);
-  --mc-gradient-accent: linear-gradient(180deg, #f97316 0%, #ea580c 100%);
-  --mc-gradient-surface: linear-gradient(180deg, #ffffff 0%, #fbfbfe 100%);
-  /* 背景元素（第 12/26 条）：极淡的品牌氛围 + 一层细网格线，替代"纯色单调" */
-  --mc-bg-art:
-    radial-gradient(120% 80% at 12% -10%, color-mix(in srgb, var(--mc-primary) 12%, transparent), transparent 60%),
-    radial-gradient(90% 70% at 100% 0%, color-mix(in srgb, var(--mc-accent) 10%, transparent), transparent 62%),
-    linear-gradient(180deg, color-mix(in srgb, var(--mc-bg) 100%, transparent), var(--mc-bg));
-  --mc-bg-grid:
-    linear-gradient(to right, color-mix(in srgb, var(--mc-text) 4%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in srgb, var(--mc-text) 4%, transparent) 1px, transparent 1px);
-  --mc-bg-grid-size: 64px 64px;
-  /* 课程缩略图配色（按 id 稳定分配，避免整列同色） */
-  --mc-gradient-thumb-1: linear-gradient(135deg, var(--mc-primary-100), var(--mc-primary-200));
-  --mc-gradient-thumb-2: linear-gradient(135deg, var(--mc-accent-soft), var(--mc-accent-border));
-  --mc-gradient-thumb-3: linear-gradient(135deg, var(--mc-success-soft), var(--mc-primary-soft));
-  --mc-gradient-thumb-4: linear-gradient(135deg, var(--mc-warning-soft), var(--mc-amber-soft));
-  --mc-gradient-thumb-5: linear-gradient(135deg, var(--mc-primary-soft), var(--mc-cyan-soft));
-  --mc-gradient-thumb-6: linear-gradient(135deg, var(--mc-seal-soft), var(--mc-accent-soft));
   /* 无封面兜底纹理：单色 45° 细斜线（6%），颜色只在这里定义 */
   --mc-cover-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpath d='M-6 30 30-6M-6 18 18-6M6 30 30 6' stroke='%2384847e' stroke-opacity='0.06' stroke-width='1'/%3E%3C/svg%3E");
   /* 图文融合时的渐变蒙版（第 30 条） */
@@ -188,7 +192,6 @@
   /* 掠过高光：彻底不要（装饰性亮面是 AI 味来源） */
   --mc-gradient-sheen: none;
   /* 功能性渐变：骨架屏与加载微光——只表达"加载中"，不做装饰 */
-  --mc-gradient-progress: linear-gradient(90deg, var(--mc-primary-400), var(--mc-primary));
   --mc-gradient-shimmer: linear-gradient(
     90deg,
     var(--mc-bg-sunken) 25%,
@@ -196,37 +199,15 @@
     var(--mc-bg-sunken) 63%
   );
   --mc-gradient-sheen-sweep: linear-gradient(90deg, transparent, var(--mc-surface-2-strong), transparent);
-  /* 渐变遮罩（装饰性渐隐）；tokens 里必须写字面量色值 */
-  --mc-mask-fade-b: linear-gradient(180deg, #000 0%, transparent 100%);
-  --mc-mask-fade-r: linear-gradient(90deg, #000 0%, transparent 100%);
   /* ================= 动效（短、不弹） ================= */
   --mc-transition: 150ms cubic-bezier(0.32, 0.72, 0, 1);
 
-  /* ================= 色阶 ================= */
-  /* 主色阶（哑光紫） */
-  --mc-primary-50: #e8f6f1;
+  /* ================= 色阶（只保留组件实际用到的档位） ================= */
   --mc-primary-100: #d3ede5;
-  --mc-primary-200: #a9dccd;
-  --mc-primary-300: #7cc9b3;
-  --mc-primary-400: #43b394;
-  --mc-primary-500: #00a67d;
-  --mc-primary-600: #00805f;
-  --mc-primary-700: #00694e;
-  --mc-primary-800: #005740;
-  --mc-primary-900: #004734;
 
   /* 中性阶（真灰） */
   --mc-neutral-0: #ffffff;
-  --mc-neutral-50: #fafaf9;
-  --mc-neutral-100: #f6f6f5;
-  --mc-neutral-200: #e4e4e2;
-  --mc-neutral-300: #ccccca;
   --mc-neutral-400: #a8a8a4;
-  --mc-neutral-500: #84847e;
-  --mc-neutral-600: #66665f;
-  --mc-neutral-700: #4a4a45;
-  --mc-neutral-800: #31312d;
-  --mc-neutral-900: #1b1b1a;
 
   /* 图表色板（哑光）：紫 / 赭 / 青 / 竹 / 砖 / 浅紫 / 墨绿 / 陶 */
   --mc-chart-1: #00805f;
@@ -238,15 +219,17 @@
   --mc-chart-7: #0891b2;
   --mc-chart-8: #00a67d;
 
-  /* 清单 #2：不再保留 32/40 两档，展示级与页面标题统一 26（层级越少越清晰） */
-  --mc-text-3xl: 26px;
-  --mc-text-4xl: 26px;
+  /* 清单 #2：不再保留 32/40 两档，展示级与页面标题统一走 3xl/4xl */
+  --mc-text-3xl: 30px;
+  --mc-text-4xl: 34px;
   --mc-font-normal: 400;
   --mc-font-medium: 500;
   --mc-font-semibold: 600;
   --mc-font-bold: 700;
   --mc-leading-relaxed: 1.75;
   --mc-tracking-tight: -0.015em;
+  /* 中文大标题不压字距，反而要放 0.01em；负字距只留给数字/拉丁展示字体 */
+  --mc-tracking-cn: 0.01em;
   --mc-gutter: var(--mc-space-5);
   --mc-section-gap: var(--mc-space-6);
   --mc-card-pad: var(--mc-space-5);
@@ -295,6 +278,7 @@ html[data-theme='dark'] {
   --mc-primary-soft: #10281f;
   --mc-primary-border: #1d4b3c;
   --mc-primary-fg: #7fe0bd;
+  --mc-primary-strong: #a5f0d4;
 
   --mc-accent: #fb923c;
   --mc-accent-hover: #fdae63;
@@ -311,6 +295,21 @@ html[data-theme='dark'] {
   --mc-cyan-soft: #14232a;
   --mc-cyan-border: #274250;
   --mc-cyan-fg: #9cc7d6;
+  --mc-cyan-strong: #a5e8f5;
+
+  --mc-indigo: #5b63d6;
+  --mc-indigo-hover: #6e76e8;
+  --mc-indigo-soft: #1a1c38;
+  --mc-indigo-border: #333a6e;
+  --mc-indigo-fg: #a5b4fc;
+  --mc-indigo-strong: #c7d2fe;
+  --mc-terra: #b45309;
+  --mc-terra-hover: #c2610b;
+  --mc-terra-soft: #2c1b0e;
+  --mc-terra-border: #5a3218;
+  --mc-terra-fg: #fdba74;
+  --mc-terra-strong: #f6c08a;
+  --mc-neutral-strong: #e9e9e7;
 
   --mc-seal: #cc7a72;
   --mc-seal-soft: #2b1c1a;
@@ -342,6 +341,9 @@ html[data-theme='dark'] {
   --mc-text-secondary: #b0b0ab;
   --mc-text-muted: #9898a8;
   --mc-text-inverse: #121213;
+  --mc-hero-bg: #0e3b2e;
+  --mc-hero-fg: #ffffff;
+  --mc-hero-muted: #d8eee5;
 
   --mc-shadow-xs: 0 1px 1px rgb(0 0 0 / 40%);
   --mc-shadow-sm: 0 1px 2px rgb(0 0 0 / 45%);
@@ -362,9 +364,6 @@ html[data-theme='dark'] {
 
   --mc-gradient-brand: linear-gradient(135deg, #2fbf94 0%, #00805f 100%);
   --mc-gradient-brand-soft: linear-gradient(135deg, #10281f 0%, #16213a 100%);
-  --mc-gradient-primary: linear-gradient(180deg, #2fbf94 0%, #29a882 100%);
-  --mc-gradient-accent: linear-gradient(180deg, #fb923c 0%, #ea580c 100%);
-  --mc-gradient-surface: linear-gradient(180deg, #1a1a1c 0%, #171719 100%);
   --mc-gradient-sheen: none;
 
   --mc-chart-1: #2fbf94;

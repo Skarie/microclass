@@ -209,6 +209,7 @@ function tooltipFor(index: number): string {
 
 .trend__grid {
   stroke: var(--mc-border);
+  opacity: 0.55;
   stroke-dasharray: 3 3;
 }
 
@@ -218,28 +219,28 @@ function tooltipFor(index: number): string {
 }
 
 .trend__bar {
-  fill: var(--mc-chart-1);
+  fill: var(--mc-primary);
   opacity: 0.55;
 }
 
 .trend__barwrong {
-  fill: var(--mc-danger);
-  opacity: 0.85;
+  fill: var(--mc-terra);
+  opacity: 0.9;
 }
 
 .trend__area {
-  fill: var(--mc-chart-3);
-  opacity: 0.16;
+  fill: var(--mc-indigo);
+  opacity: 0.14;
 }
 
 .trend__line {
   fill: none;
-  stroke: var(--mc-chart-3);
+  stroke: var(--mc-indigo);
   stroke-width: 2;
 }
 
 .trend__dot {
-  fill: var(--mc-chart-3);
+  fill: var(--mc-indigo);
 }
 
 .trend__crosshair {
@@ -271,16 +272,16 @@ function tooltipFor(index: number): string {
 }
 
 .trend__swatch--bar {
-  background: var(--mc-chart-1);
+  background: var(--mc-primary);
   opacity: 0.55;
 }
 
 .trend__swatch--wrong {
-  background: var(--mc-danger);
+  background: var(--mc-terra);
 }
 
 .trend__swatch--line {
-  background: var(--mc-chart-3);
+  background: var(--mc-indigo);
 }
 
 .trend__hover {

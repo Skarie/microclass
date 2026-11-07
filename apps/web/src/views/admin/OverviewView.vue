@@ -16,9 +16,9 @@ import { useAuthStore } from '@/stores/auth';
 import { useToastStore } from '@/stores/toast';
 import Icon from '@/components/Icon.vue';
 import PageHeader from '@/components/PageHeader.vue';
-import MetricBar from '@/components/MetricBar.vue';
 import LinksCard from './overview/LinksCard.vue';
 import TodoCard from './overview/TodoCard.vue';
+import OverviewKpis from './overview/OverviewKpis.vue';
 import type { IconName } from '@/components/icons';
 import type { Course, Category, User } from '@/api/types';
 
@@ -188,28 +188,6 @@ const questionStat = computed(() =>
   health.value ? { value: String(health.value.stats.total), unit: '题' } : { value: '—', unit: '' },
 );
 
-/** 顶部指标条（反模式 #20：四个数字不该占四张卡） */
-const metrics = computed(() => [
-  { label: '课程', value: courses.value.length, unit: '门', tone: 'primary' as const },
-  { label: '课时', value: lessonsTotal.value, unit: '个', tone: 'info' as const },
-  {
-    label: '题目',
-    value: questionStat.value.value,
-    unit: questionStat.value.unit,
-    hint: healthHint.value,
-  },
-  ...(auth.isAdmin
-    ? [
-        {
-          label: '账号',
-          value: users.value.length,
-          unit: '个',
-          hint: `${users.value.filter((u) => u.role === 'student').length} 名学员`,
-        },
-      ]
-    : []),
-]);
-
 const healthHint = computed(() => {
   if (healthLoading.value && !health.value) return '体检数据加载中…';
   if (!health.value) return healthError.value ? '体检数据加载失败' : '体检数据待加载';
@@ -240,12 +218,18 @@ onMounted(async () => {
           刷新
         </button>
       </template>
-
-      <template #meta>
-        <!-- 反模式 #20：四个数字不必占四张卡片 -->
-        <MetricBar :items="metrics" />
-      </template>
     </PageHeader>
+
+    <div class="overview__kpis">
+      <OverviewKpis
+        :courses="courses"
+        :lessons="lessonsTotal"
+        :question="questionStat"
+        :question-hint="healthHint"
+        :users="users"
+        :is-admin="auth.isAdmin"
+      />
+    </div>
 
     <TodoCard
       :todos="todosOf()"
@@ -263,6 +247,12 @@ onMounted(async () => {
 /* 后台区块之间 32；页头自带的 24 外边距在总览里让位给统一 gap */
 .overview {
   gap: var(--mc-space-8);
+}
+
+.overview__kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--mc-space-4);
 }
 
 .overview :deep(.ph) {

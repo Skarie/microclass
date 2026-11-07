@@ -21,11 +21,7 @@ const ariaLabel = computed(
 );
 
 function cellClass(cell: CalendarCell): (string | false)[] {
-  return [
-    `cal__cell--l${cell.level}`,
-    !cell.date && 'cal__cell--blank',
-    cell.today && cell.level > 0 && 'cal__cell--today',
-  ];
+  return [`cal__cell--l${cell.level}`, !cell.date && 'cal__cell--blank', cell.today && 'cal__cell--today'];
 }
 
 onMounted(() => void load());
@@ -101,22 +97,28 @@ onMounted(() => void load());
   background: transparent;
 }
 
+/* 四档主色透明度：越深表示当天完成越多 */
 .cal__cell--l1 {
-  background: color-mix(in srgb, var(--mc-primary) 18%, var(--mc-bg-elevated));
+  background: color-mix(in srgb, var(--mc-primary) 16%, var(--mc-bg-elevated));
 }
 
 .cal__cell--l2 {
-  background: color-mix(in srgb, var(--mc-primary) 45%, var(--mc-bg-elevated));
+  background: color-mix(in srgb, var(--mc-primary) 34%, var(--mc-bg-elevated));
 }
 
 .cal__cell--l3 {
-  background: var(--mc-primary);
+  background: color-mix(in srgb, var(--mc-primary) 58%, var(--mc-bg-elevated));
 }
 
-/* 今天有活动：主色描边 + offset 留白，深色格子上也能看出来 */
+.cal__cell--l4 {
+  background: color-mix(in srgb, var(--mc-primary) 82%, var(--mc-bg-elevated));
+}
+
+/* 今天：实心主色 + 圆角描边，和「有没有活动」区分开 */
 .cal__cell--today {
+  background: var(--mc-primary);
   outline: 2px solid var(--mc-primary);
-  outline-offset: 1px;
+  outline-offset: 2px;
 }
 
 .cal__stat,
@@ -128,7 +130,8 @@ onMounted(() => void load());
 }
 
 .cal__stat strong {
-  font-size: var(--mc-text-sm);
+  font-size: var(--mc-text-lg);
+  font-weight: var(--mc-font-bold);
   color: var(--mc-text);
 }
 

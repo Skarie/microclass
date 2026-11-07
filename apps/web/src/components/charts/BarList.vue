@@ -142,20 +142,17 @@ const widthOf = (item: BarItem): number => {
   background: var(--mc-success);
 }
 
-.bars__fill--warning {
-  background: var(--mc-warning);
-}
-
+.bars__fill--warning,
 .bars__fill--danger {
-  background: var(--mc-danger);
+  background: var(--mc-terra);
 }
 
 .bars__fill--info {
-  background: var(--mc-chart-2);
+  background: var(--mc-indigo);
 }
 
 .bars__fill--neutral {
-  background: var(--mc-chart-6);
+  background: var(--mc-neutral-strong);
 }
 
 .bars__overlay {

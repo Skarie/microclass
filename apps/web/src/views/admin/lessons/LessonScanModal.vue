@@ -100,7 +100,7 @@ defineProps<{ scan: ReturnType<typeof useLessonScan> }>();
 }
 
 .scan-summary__num {
-  font-size: var(--mc-text-xl);
+  font-size: var(--mc-text-2xl);
   font-weight: var(--mc-font-bold);
 }
 

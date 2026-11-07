@@ -1,14 +1,14 @@
 <script setup lang="ts">
 /**
- * 首页「我的课程」横滑卡片：封面（或分类 tint）、状态徽标、名称、进度。
+ * 首页「我的课程」横滑卡：分类色块封面（几何构图）+ 状态 / 分类角标 + 进度 + 实心主色小按钮。
  */
 import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
+import CourseCoverArt from '@/components/CourseCoverArt.vue';
 import CourseCoverTag from '@/components/CourseCoverTag.vue';
 import Icon from '@/components/Icon.vue';
 import ProgressBar from '@/components/ProgressBar.vue';
-import { COVER_CARD_WIDTH, coverUrl } from '@/utils/course-cover';
-import { STATUS_LABEL, statusOf, tintVars } from '@/utils/course-meta';
+import { STATUS_LABEL, statusOf } from '@/utils/course-meta';
 import type { Course } from '@/api/types';
 
 const props = defineProps<{ course: Course; progress: number }>();
@@ -17,25 +17,18 @@ const status = computed(() => statusOf(props.course));
 const statusTone = computed(() =>
   status.value === 'learning' ? 'primary' : status.value === 'finished' ? 'success' : 'neutral',
 );
+const actionLabel = computed(() => (props.progress >= 100 ? '复习' : props.progress > 0 ? '继续学习' : '开始学习'));
 </script>
 
 <template>
   <li class="rail-card mc-card">
     <RouterLink
       class="rail-card__cover"
-      :style="tintVars(course)"
       :to="{ name: 'course', params: { id: course.id } }"
       tabindex="-1"
       :aria-label="`进入课程 ${course.name}`"
     >
-      <img
-        v-if="course.cover"
-        :src="coverUrl(course.id, COVER_CARD_WIDTH)"
-        :alt="course.name"
-        loading="lazy"
-        decoding="async"
-      />
-      <Icon v-else name="graduation" :size="32" />
+      <CourseCoverArt :course="course" />
       <CourseCoverTag v-if="course.category_name" :label="course.category_name" corner="left" />
       <CourseCoverTag :label="STATUS_LABEL[status]" corner="right" :tone="statusTone" dot />
     </RouterLink>
@@ -54,6 +47,10 @@ const statusTone = computed(() =>
         :show-end="false"
         :aria-label="`${course.name} 学习进度`"
       />
+      <RouterLink class="rail-card__cta" :to="{ name: 'course', params: { id: course.id } }">
+        <Icon :name="progress >= 100 ? 'refresh' : 'play'" :size="14" />
+        {{ actionLabel }}
+      </RouterLink>
     </div>
   </li>
 </template>
@@ -79,25 +76,15 @@ const statusTone = computed(() =>
 
 .rail-card__cover {
   position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 132px;
+  display: block;
+  height: 148px;
   overflow: hidden;
   border-bottom: 1px solid var(--mc-border);
-  background-color: var(--cover-tint);
-  background-image: var(--mc-cover-pattern);
-  color: var(--cover-ink);
-}
-
-.rail-card__cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .rail-card__body {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: var(--mc-space-2);
   padding: var(--mc-space-3);
@@ -128,5 +115,35 @@ const statusTone = computed(() =>
   gap: var(--mc-space-2);
   font-size: var(--mc-text-xs);
   color: var(--mc-text-muted);
+}
+
+.rail-card__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--mc-space-1);
+  min-height: 32px;
+  margin-top: var(--mc-space-1);
+  border-radius: var(--mc-radius-sm);
+  background: var(--mc-primary);
+  color: var(--mc-text-inverse);
+  font-size: var(--mc-text-xs);
+  font-weight: var(--mc-font-semibold);
+  transition: var(--mc-transition-colors);
+}
+
+.rail-card__cta:hover {
+  background: var(--mc-primary-hover);
+}
+
+.rail-card__cta:focus-visible {
+  outline: none;
+  box-shadow: var(--mc-focus-ring);
+}
+
+@media (max-width: 1023px) {
+  .rail-card__cta {
+    min-height: var(--mc-touch-target-mobile);
+  }
 }
 </style>

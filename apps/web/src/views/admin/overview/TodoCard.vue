@@ -154,11 +154,11 @@ defineProps<{
 }
 
 .todo__count {
-  font-size: var(--mc-text-xl);
+  font-size: var(--mc-text-2xl);
   font-weight: var(--mc-font-semibold);
   font-variant-numeric: tabular-nums;
-  /* 待办/异常类数字：accent 落点之五 */
-  color: var(--mc-accent-fg);
+  /* 待办 / 异常数字：统一赭色（提醒语义域） */
+  color: var(--mc-terra-strong);
   min-width: 3ch;
   text-align: right;
 }

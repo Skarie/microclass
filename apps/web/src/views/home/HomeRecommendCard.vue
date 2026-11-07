@@ -1,44 +1,35 @@
 <script setup lang="ts">
 /**
- * 推荐课程卡：封面（缩略图 400）+ 推荐理由小标签 + 名称/简介/课时 + 查看课程。
- *
- * 沿用大厅卡片的视觉（同样的封面高、角标、圆角与 hover 抬升），
- * 差别只在右上角换成「同类课程 / 新上线」的理由标签，并且不做收藏按钮（推荐位不做二次操作）。
+ * 推荐课程卡：分类色块 + 几何封面 + 白色大水印序号（01/02/03）+
+ * 推荐理由标签 + 名称 / 简介 / 课时 + 实心主色入口。
  */
 import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
+import CourseCoverArt from '@/components/CourseCoverArt.vue';
 import CourseCoverTag from '@/components/CourseCoverTag.vue';
 import Icon from '@/components/Icon.vue';
 import Tag from '@/components/Tag.vue';
-import { COVER_CARD_WIDTH, coverUrl } from '@/utils/course-cover';
-import { tintVars } from '@/utils/course-meta';
 import { REASON_LABEL, REASON_TONE, type Recommendation } from '@/utils/course-recommend';
 
-const props = defineProps<{ recommendation: Recommendation }>();
+const props = defineProps<{ recommendation: Recommendation; index: number }>();
 const course = computed(() => props.recommendation.course);
+const order = computed(() => String(props.index + 1).padStart(2, '0'));
 </script>
 
 <template>
   <li class="rec-card mc-card">
     <RouterLink
       class="rec-card__cover"
-      :style="tintVars(course)"
       :to="{ name: 'course', params: { id: course.id } }"
       tabindex="-1"
       :aria-label="`进入课程 ${course.name}`"
     >
-      <img
-        v-if="course.cover"
-        :src="coverUrl(course.id, COVER_CARD_WIDTH)"
-        :alt="course.name"
-        loading="lazy"
-        decoding="async"
-      />
-      <Icon v-else name="graduation" :size="32" />
+      <CourseCoverArt :course="course" />
       <CourseCoverTag v-if="course.category_name" :label="course.category_name" corner="left" />
       <span class="rec-card__reason">
         <Tag :tone="REASON_TONE[recommendation.reason]" size="sm">{{ REASON_LABEL[recommendation.reason] }}</Tag>
       </span>
+      <span class="rec-card__order" aria-hidden="true">{{ order }}</span>
     </RouterLink>
 
     <div class="rec-card__body">
@@ -78,21 +69,10 @@ const course = computed(() => props.recommendation.course);
 
 .rec-card__cover {
   position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 132px;
+  display: block;
+  height: 148px;
   overflow: hidden;
   border-bottom: 1px solid var(--mc-border);
-  background-color: var(--cover-tint);
-  background-image: var(--mc-cover-pattern);
-  color: var(--cover-ink);
-}
-
-.rec-card__cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .rec-card__reason {
@@ -101,6 +81,19 @@ const course = computed(() => props.recommendation.course);
   right: var(--mc-space-2);
   z-index: 1;
   display: inline-flex;
+}
+
+/* 编辑部式序号：34 档放大 1.4 倍到 48 视觉，不新增字号档位 */
+.rec-card__order {
+  position: absolute;
+  right: var(--mc-space-3);
+  bottom: 0;
+  color: var(--mc-hero-fg);
+  font-size: calc(var(--mc-text-4xl) * 1.4);
+  font-weight: var(--mc-font-bold);
+  line-height: var(--mc-leading-display);
+  opacity: 0.26;
+  pointer-events: none;
 }
 
 .rec-card__body {
@@ -159,17 +152,16 @@ const course = computed(() => props.recommendation.course);
   gap: var(--mc-space-1);
   min-height: 32px;
   padding: 0 var(--mc-space-3);
-  border: 1px solid var(--mc-primary-border);
-  border-radius: var(--mc-radius);
-  background: var(--mc-primary-soft);
-  color: var(--mc-primary-fg);
+  border-radius: var(--mc-radius-sm);
+  background: var(--mc-primary);
+  color: var(--mc-text-inverse);
   font-size: var(--mc-text-xs);
-  font-weight: var(--mc-font-medium);
+  font-weight: var(--mc-font-semibold);
   transition: var(--mc-transition-colors);
 }
 
 .rec-card__cta:hover {
-  border-color: var(--mc-primary);
+  background: var(--mc-primary-hover);
 }
 
 @media (max-width: 1023px) {

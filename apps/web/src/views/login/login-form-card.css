@@ -44,7 +44,7 @@
 
 .card__title {
   margin: 0;
-  font-size: var(--mc-text-xl);
+  font-size: var(--mc-text-2xl);
   font-weight: var(--mc-font-semibold);
   line-height: var(--mc-leading-tight);
   color: var(--mc-text);

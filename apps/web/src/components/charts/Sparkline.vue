@@ -25,11 +25,10 @@ const strokeVar = computed(() => {
     case 'success':
       return 'var(--mc-success)';
     case 'warning':
-      return 'var(--mc-warning)';
     case 'danger':
-      return 'var(--mc-danger)';
+      return 'var(--mc-terra)';
     case 'info':
-      return 'var(--mc-chart-2)';
+      return 'var(--mc-indigo)';
     default:
       return 'var(--mc-primary)';
   }

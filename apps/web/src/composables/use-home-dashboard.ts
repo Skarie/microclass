@@ -11,6 +11,7 @@ import { api } from '@/api/client';
 import { useAsync } from '@/composables/useAsync';
 import { progressOf as courseProgress, statusOf } from '@/utils/course-meta';
 import { pickRecommendations } from '@/utils/course-recommend';
+import type { IconName } from '@/components/icons';
 import type { Category, Course } from '@/api/types';
 
 interface CoursesResponse {
@@ -32,13 +33,14 @@ interface WrongBook {
   pending: number;
 }
 
-export type MetricTone = 'primary' | 'success' | 'info' | 'warning' | 'neutral';
+export type MetricTone = 'primary' | 'cyan' | 'indigo' | 'terra' | 'neutral';
 
 export interface HomeMetric {
   label: string;
   value: number;
   unit: string;
   tone: MetricTone;
+  icon: IconName;
 }
 
 export function useHomeDashboard() {
@@ -88,16 +90,23 @@ export function useHomeDashboard() {
   const practiceCount = computed(() => learning.value.length);
   const hasTodo = computed(() => wrongPending.value + practiceCount.value > 0);
 
-  /** 看板头条指标：全部真实 */
+  /** 看板头条指标：全部真实；四张卡各用一种语义色（数据 / 学习 / 练习 / 提醒） */
   const metrics = computed<HomeMetric[]>(() => [
-    { label: '学习时长', value: summary.value?.minutes ?? 0, unit: '分钟', tone: 'primary' },
-    { label: '已完成课时', value: summary.value?.finishedLessons ?? 0, unit: '个', tone: 'success' },
-    { label: '完成练习', value: summary.value?.quizzed ?? 0, unit: '次', tone: 'info' },
+    { label: '学习时长', value: summary.value?.minutes ?? 0, unit: '分钟', tone: 'indigo', icon: 'clock' },
+    {
+      label: '已完成课时',
+      value: summary.value?.finishedLessons ?? 0,
+      unit: '个',
+      tone: 'primary',
+      icon: 'check-circle',
+    },
+    { label: '完成练习', value: summary.value?.quizzed ?? 0, unit: '次', tone: 'cyan', icon: 'pen-line' },
     {
       label: '错题待复习',
       value: wrong.value?.pending ?? 0,
       unit: '题',
-      tone: (wrong.value?.pending ?? 0) > 0 ? 'warning' : 'neutral',
+      tone: 'terra',
+      icon: 'wrong',
     },
   ]);
 

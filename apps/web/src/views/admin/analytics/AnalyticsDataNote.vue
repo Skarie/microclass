@@ -29,8 +29,8 @@ defineProps<{ graded: number; note: string }>();
 }
 
 .ana__note--warn {
-  background: var(--mc-warning-soft);
-  border-color: var(--mc-warning-border);
-  color: var(--mc-warning-fg);
+  background: var(--mc-terra-soft);
+  border-color: var(--mc-terra-border);
+  color: var(--mc-terra-fg);
 }
 </style>

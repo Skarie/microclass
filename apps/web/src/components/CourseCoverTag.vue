@@ -54,11 +54,16 @@ withDefaults(
   color: var(--mc-text-secondary);
 }
 
+/* 状态徽标用语义色软底，分类 chip 保持白色半透底 */
 .cover-tag--primary {
+  border-color: var(--mc-primary-border);
+  background: var(--mc-primary-soft);
   color: var(--mc-primary-fg);
 }
 
 .cover-tag--success {
+  border-color: var(--mc-success-soft);
+  background: var(--mc-success-soft);
   color: var(--mc-success-fg);
 }
 

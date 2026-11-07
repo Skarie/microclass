@@ -28,20 +28,60 @@ export const STATUS_LABEL: Record<CourseStatus, string> = {
 };
 
 /**
- * 4 组品牌 tint（都不含 accent，橙色只留给每页唯一的行动按钮）：
- * 主绿 / 青 / 赭 / 紫。按分类名稳定取模，同一分类在所有卡片上同色。
+ * 五组分类色（全站按分类名稳定取模，同一分类在首页、大厅、列表里永远同色）：
+ * 主绿 / 青 / 靛 / 赭 / 琥珀。不用中性墨做课程封面，避免整页出现大片黑块。
+ * `--cat-bg` 是封面实底色（与 player 黑混一点，保证任何主题下白字都够对比）；
+ * `--cat-soft` / `--cat-fg` 用于分类 chip 的浅底与文字；`--cat-strong` 用于数字。
  */
-const TINTS = [
-  { bg: 'var(--mc-primary-soft)', ink: 'var(--mc-primary-fg)' },
-  { bg: 'var(--mc-cyan-soft)', ink: 'var(--mc-cyan-fg)' },
-  { bg: 'var(--mc-amber-soft)', ink: 'var(--mc-amber-fg)' },
-  { bg: 'var(--mc-seal-soft)', ink: 'var(--mc-seal-fg)' },
+const TONES = [
+  {
+    bg: 'color-mix(in srgb, var(--mc-primary) 84%, var(--mc-player-bg))',
+    soft: 'var(--mc-primary-soft)',
+    fg: 'var(--mc-primary-fg)',
+    strong: 'var(--mc-primary-strong)',
+  },
+  {
+    bg: 'color-mix(in srgb, var(--mc-cyan) 64%, var(--mc-player-bg))',
+    soft: 'var(--mc-cyan-soft)',
+    fg: 'var(--mc-cyan-fg)',
+    strong: 'var(--mc-cyan-strong)',
+  },
+  {
+    bg: 'color-mix(in srgb, var(--mc-indigo) 88%, var(--mc-player-bg))',
+    soft: 'var(--mc-indigo-soft)',
+    fg: 'var(--mc-indigo-fg)',
+    strong: 'var(--mc-indigo-strong)',
+  },
+  {
+    bg: 'color-mix(in srgb, var(--mc-terra) 90%, var(--mc-player-bg))',
+    soft: 'var(--mc-terra-soft)',
+    fg: 'var(--mc-terra-fg)',
+    strong: 'var(--mc-terra-strong)',
+  },
+  {
+    bg: 'color-mix(in srgb, var(--mc-amber) 76%, var(--mc-player-bg))',
+    soft: 'var(--mc-amber-soft)',
+    fg: 'var(--mc-amber-fg)',
+    strong: 'var(--mc-warning-fg)',
+  },
 ] as const;
 
-export function tintVars(course: Course): Record<string, string> {
-  const key = course.category_name || '未分类';
+/** 分类名 → 0..4 的固定色位（空 key = 「全部」，固定主色） */
+export function categoryTone(key: string): number {
+  if (!key) return 0;
   let hash = 0;
   for (const char of key) hash = (hash * 31 + (char.codePointAt(0) ?? 0)) % 100_000;
-  const tint = TINTS[hash % TINTS.length] ?? TINTS[0];
-  return { '--cover-tint': tint.bg, '--cover-ink': tint.ink };
+  return hash % TONES.length;
+}
+
+/** 给渲染元素注入分类色变量（颜色本身仍来自 tokens.css） */
+export function categoryVars(key: string): Record<string, string> {
+  const tone = TONES[categoryTone(key)] ?? TONES[0];
+  return {
+    '--cat-bg': tone.bg,
+    '--cat-soft': tone.soft,
+    '--cat-fg': tone.fg,
+    '--cat-strong': tone.strong,
+    '--cat-on': 'var(--mc-hero-fg)',
+  };
 }

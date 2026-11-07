@@ -33,6 +33,7 @@ defineProps<{ overview: AnalyticsOverview; trendSeries: number[]; accuracySeries
       label="作答条目"
       :value="overview.kpi.graded"
       icon="chartBar"
+      tone="indigo"
       :hint="`练习 ${overview.kpi.practiceAttempts} 次 · 考试 ${overview.kpi.examAttempts} 次`"
     >
       <template #visual>
@@ -60,6 +61,7 @@ defineProps<{ overview: AnalyticsOverview; trendSeries: number[]; accuracySeries
       label="题目覆盖"
       :value="`${overview.kpi.questionCoverage}%`"
       icon="bank"
+      tone="indigo"
       :hint="`${overview.kpi.questionsWithData.toLocaleString()} / ${overview.kpi.totalQuestions.toLocaleString()} 题有作答数据`"
     >
       <template #visual>
@@ -75,6 +77,7 @@ defineProps<{ overview: AnalyticsOverview; trendSeries: number[]; accuracySeries
       label="知识点覆盖"
       :value="`${overview.kpi.pointCoverage}%`"
       icon="target"
+      tone="primary"
       :hint="`${overview.kpi.pointsWithData.toLocaleString()} / ${overview.kpi.totalPoints.toLocaleString()} 个知识点`"
     >
       <template #visual>
@@ -101,7 +104,7 @@ defineProps<{ overview: AnalyticsOverview; trendSeries: number[]; accuracySeries
 
 .ana__kpis {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: var(--mc-space-3);
 }
 </style>

@@ -28,7 +28,8 @@ const empty = computed(() => props.wrongPending === 0 && props.practiceCount ===
     </p>
 
     <div v-else class="todo__grid">
-      <article class="todo__card">
+      <article class="todo__card todo__card--terra">
+        <span class="todo__bar" aria-hidden="true" />
         <span class="todo__icon todo__icon--warning"><Icon name="wrong" :size="18" /></span>
         <span class="todo__main">
           <span class="todo__label">错题待复习</span>
@@ -44,7 +45,8 @@ const empty = computed(() => props.wrongPending === 0 && props.practiceCount ===
         <span v-else class="todo__hint">已清空</span>
       </article>
 
-      <article class="todo__card">
+      <article class="todo__card todo__card--primary">
+        <span class="todo__bar" aria-hidden="true" />
         <span class="todo__icon todo__icon--primary"><Icon name="pen-line" :size="18" /></span>
         <span class="todo__main">
           <span class="todo__label">未完成练习</span>
@@ -71,13 +73,38 @@ const empty = computed(() => props.wrongPending === 0 && props.practiceCount ===
 }
 
 .todo__card {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--mc-space-3);
+  overflow: hidden;
   padding: var(--mc-space-4);
-  border: 1px solid var(--mc-border);
+  padding-left: var(--mc-space-5);
+  border: 1px solid var(--todo-border, var(--mc-border));
   border-radius: var(--mc-radius-md);
-  background: var(--mc-bg-elevated);
+  background: var(--todo-bg, var(--mc-bg-elevated));
+}
+
+/* 本轮唯一允许的侧边色条：4px 优先级条，只用于「今日待办」两行，表示提醒级别 */
+.todo__bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 4px;
+  background: var(--todo-bar, var(--mc-border));
+}
+
+.todo__card--terra {
+  --todo-bar: var(--mc-terra);
+  --todo-bg: var(--mc-terra-soft);
+  --todo-border: var(--mc-terra-border);
+}
+
+.todo__card--primary {
+  --todo-bar: var(--mc-primary);
+  --todo-bg: var(--mc-primary-soft);
+  --todo-border: var(--mc-primary-border);
 }
 
 .todo__icon {
@@ -98,6 +125,12 @@ const empty = computed(() => props.wrongPending === 0 && props.practiceCount ===
 .todo__icon--primary {
   background: var(--mc-primary-soft);
   color: var(--mc-primary-fg);
+}
+
+/* 卡片本身是浅色块：图标块回到白底，避免软底叠软底 */
+.todo__card .todo__icon {
+  background: var(--mc-bg-elevated);
+  color: var(--todo-bar);
 }
 
 .todo__main {
@@ -121,9 +154,9 @@ const empty = computed(() => props.wrongPending === 0 && props.practiceCount ===
 
 .todo__value strong {
   margin-right: var(--mc-space-1);
-  font-size: var(--mc-text-xl);
+  font-size: var(--mc-text-2xl);
   line-height: var(--mc-leading-display);
-  color: var(--mc-text);
+  color: var(--mc-terra-strong);
 }
 
 .todo__hint {

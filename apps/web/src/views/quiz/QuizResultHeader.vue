@@ -121,7 +121,7 @@ const emit = defineEmits<{ retry: [] }>();
 .rhead__score-num {
   color: var(--mc-primary-fg);
   font-family: var(--mc-font-num);
-  font-size: var(--mc-text-xl);
+  font-size: var(--mc-text-2xl);
   font-weight: var(--mc-font-bold);
   line-height: var(--mc-leading-display);
   font-variant-numeric: tabular-nums;

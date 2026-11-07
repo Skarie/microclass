@@ -12,7 +12,7 @@ withDefaults(
     value: string | number;
     unit?: string;
     icon?: IconName;
-    tone?: 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'neutral';
+    tone?: 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'indigo' | 'cyan' | 'neutral';
     hint?: string;
     /** 环比：正数向上、负数向下 */
     trend?: { value: number; label?: string } | null;
@@ -83,8 +83,8 @@ withDefaults(
   }
 }
 
-/* KPI 图标块统一：所有指标共用主色软底 + 主色图标，不再「一个 tone 一种底色」；
-   语义交给数值颜色（正确率高 → success，待办/异常 → accent）。 */
+/* KPI 图标块：按语义域上色（主色 / 青 / 靛 / 赭 / 中性），不再全部灰色。
+   数字用对应 strong 色，保证四张卡在远处也能靠颜色区分。 */
 .stat__icon {
   display: inline-flex;
   align-items: center;
@@ -93,8 +93,46 @@ withDefaults(
   height: 38px;
   border-radius: var(--mc-radius-sm);
   flex: none;
-  background: var(--mc-primary-soft);
-  color: var(--mc-primary-fg);
+  background: var(--stat-soft, var(--mc-bg-sunken));
+  color: var(--stat-fg, var(--mc-text-secondary));
+}
+
+.stat--primary {
+  --stat-soft: var(--mc-primary-soft);
+  --stat-fg: var(--mc-primary-fg);
+  --stat-strong: var(--mc-primary-strong);
+}
+
+.stat--cyan {
+  --stat-soft: var(--mc-cyan-soft);
+  --stat-fg: var(--mc-cyan-fg);
+  --stat-strong: var(--mc-cyan-strong);
+}
+
+.stat--info,
+.stat--indigo {
+  --stat-soft: var(--mc-indigo-soft);
+  --stat-fg: var(--mc-indigo-fg);
+  --stat-strong: var(--mc-indigo-strong);
+}
+
+.stat--success {
+  --stat-soft: var(--mc-success-soft);
+  --stat-fg: var(--mc-success-fg);
+  --stat-strong: var(--mc-success-fg);
+}
+
+.stat--warning,
+.stat--danger {
+  --stat-soft: var(--mc-terra-soft);
+  --stat-fg: var(--mc-terra-fg);
+  --stat-strong: var(--mc-terra-strong);
+}
+
+.stat--neutral {
+  --stat-soft: var(--mc-bg-sunken);
+  --stat-fg: var(--mc-text-secondary);
+  --stat-strong: var(--mc-neutral-strong);
 }
 
 .stat__body {
@@ -115,17 +153,9 @@ withDefaults(
   font-weight: var(--mc-font-bold);
   line-height: var(--mc-leading-tight);
   letter-spacing: var(--mc-tracking-tight);
-  color: var(--mc-text);
+  color: var(--stat-strong, var(--mc-text));
   font-variant-numeric: tabular-nums;
-}
-
-.stat--success .stat__value {
-  color: var(--mc-success-fg);
-}
-
-.stat--warning .stat__value,
-.stat--danger .stat__value {
-  color: var(--mc-accent-fg);
+  white-space: nowrap;
 }
 
 .stat__unit {
@@ -162,5 +192,16 @@ withDefaults(
   align-items: center;
   gap: var(--mc-space-2);
   margin-top: var(--mc-space-1);
+}
+
+@media (max-width: 640px) {
+  /* 窄屏两列时数值与迷你图抢空间：降一档字号，迷你图让位给数字 */
+  .stat__value {
+    font-size: 22px;
+  }
+
+  .stat__visual {
+    display: none;
+  }
 }
 </style>

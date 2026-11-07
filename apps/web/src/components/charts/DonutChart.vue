@@ -45,13 +45,12 @@ const toneVar = (tone: ChartTone | undefined): string => {
     case 'success':
       return 'var(--mc-success)';
     case 'warning':
-      return 'var(--mc-warning)';
     case 'danger':
-      return 'var(--mc-danger)';
+      return 'var(--mc-terra)';
     case 'info':
-      return 'var(--mc-info)';
+      return 'var(--mc-indigo)';
     case 'neutral':
-      return 'var(--mc-chart-2)';
+      return 'var(--mc-neutral-strong)';
     default:
       return 'var(--mc-primary)';
   }
