@@ -98,7 +98,7 @@ defineProps<{
   font-size: 32px;
   font-weight: var(--mc-font-bold);
   line-height: var(--mc-leading-display);
-  color: var(--kpi-strong, var(--mc-text));
+  color: var(--mc-text);
 }
 
 .board__unit {
