@@ -22,7 +22,6 @@ defineProps<{
   <section class="board" aria-label="我的学习数据">
     <div class="board__metrics">
       <div v-for="m in metrics" :key="m.label" class="board__metric" :class="`board__metric--${m.tone}`">
-        <span class="board__band" aria-hidden="true" />
         <span class="board__icon"><Icon :name="m.icon" :size="18" /></span>
         <span class="board__value mc-num">
           {{ m.value }}<span class="board__unit">{{ m.unit }}</span>
@@ -76,19 +75,9 @@ defineProps<{
   transition: var(--mc-transition-all);
 }
 
-/* 顶部 4px 色带：用 inset 色块而不是 border-top，圆角处不会出现「厚边框」 */
-.board__band {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  height: 4px;
-  background: var(--kpi-tone, var(--mc-border));
-}
-
 @media (hover: hover) and (pointer: fine) {
   .board__metric:hover {
-    border-color: var(--kpi-tone, var(--mc-border));
+    border-color: var(--mc-border-strong);
     transform: translateY(var(--mc-hover-lift));
   }
 }

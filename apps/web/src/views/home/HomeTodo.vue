@@ -29,7 +29,6 @@ const empty = computed(() => props.wrongPending === 0 && props.practiceCount ===
 
     <div v-else class="todo__grid">
       <article class="todo__card todo__card--terra">
-        <span class="todo__bar" aria-hidden="true" />
         <span class="todo__icon todo__icon--warning"><Icon name="wrong" :size="18" /></span>
         <span class="todo__main">
           <span class="todo__label">错题待复习</span>
@@ -46,7 +45,6 @@ const empty = computed(() => props.wrongPending === 0 && props.practiceCount ===
       </article>
 
       <article class="todo__card todo__card--primary">
-        <span class="todo__bar" aria-hidden="true" />
         <span class="todo__icon todo__icon--primary"><Icon name="pen-line" :size="18" /></span>
         <span class="todo__main">
           <span class="todo__label">未完成练习</span>
@@ -79,30 +77,17 @@ const empty = computed(() => props.wrongPending === 0 && props.practiceCount ===
   gap: var(--mc-space-3);
   overflow: hidden;
   padding: var(--mc-space-4);
-  padding-left: var(--mc-space-5);
   border: 1px solid var(--todo-border, var(--mc-border));
   border-radius: var(--mc-radius-md);
   background: var(--todo-bg, var(--mc-bg-elevated));
 }
 
-/* 本轮唯一允许的侧边色条：4px 优先级条，只用于「今日待办」两行，表示提醒级别 */
-.todo__bar {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 4px;
-  background: var(--todo-bar, var(--mc-border));
-}
-
 .todo__card--terra {
-  --todo-bar: var(--mc-terra);
   --todo-bg: var(--mc-terra-soft);
   --todo-border: var(--mc-terra-border);
 }
 
 .todo__card--primary {
-  --todo-bar: var(--mc-primary);
   --todo-bg: var(--mc-primary-soft);
   --todo-border: var(--mc-primary-border);
 }
