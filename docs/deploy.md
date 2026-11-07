@@ -38,20 +38,28 @@
 git clone https://github.com/Skarie/microclass.git
 cd microclass
 
+MC_VERSION=$(node -p "require('./package.json').version")
 docker build -f ops/docker/Dockerfile \
-  --build-arg MC_VERSION=2.0.0 \
+  --build-arg MC_VERSION=$MC_VERSION \
   --build-arg INSTALL_FFMPEG=1 \
-  -t microclass:2.0.0 .
+  -t microclass:$MC_VERSION .
 ```
+
+> NAS / 无 Docker 的宿主机（只能在远端构建）用仓库脚本，版本号自动从源码包读取并记录：
+>
+> ```bash
+> bash ops/deploy/build-image.sh /tmp/docker-src.tar.gz   # 构建 + 写 .image-tag
+> bash ops/deploy/redeploy.sh                             # 按 .image-tag 重建并校验
+> ```
 
 构建参数（都可省略）：
 
-| 参数              | 默认    | 说明                                                              |
-| ----------------- | ------- | ----------------------------------------------------------------- |
-| `MC_VERSION`      | `2.0.0` | 注入版本号，与 `/api/v1/version` 返回一致                         |
-| `INSTALL_FFMPEG`  | `1`     | 设 `0` 得到精简镜像（约 289 MB），代价是**没有**视频时长/封面抽取 |
-| `APT_MIRROR_HOST` | —       | 国内建议 `mirrors.aliyun.com`，否则 apt 很慢                      |
-| `NPM_REGISTRY`    | —       | 国内建议 `https://registry.npmmirror.com`                         |
+| 参数              | 默认     | 说明                                                              |
+| ----------------- | -------- | ----------------------------------------------------------------- |
+| `MC_VERSION`      | 源码版本 | 注入版本号，与 `/api/v1/version` 返回一致                         |
+| `INSTALL_FFMPEG`  | `1`      | 设 `0` 得到精简镜像（约 289 MB），代价是**没有**视频时长/封面抽取 |
+| `APT_MIRROR_HOST` | —        | 国内建议 `mirrors.aliyun.com`，否则 apt 很慢                      |
+| `NPM_REGISTRY`    | —        | 国内建议 `https://registry.npmmirror.com`                         |
 
 镜像特征：多阶段构建、运行阶段**非 root（uid 10001）**、内置 `HEALTHCHECK`。带 ffmpeg 约 752 MB。
 
@@ -297,8 +305,10 @@ MC_CSP=1                      # 想让应用下发严格 CSP 时开；反代已�
 
 ```bash
 cd microclass && git pull
-docker build -f ops/docker/Dockerfile --build-arg MC_VERSION=<新版本> -t microclass:<新版本> .
-cd ops/docker && docker compose up -d      # 重建容器，数据卷保留
+MC_VERSION=<新版本>
+docker build -f ops/docker/Dockerfile --build-arg MC_VERSION=$MC_VERSION -t microclass:$MC_VERSION .
+cd ops/docker && MC_VERSION=$MC_VERSION docker compose -f compose.evo4.yml up -d --force-recreate --no-deps api
+# 版本没变会继续用旧镜像，务必带上 MC_VERSION；compose 默认回退到 2.0.0
 docker compose logs -f --tail 100          # 观察迁移与启动
 ```
 
@@ -389,7 +399,7 @@ curl -s -o /dev/null -w '%{http_code} %{content_type}\n' $BASE/admin/exams # 200
 | 项目     | 值                                                                                                                 |
 | -------- | ------------------------------------------------------------------------------------------------------------------ |
 | 部署目录 | `/vol1/1000/microclass-deploy/`（`compose.evo4.yml` + `.env`，`.env` 权限 600）                                    |
-| 容器     | `microclass-api`，镜像 `microclass:2.0.0`，`restart=unless-stopped`                                                |
+| 容器     | `microclass-api`，镜像 `microclass:<版本>`（compose 读 `MC_VERSION`），`restart=unless-stopped`                    |
 | 端口     | 8091（默认入口）与 8093（历史入口），同一实例                                                                      |
 | 运行用户 | `1000:1000`（与媒体目录属主一致）                                                                                  |
 | 数据卷   | `microclass_data`（external，升级/重启都保留）                                                                     |

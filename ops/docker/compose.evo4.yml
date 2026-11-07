@@ -6,6 +6,10 @@
 #   sudo docker compose -f compose.evo4.yml logs -f       # 日志
 #   sudo docker compose -f compose.evo4.yml down          # 停止（保留数据卷）
 #
+# 版本：镜像与容器版本号都读环境变量 MC_VERSION（默认回退 2.0.0）。
+#   升级时用 `MC_VERSION=x.y.z docker compose -f compose.evo4.yml up -d --force-recreate --no-deps api`，
+#   或直接用仓库脚本 ops/deploy/build-image.sh + ops/deploy/redeploy.sh（自动带版本并校验）。
+#
 # 说明：
 # - 数据卷 microclass_data 由外部创建（external），内含既有数据，编排不会重建它；
 # - user 必须与媒体目录属主一致（EVO4 上是 1000:1000），否则视频会返回 403，详见 docs/deploy.md；
