@@ -96,6 +96,7 @@ const agreed = defineModel<boolean>('agreed', { required: true });
         type="submit"
         :disabled="!canSubmit || submitting"
       >
+        <span v-if="submitting" class="mc-btn__spinner" aria-hidden="true" />
         {{ submitting ? '处理中…' : isLogin ? '登录' : '注册并登录' }}
       </button>
 

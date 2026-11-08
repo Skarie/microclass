@@ -1,11 +1,13 @@
 <script setup lang="ts">
+import { computed } from 'vue';
+import { useRovingTabs } from '@/composables/use-roving-tabs';
 import type { Tab } from './course-admin-types';
 
 /**
- * 课程管理四个选项卡。只负责切换与计数展示，数据由页面传入。
- * 计数文案与拆分前一致（课程/全部课时/未归类课时/媒体目录）。
+ * 课程管理四个选项卡：只负责切换与计数展示，数据由页面传入。
+ * 键盘 ←/→ 可切换（与学情分析页签同一套行为）。
  */
-defineProps<{
+const props = defineProps<{
   tab: Tab;
   courseCount: number;
   lessonCount: number;
@@ -14,49 +16,39 @@ defineProps<{
 }>();
 
 const emit = defineEmits<{ (e: 'update:tab', tab: Tab): void }>();
+
+const tabs = computed<{ key: Tab; label: string; count: number }[]>(() => [
+  { key: 'courses', label: '课程', count: props.courseCount },
+  { key: 'lessons', label: '全部课时', count: props.lessonCount },
+  { key: 'orphans', label: '未归类课时', count: props.orphanCount },
+  { key: 'roots', label: '媒体目录', count: props.rootCount },
+]);
+
+const { setItem, onKeydown } = useRovingTabs(() => tabs.value.length);
+
+function pick(index: number): void {
+  const next = tabs.value[index];
+  if (next) emit('update:tab', next.key);
+}
 </script>
 
 <template>
   <div class="mc-row mc-row--wrap tabs" role="tablist" aria-label="课程管理分区">
     <button
+      v-for="(t, i) in tabs"
+      :key="t.key"
+      :ref="(el) => setItem(el, i)"
       class="tab"
-      :class="{ 'is-active': tab === 'courses' }"
+      :class="{ 'is-active': tab === t.key }"
       type="button"
       role="tab"
-      :aria-selected="tab === 'courses'"
-      @click="emit('update:tab', 'courses')"
+      :aria-selected="tab === t.key"
+      :tabindex="tab === t.key ? 0 : -1"
+      @click="emit('update:tab', t.key)"
+      @keydown="onKeydown($event, i, pick)"
     >
-      课程 <span class="tab__count">{{ courseCount }}</span>
-    </button>
-    <button
-      class="tab"
-      :class="{ 'is-active': tab === 'lessons' }"
-      type="button"
-      role="tab"
-      :aria-selected="tab === 'lessons'"
-      @click="emit('update:tab', 'lessons')"
-    >
-      全部课时 <span v-if="lessonCount > 0" class="tab__count">{{ lessonCount }}</span>
-    </button>
-    <button
-      class="tab"
-      :class="{ 'is-active': tab === 'orphans' }"
-      type="button"
-      role="tab"
-      :aria-selected="tab === 'orphans'"
-      @click="emit('update:tab', 'orphans')"
-    >
-      未归类课时 <span class="tab__count">{{ orphanCount }}</span>
-    </button>
-    <button
-      class="tab"
-      :class="{ 'is-active': tab === 'roots' }"
-      type="button"
-      role="tab"
-      :aria-selected="tab === 'roots'"
-      @click="emit('update:tab', 'roots')"
-    >
-      媒体目录 <span class="tab__count">{{ rootCount }}</span>
+      {{ t.label }}
+      <span v-if="t.count > 0 || t.key === 'courses'" class="tab__count">{{ t.count }}</span>
     </button>
   </div>
 </template>
@@ -73,14 +65,20 @@ const emit = defineEmits<{ (e: 'update:tab', tab: Tab): void }>();
   border: 0;
   background: transparent;
   color: var(--mc-text-muted);
-  font-size: var(--mc-text-sm, 13px);
+  font-size: var(--mc-text-sm);
   padding: var(--mc-space-2) var(--mc-space-3);
   border-radius: var(--mc-radius-sm);
   cursor: pointer;
+  transition: var(--mc-transition-all);
 }
 
-.tab:hover {
-  background: var(--mc-bg-sunken);
+.tab:hover:not(.is-active) {
+  background: var(--mc-bg-hover);
+  color: var(--mc-text);
+}
+
+.tab:active {
+  transform: scale(var(--mc-press-scale));
 }
 
 .tab.is-active {
@@ -89,8 +87,19 @@ const emit = defineEmits<{ (e: 'update:tab', tab: Tab): void }>();
   font-weight: var(--mc-font-semibold);
 }
 
+.tab:focus-visible {
+  outline: var(--mc-focus-ring-width) solid var(--mc-primary);
+  outline-offset: var(--mc-focus-ring-offset);
+}
+
 .tab__count {
   opacity: 0.8;
   font-size: var(--mc-text-xs);
+}
+
+@media (max-width: 1023px) {
+  .tab {
+    min-height: var(--mc-touch-target-mobile);
+  }
 }
 </style>

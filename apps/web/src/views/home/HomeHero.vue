@@ -9,7 +9,7 @@ import HomeHeroAside from './HomeHeroAside.vue';
 import HomeHeroProgress from './HomeHeroProgress.vue';
 import type { Course } from '@/api/types';
 
-defineProps<{ course: Course | null; progress: number }>();
+defineProps<{ course: Course | null; progress: number; loading?: boolean }>();
 </script>
 
 <template>
@@ -20,7 +20,14 @@ defineProps<{ course: Course | null; progress: number }>();
         {{ course ? '继续学习' : '开始学习' }}
       </p>
 
-      <template v-if="course">
+      <!-- 首屏取数中：给骨架而不是「还没有在学的课程」——空状态不能当加载态用 -->
+      <div v-if="loading && !course" class="hero__skeleton" aria-hidden="true">
+        <div class="mc-skeleton hero__skeleton-line hero__skeleton-line--title" />
+        <div class="mc-skeleton hero__skeleton-line" />
+        <div class="mc-skeleton hero__skeleton-bar" />
+      </div>
+
+      <template v-else-if="course">
         <h2 class="hero__title">{{ course.name }}</h2>
         <p v-if="course.description" class="hero__desc">{{ course.description }}</p>
 
@@ -116,6 +123,31 @@ defineProps<{ course: Course | null; progress: number }>();
   align-items: center;
   gap: var(--mc-space-3);
   margin-top: var(--mc-space-3);
+}
+
+/* 加载骨架：与标题/简介/进度条的占位高度一致，数据回来不跳动 */
+.hero__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mc-space-3);
+  width: 100%;
+  margin-top: var(--mc-space-1);
+}
+
+.hero__skeleton-line {
+  height: 16px;
+  max-width: 420px;
+}
+
+.hero__skeleton-line--title {
+  height: 32px;
+  max-width: 320px;
+}
+
+.hero__skeleton-bar {
+  height: 8px;
+  max-width: 260px;
+  border-radius: var(--mc-radius-pill);
 }
 
 .hero__cta,

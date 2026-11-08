@@ -17,22 +17,17 @@ const course = computed(() => props.recommendation.course);
 
 <template>
   <li class="rec-card mc-card">
-    <RouterLink
-      class="rec-card__cover"
-      :to="{ name: 'course', params: { id: course.id } }"
-      tabindex="-1"
-      :aria-label="`进入课程 ${course.name}`"
-    >
+    <div class="rec-card__cover">
       <CourseCoverArt :course="course" />
       <CourseCoverTag v-if="course.category_name" :label="course.category_name" corner="left" />
       <span class="rec-card__reason">
         <Tag :tone="REASON_TONE[recommendation.reason]" size="sm">{{ REASON_LABEL[recommendation.reason] }}</Tag>
       </span>
-    </RouterLink>
+    </div>
 
     <div class="rec-card__body">
       <RouterLink class="rec-card__name" :to="{ name: 'course', params: { id: course.id } }">
-        {{ course.name }}
+        <span class="rec-card__name-text">{{ course.name }}</span>
       </RouterLink>
 
       <p v-if="course.description" class="rec-card__desc">{{ course.description }}</p>
@@ -50,6 +45,7 @@ const course = computed(() => props.recommendation.course);
 
 <style scoped>
 .rec-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -59,10 +55,25 @@ const course = computed(() => props.recommendation.course);
 
 @media (hover: hover) and (pointer: fine) {
   .rec-card:hover {
-    border-color: var(--mc-primary);
+    border-color: var(--mc-primary-border);
     box-shadow: var(--mc-shadow-xs);
     transform: translateY(var(--mc-hover-lift));
   }
+
+  .rec-card:hover :deep(.art) {
+    transform: scale(1.03);
+  }
+}
+
+.rec-card:focus-within {
+  border-color: var(--mc-primary-border);
+  box-shadow: var(--mc-shadow-xs);
+  transform: translateY(var(--mc-hover-lift));
+}
+
+.rec-card:active {
+  box-shadow: none;
+  transform: scale(var(--mc-press-scale-soft));
 }
 
 .rec-card__cover {
@@ -71,6 +82,10 @@ const course = computed(() => props.recommendation.course);
   height: 148px;
   overflow: hidden;
   border-bottom: 1px solid var(--mc-border);
+}
+
+.rec-card__cover :deep(.art) {
+  transition: transform var(--mc-duration) var(--mc-ease-out);
 }
 
 .rec-card__reason {
@@ -91,11 +106,7 @@ const course = computed(() => props.recommendation.course);
 }
 
 .rec-card__name {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  display: block;
   min-height: calc(var(--mc-text-base) * var(--mc-leading) * 2);
   font-size: var(--mc-text-base);
   font-weight: var(--mc-font-semibold);
@@ -103,7 +114,24 @@ const course = computed(() => props.recommendation.course);
   color: var(--mc-text);
 }
 
-.rec-card__name:hover {
+.rec-card__name-text {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+/* 拉伸链接：整卡可点，标题即入口 */
+.rec-card__name::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.rec-card__name:hover,
+.rec-card__name:focus-visible {
   color: var(--mc-primary-fg);
 }
 
@@ -132,6 +160,8 @@ const course = computed(() => props.recommendation.course);
 }
 
 .rec-card__cta {
+  position: relative;
+  z-index: 2;
   display: inline-flex;
   align-items: center;
   gap: var(--mc-space-1);
@@ -142,11 +172,15 @@ const course = computed(() => props.recommendation.course);
   color: var(--mc-text-inverse);
   font-size: var(--mc-text-xs);
   font-weight: var(--mc-font-semibold);
-  transition: var(--mc-transition-colors);
+  transition: var(--mc-transition-all);
 }
 
 .rec-card__cta:hover {
-  background: var(--mc-primary-hover);
+  background: var(--mc-primary-deep);
+}
+
+.rec-card__cta:active {
+  transform: scale(var(--mc-press-scale));
 }
 
 @media (max-width: 1023px) {

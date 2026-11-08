@@ -41,7 +41,7 @@ export interface HomeMetric {
 }
 
 export function useHomeDashboard() {
-  const { data } = useAsync<CoursesResponse>(() => api.get<CoursesResponse>('/courses'));
+  const { data, loading } = useAsync<CoursesResponse>(() => api.get<CoursesResponse>('/courses'));
   const summary = ref<Summary | null>(null);
   const wrong = ref<WrongBook | null>(null);
 
@@ -131,6 +131,7 @@ export function useHomeDashboard() {
     metrics,
     levelHint,
     progressOf: courseProgress,
+    loading,
     load,
   };
 }

@@ -26,19 +26,14 @@ const actionLabel = computed(() =>
 
 <template>
   <li class="course-card course-card--row">
-    <RouterLink
-      class="course-card__thumb"
-      :to="{ name: 'course', params: { id: course.id } }"
-      tabindex="-1"
-      :aria-label="`进入课程 ${course.name}`"
-    >
-      <CourseCoverArt :course="course" compact />
-    </RouterLink>
+    <div class="course-card__thumb" aria-hidden="true">
+      <CourseCoverArt :course="course" variant="row" />
+    </div>
 
     <div class="course-card__row-main">
       <div class="course-card__row-title">
         <RouterLink class="course-card__name" :to="{ name: 'course', params: { id: course.id } }">
-          {{ course.name }}
+          <span class="course-card__name-text">{{ course.name }}</span>
         </RouterLink>
         <Tag :tone="statusTone" size="sm">{{ STATUS_LABEL[status] }}</Tag>
       </div>
@@ -85,18 +80,25 @@ const actionLabel = computed(() =>
 
 <style scoped>
 .course-card--row {
+  position: relative;
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr) 180px auto;
   align-items: center;
   gap: var(--mc-space-4);
   padding: var(--mc-space-2) var(--mc-space-3);
   border-radius: var(--mc-radius);
+  transition: background-color var(--mc-transition);
 }
 
+/* 行不位移：只换底色（列表里整行上下跳会晕），hover 与键盘焦点同一套 */
 @media (hover: hover) and (pointer: fine) {
   .course-card--row:hover {
     background: var(--mc-bg-hover);
   }
+}
+
+.course-card--row:focus-within {
+  background: var(--mc-bg-hover);
 }
 
 .course-card__thumb {
@@ -122,12 +124,32 @@ const actionLabel = computed(() =>
 }
 
 .course-card__name {
-  overflow: hidden;
+  display: block;
+  min-width: 0;
   font-size: var(--mc-text-base);
   font-weight: var(--mc-font-semibold);
   color: var(--mc-text);
+}
+
+/* 截断放在内层：链接自身不能 overflow:hidden，否则拉伸链接的 ::after 会被裁掉 */
+.course-card__name-text {
+  display: block;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 整行可点：标题上的拉伸链接铺满整行 */
+.course-card__name::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+.course-card__name:hover {
+  color: var(--mc-primary-fg);
 }
 
 .course-card__meta {
@@ -145,6 +167,8 @@ const actionLabel = computed(() =>
 }
 
 .course-card__row-actions {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: var(--mc-space-1);
@@ -161,6 +185,17 @@ const actionLabel = computed(() =>
   color: var(--mc-primary-fg);
   font-size: var(--mc-text-xs);
   font-weight: var(--mc-font-medium);
+  transition: var(--mc-transition-colors);
+}
+
+.course-card__cta:hover {
+  border-color: var(--mc-primary-border);
+  background: var(--mc-primary-100);
+  color: var(--mc-primary-hover);
+}
+
+.course-card__cta:active {
+  background: var(--mc-primary-soft);
 }
 
 .course-card__fav--on {
@@ -187,7 +222,7 @@ const actionLabel = computed(() =>
     display: none;
   }
 
-  .course-card__name {
+  .course-card__name-text {
     display: -webkit-box;
     overflow: hidden;
     -webkit-box-orient: vertical;

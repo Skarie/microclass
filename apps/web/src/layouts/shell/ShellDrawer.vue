@@ -80,6 +80,8 @@ const { onUserSelect } = useShellMenus();
   display: flex;
   align-items: center;
   gap: var(--mc-space-3);
+  /* 移动端菜单项统一 44px 触控目标 */
+  min-height: var(--mc-touch-target-mobile);
   padding: var(--mc-space-3);
   border: 0;
   border-radius: var(--mc-radius);
@@ -88,12 +90,27 @@ const { onUserSelect } = useShellMenus();
   color: var(--mc-text-secondary);
   text-align: left;
   cursor: pointer;
+  transition: var(--mc-transition-all);
+}
+
+.drawer__item:hover {
+  background: var(--mc-bg-hover);
+  color: var(--mc-text);
+}
+
+.drawer__item:active {
+  transform: scale(var(--mc-press-scale-soft));
 }
 
 .drawer__item--active {
   background: var(--mc-primary-soft);
   color: var(--mc-primary-fg);
   font-weight: var(--mc-font-medium);
+}
+
+.drawer__item--active:hover {
+  background: var(--mc-primary-100);
+  color: var(--mc-primary-hover);
 }
 
 .drawer__item--sub {
@@ -107,6 +124,7 @@ const { onUserSelect } = useShellMenus();
 
 .drawer__group {
   display: flex;
+  min-height: var(--mc-touch-target-mobile);
   align-items: center;
   justify-content: space-between;
   padding: var(--mc-space-3);

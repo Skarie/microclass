@@ -50,7 +50,7 @@
   }
 }
 
-/* 入场动效：列表项/面板依次浮现 */
+/* 入场动效：列表项/面板依次浮现（位移不超过 4px，只淡不晃） */
 .mc-rise {
   animation: mc-rise var(--mc-duration-slow) var(--mc-ease-out) both;
 }
@@ -58,12 +58,13 @@
 @keyframes mc-rise {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(4px);
   }
 }
 
+/* 数据更新：筛选/分页/刷新拿到新数据时给列表一层 120ms 淡入 */
 .mc-fade-in {
-  animation: mc-fade-in var(--mc-duration) var(--mc-ease-out) both;
+  animation: mc-fade-in var(--mc-fade-duration) var(--mc-ease-out) both;
 }
 
 @keyframes mc-fade-in {
@@ -78,7 +79,7 @@
 }
 
 .mc-press:active {
-  transform: scale(0.97);
+  transform: scale(var(--mc-press-scale));
 }
 
 /* 尊重系统"减弱动效"设置：关掉动画与过渡，只保留即时状态变化 */

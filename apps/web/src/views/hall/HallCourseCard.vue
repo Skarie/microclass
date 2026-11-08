@@ -8,7 +8,9 @@ import type { Course } from '@/api/types';
 
 /**
  * 课程大厅「平铺」卡片：封面、简介、课时/完成/进度、悬停出现的行动按钮。
- * 橙色 accent 只在桌面端悬停/聚焦时出现，全页同时最多一处。
+ *
+ * 整卡可点：标题上的拉伸链接（::after 铺满卡片）负责导航，
+ * 收藏按钮与行动按钮抬到它上面，保持各自的独立点击区。
  */
 const props = defineProps<{ course: Course; progress: number }>();
 const emit = defineEmits<{ 'toggle-fav': [course: Course] }>();
@@ -23,7 +25,7 @@ const actionLabel = computed(() => (done.value ? '复习' : props.progress > 0 ?
 
     <div class="course-card__body">
       <RouterLink class="course-card__name" :to="{ name: 'course', params: { id: course.id } }">
-        {{ course.name }}
+        <span class="course-card__name-text">{{ course.name }}</span>
       </RouterLink>
 
       <p v-if="course.description" class="course-card__desc">{{ course.description }}</p>
@@ -69,6 +71,7 @@ const actionLabel = computed(() => (done.value ? '复习' : props.progress > 0 ?
 
 <style scoped>
 .course-card--tile {
+  position: relative;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -76,12 +79,29 @@ const actionLabel = computed(() => (done.value ? '复习' : props.progress > 0 ?
   transition: var(--mc-transition-all);
 }
 
+/* hover / 键盘焦点：同一套反馈（描边 + 抬 2px + 最轻阴影） */
 @media (hover: hover) and (pointer: fine) {
   .course-card--tile:hover {
-    border-color: var(--mc-primary);
+    border-color: var(--mc-primary-border);
     box-shadow: var(--mc-shadow-xs);
     transform: translateY(var(--mc-hover-lift));
   }
+
+  .course-card--tile:hover :deep(.cover__art) {
+    transform: scale(1.03);
+  }
+}
+
+.course-card--tile:focus-within {
+  border-color: var(--mc-primary-border);
+  box-shadow: var(--mc-shadow-xs);
+  transform: translateY(var(--mc-hover-lift));
+}
+
+/* 按下：停掉抬升、轻微内缩 */
+.course-card--tile:active {
+  box-shadow: none;
+  transform: scale(var(--mc-press-scale-soft));
 }
 
 .course-card__body {
@@ -93,20 +113,36 @@ const actionLabel = computed(() => (done.value ? '复习' : props.progress > 0 ?
   min-width: 0;
 }
 
+/* 拉伸链接：标题即整卡入口（::after 铺满 .course-card--tile）。
+   注意：截断必须放在内层 span 上 —— 链接自身 overflow:hidden 会把 ::after 一起裁掉。 */
 .course-card__name {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  display: block;
   min-height: calc(var(--mc-text-md) * var(--mc-leading) * 2);
   font-size: var(--mc-text-md);
   font-weight: var(--mc-font-semibold);
   line-height: var(--mc-leading);
   color: var(--mc-text);
+  transition: color var(--mc-transition);
 }
 
-.course-card__name:hover {
+.course-card__name-text {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.course-card__name::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+.course-card__name:hover,
+.course-card__name:focus-visible {
   color: var(--mc-primary-fg);
 }
 
@@ -128,7 +164,10 @@ const actionLabel = computed(() => (done.value ? '复习' : props.progress > 0 ?
   color: var(--mc-text-muted);
 }
 
+/* 行动区压在拉伸链接之上：收藏与主按钮仍可各自点击 */
 .course-card__actions {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: var(--mc-space-1);
@@ -149,7 +188,7 @@ const actionLabel = computed(() => (done.value ? '复习' : props.progress > 0 ?
   color: var(--mc-primary-fg);
   font-size: var(--mc-text-xs);
   font-weight: var(--mc-font-medium);
-  transition: var(--mc-transition-colors);
+  transition: var(--mc-transition-all);
 }
 
 .course-card__cta--done {
@@ -162,23 +201,9 @@ const actionLabel = computed(() => (done.value ? '复习' : props.progress > 0 ?
   color: var(--mc-warning-fg);
 }
 
+/* 行动区常驻可见：藏到 hover 里会让「继续学习」无处可寻，
+   也会让拉伸链接盖住收藏按钮的命中区。悬停时只把主按钮从软色升为实心。 */
 @media (hover: hover) and (pointer: fine) {
-  .course-card__actions {
-    opacity: 0;
-    pointer-events: none;
-    transform: translateY(var(--mc-space-1));
-    transition:
-      opacity var(--mc-duration) var(--mc-ease-out),
-      transform var(--mc-duration) var(--mc-ease-out);
-  }
-
-  .course-card--tile:hover .course-card__actions,
-  .course-card--tile:focus-within .course-card__actions {
-    opacity: 1;
-    pointer-events: auto;
-    transform: none;
-  }
-
   .course-card--tile:hover .course-card__cta:not(.course-card__cta--done),
   .course-card--tile:focus-within .course-card__cta:not(.course-card__cta--done) {
     border-color: var(--mc-primary);
@@ -187,8 +212,8 @@ const actionLabel = computed(() => (done.value ? '复习' : props.progress > 0 ?
   }
 
   .course-card__cta:not(.course-card__cta--done):hover {
-    border-color: var(--mc-primary-hover);
-    background: var(--mc-primary-hover);
+    border-color: var(--mc-primary-deep);
+    background: var(--mc-primary-deep);
   }
 }
 

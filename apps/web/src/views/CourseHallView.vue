@@ -5,6 +5,7 @@
  * 数据与筛选在 composables/use-hall-catalog.ts；
  * 界面按「欢迎条 / 分类 chips / 工具条 / 平铺卡片 / 列表行 / 封面 / 骨架」拆分。
  */
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import EmptyState from '@/components/EmptyState.vue';
 import Icon from '@/components/Icon.vue';
 import PageHeader from '@/components/PageHeader.vue';
@@ -18,6 +19,44 @@ import HallCourseRow from './hall/HallCourseRow.vue';
 import HallSkeleton from './hall/HallSkeleton.vue';
 
 const catalog = useHallCatalog();
+
+/**
+ * 滚动位置记忆：点开课程再返回时回到原来那一行。
+ * 路由的 scrollBehavior 只在浏览器前进/后退给 saved，异步列表往往还没渲染完就被它置顶，
+ * 所以这里等数据渲染后再恢复一次；5 分钟内的记录才生效，避免从导航重新进入时莫名其妙跳到中间。
+ */
+const SCROLL_KEY = 'mc:hall-scroll';
+const restored = ref(false);
+
+function readSavedScroll(): number {
+  const y = Number(sessionStorage.getItem(SCROLL_KEY) ?? 0);
+  const at = Number(sessionStorage.getItem(`${SCROLL_KEY}:at`) ?? 0);
+  return Number.isFinite(y) && Date.now() - at < 5 * 60 * 1000 ? y : 0;
+}
+
+onMounted(() => {
+  if (catalog.loading) return;
+  const y = readSavedScroll();
+  if (y > 0) void nextTick(() => window.scrollTo({ top: y, behavior: 'auto' }));
+});
+
+watch(
+  () => catalog.filtered.length,
+  async (count) => {
+    if (restored.value || count === 0) return;
+    restored.value = true;
+    const y = readSavedScroll();
+    if (y > 0) {
+      await nextTick();
+      window.scrollTo({ top: y, behavior: 'auto' });
+    }
+  },
+);
+
+onBeforeUnmount(() => {
+  sessionStorage.setItem(SCROLL_KEY, String(window.scrollY));
+  sessionStorage.setItem(`${SCROLL_KEY}:at`, String(Date.now()));
+});
 </script>
 
 <template>
@@ -30,8 +69,9 @@ const catalog = useHallCatalog();
     >
       <template #actions>
         <button class="mc-btn mc-btn--sm" type="button" :disabled="catalog.loading" @click="catalog.refresh()">
-          <Icon name="refresh" :size="15" />
-          刷新
+          <span v-if="catalog.loading" class="mc-btn__spinner" aria-hidden="true" />
+          <Icon v-else name="refresh" :size="15" />
+          {{ catalog.loading ? '刷新中…' : '刷新' }}
         </button>
       </template>
     </PageHeader>
@@ -64,7 +104,11 @@ const catalog = useHallCatalog();
               >
             </SectionHead>
 
-            <div v-if="catalog.viewMode === 'cards'" class="hall__cards">
+            <div
+              v-if="catalog.viewMode === 'cards'"
+              :key="`cards-${catalog.categoryId}`"
+              class="hall__cards mc-fade-in"
+            >
               <HallCourseCard
                 v-for="course in catalog.filtered"
                 :key="course.id"
@@ -74,7 +118,7 @@ const catalog = useHallCatalog();
               />
             </div>
 
-            <ul v-else class="hall__list">
+            <ul v-else :key="`list-${catalog.categoryId}`" class="hall__list mc-fade-in">
               <HallCourseRow
                 v-for="course in catalog.filtered"
                 :key="course.id"

@@ -182,8 +182,14 @@
   --mc-glass-border: rgb(255 255 255 / 60%);
   --mc-glass-blur: saturate(105%) blur(3px);
 
-  /* 无封面兜底纹理：单色 45° 细斜线（6%），颜色只在这里定义 */
-  --mc-cover-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpath d='M-6 30 30-6M-6 18 18-6M6 30 30 6' stroke='%2384847e' stroke-opacity='0.06' stroke-width='1'/%3E%3C/svg%3E");
+  /* 设计封面三色盘：深主绿 / 炭灰 / 赭石。按分类名 hash 固定，全站只有 3 种，不随主题变。 */
+  --mc-cover-green: #0b513f;
+  --mc-cover-charcoal: #33333a;
+  --mc-cover-ochre: #6f4026;
+  --mc-cover-fg: #ffffff;
+  --mc-cover-name: rgb(255 255 255 / 76%);
+  --mc-cover-line: rgb(255 255 255 / 30%);
+  --mc-cover-line-strong: rgb(255 255 255 / 34%);
   /* ================= 动效（短、不弹） ================= */
   --mc-transition: 150ms cubic-bezier(0.32, 0.72, 0, 1);
 
@@ -253,6 +259,14 @@
   --mc-hover-lift: -2px;
   --mc-hover-scale: 1;
   --mc-hover-lift-sm: -2px;
+
+  /* 交互反馈：按下缩放 0.98 / 容器 0.995、焦点环 2px+2px、主色加深 6%、数据淡入 120ms */
+  --mc-press-scale: 0.98;
+  --mc-press-scale-soft: 0.995;
+  --mc-focus-ring-width: 2px;
+  --mc-focus-ring-offset: 2px;
+  --mc-primary-deep: color-mix(in srgb, var(--mc-primary) 94%, black);
+  --mc-fade-duration: 120ms;
 }
 
 /* ================= 暗色主题 ================= */

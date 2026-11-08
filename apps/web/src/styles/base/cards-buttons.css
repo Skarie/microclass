@@ -57,10 +57,13 @@
   font-size: var(--mc-text-sm);
   font-weight: var(--mc-font-medium);
   cursor: pointer;
+  /* 150ms 内同时切换描边/底色/位移：hover 加深、按下缩小都用同一条曲线 */
   transition:
     border-color var(--mc-transition),
     background-color var(--mc-transition),
-    color var(--mc-transition);
+    color var(--mc-transition),
+    transform var(--mc-duration) var(--mc-ease-out),
+    box-shadow var(--mc-duration) var(--mc-ease-out);
   white-space: nowrap;
 }
 
@@ -71,13 +74,44 @@
   }
 }
 
+/* 按下：缩到 0.98，松手回弹；禁用时不缩放 */
 .mc-btn:active:not(:disabled) {
   background: var(--mc-bg-sunken);
+  transform: scale(var(--mc-press-scale));
 }
 
+.mc-btn:focus-visible {
+  outline: var(--mc-focus-ring-width) solid var(--mc-primary);
+  outline-offset: var(--mc-focus-ring-offset);
+}
+
+/* 禁用：整体压淡 + 明确不可点，且不再有任何 hover 反馈 */
 .mc-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* 处理中：保留宽度、换成转圈，避免提交时按钮突然变窄导致布局跳动 */
+.mc-btn--loading {
+  cursor: progress;
+}
+
+.mc-btn__spinner {
+  width: var(--mc-icon-sm);
+  height: var(--mc-icon-sm);
+  flex: none;
+  border: 2px solid currentcolor;
+  border-right-color: transparent;
+  border-radius: var(--mc-radius-pill);
+  animation: mc-spin 640ms linear infinite;
+}
+
+@keyframes mc-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .mc-btn--primary {
@@ -90,8 +124,9 @@
 
 @media (hover: hover) and (pointer: fine) {
   .mc-btn--primary:hover:not(:disabled) {
-    background-color: var(--mc-primary-hover);
-    border-color: var(--mc-primary-hover);
+    /* 主色加深 6%：暗色主题下也仍是「加深」而不是变亮 */
+    background-color: var(--mc-primary-deep);
+    border-color: var(--mc-primary-deep);
   }
 }
 

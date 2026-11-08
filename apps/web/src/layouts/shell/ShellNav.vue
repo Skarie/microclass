@@ -43,6 +43,7 @@ useNavReveal();
 }
 
 .nav__item {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: var(--mc-space-1);
@@ -53,7 +54,21 @@ useNavReveal();
   border-radius: var(--mc-radius);
   font-size: var(--mc-text-sm);
   color: var(--mc-text-secondary);
-  transition: var(--mc-transition-colors);
+  transition: var(--mc-transition-all);
+}
+
+/* 当前项：浅底 + 底部指示条；hover 只换底色，不挪位置 */
+.nav__item::after {
+  content: '';
+  position: absolute;
+  right: var(--mc-space-3);
+  bottom: var(--mc-space-1);
+  left: var(--mc-space-3);
+  height: 2px;
+  border-radius: var(--mc-radius-pill);
+  background: var(--mc-primary);
+  opacity: 0;
+  transition: opacity var(--mc-transition);
 }
 
 .nav__item:hover {
@@ -61,10 +76,23 @@ useNavReveal();
   color: var(--mc-text);
 }
 
+.nav__item:active {
+  transform: scale(var(--mc-press-scale));
+}
+
 .nav__item--active {
   background: var(--mc-primary-soft);
   color: var(--mc-primary-fg);
   font-weight: var(--mc-font-medium);
+}
+
+.nav__item--active::after {
+  opacity: 1;
+}
+
+.nav__item:focus-visible {
+  outline: var(--mc-focus-ring-width) solid var(--mc-primary);
+  outline-offset: var(--mc-focus-ring-offset);
 }
 
 @media (max-width: 900px) {

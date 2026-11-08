@@ -77,8 +77,9 @@ watch(tab, (next) => {
     >
       <template #actions>
         <button class="mc-btn mc-btn--sm" type="button" :disabled="list.loading" @click="refreshAll()">
-          <Icon name="refresh" :size="15" />
-          刷新
+          <span v-if="list.loading" class="mc-btn__spinner" aria-hidden="true" />
+          <Icon v-else name="refresh" :size="15" />
+          {{ list.loading ? '刷新中…' : '刷新' }}
         </button>
         <button class="mc-btn mc-btn--sm" type="button" @click="categoryAdmin.openCategories()">
           <Icon name="list" :size="15" />

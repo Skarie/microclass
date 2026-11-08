@@ -11,6 +11,7 @@ import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import { api } from '@/api/client';
 import { useAsync } from '@/composables/useAsync';
+import CourseCoverArt from '@/components/CourseCoverArt.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import Icon from '@/components/Icon.vue';
 import PageHeader from '@/components/PageHeader.vue';
@@ -83,19 +84,13 @@ const isEmpty = computed(() => learning.value.length + finished.value.length + f
 
         <ul class="my__list">
           <li v-for="course in group.list" :key="course.id" class="my__row course-card course-card--row">
-            <RouterLink
-              class="course-card__thumb"
-              :to="{ name: 'course', params: { id: course.id } }"
-              tabindex="-1"
-              :aria-label="`进入课程 ${course.name}`"
-            >
-              <img v-if="course.cover" :src="`/api/v1/course-cover/${course.id}`" :alt="course.name" loading="lazy" />
-              <Icon v-else name="graduation" :size="20" />
-            </RouterLink>
+            <div class="course-card__thumb" aria-hidden="true">
+              <CourseCoverArt :course="course" variant="row" />
+            </div>
 
             <div class="course-card__row-main">
               <RouterLink class="course-card__name" :to="{ name: 'course', params: { id: course.id } }">
-                {{ course.name }}
+                <span class="course-card__name-text">{{ course.name }}</span>
               </RouterLink>
               <div class="course-card__meta">
                 <span class="course-card__stat">
@@ -180,13 +175,14 @@ const isEmpty = computed(() => learning.value.length + finished.value.length + f
 }
 
 .my__row {
+  position: relative;
   display: grid;
   grid-template-columns: 64px minmax(0, 1fr) 180px auto;
   align-items: center;
   gap: var(--mc-space-4);
   padding: var(--mc-space-2) var(--mc-space-3);
   border-radius: var(--mc-radius);
-  transition: var(--mc-transition-colors);
+  transition: background-color var(--mc-transition);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -195,24 +191,19 @@ const isEmpty = computed(() => learning.value.length + finished.value.length + f
   }
 }
 
-.course-card__thumb {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 64px;
-  height: 44px;
-  border: 1px solid var(--mc-border);
-  border-radius: var(--mc-radius-sm);
-  overflow: hidden;
-  background: var(--mc-bg-sunken);
-  color: var(--mc-primary-fg);
-  flex: none;
+/* 行不位移：hover 与键盘焦点都只换底色 */
+.my__row:focus-within {
+  background: var(--mc-bg-hover);
 }
 
-.course-card__thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.course-card__thumb {
+  display: inline-flex;
+  width: 64px;
+  height: 44px;
+  overflow: hidden;
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius-sm);
+  flex: none;
 }
 
 .course-card__row-main {
@@ -223,15 +214,31 @@ const isEmpty = computed(() => learning.value.length + finished.value.length + f
 }
 
 .course-card__name {
+  display: block;
+  min-width: 0;
   font-size: var(--mc-text-base);
   font-weight: var(--mc-font-semibold);
   color: var(--mc-text);
+}
+
+.course-card__name-text {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.course-card__name:hover {
+/* 整行可点：标题上的拉伸链接铺满整行 */
+.course-card__name::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+.course-card__name:hover,
+.course-card__name:focus-visible {
   color: var(--mc-primary-fg);
 }
 
@@ -251,6 +258,8 @@ const isEmpty = computed(() => learning.value.length + finished.value.length + f
 }
 
 .course-card__row-actions {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: var(--mc-space-1);

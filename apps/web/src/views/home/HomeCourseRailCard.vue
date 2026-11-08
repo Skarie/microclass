@@ -22,20 +22,15 @@ const actionLabel = computed(() => (props.progress >= 100 ? '复习' : props.pro
 
 <template>
   <li class="rail-card mc-card">
-    <RouterLink
-      class="rail-card__cover"
-      :to="{ name: 'course', params: { id: course.id } }"
-      tabindex="-1"
-      :aria-label="`进入课程 ${course.name}`"
-    >
+    <div class="rail-card__cover">
       <CourseCoverArt :course="course" />
       <CourseCoverTag v-if="course.category_name" :label="course.category_name" corner="left" />
       <CourseCoverTag :label="STATUS_LABEL[status]" corner="right" :tone="statusTone" dot />
-    </RouterLink>
+    </div>
 
     <div class="rail-card__body">
       <RouterLink class="rail-card__name" :to="{ name: 'course', params: { id: course.id } }">
-        {{ course.name }}
+        <span class="rail-card__name-text">{{ course.name }}</span>
       </RouterLink>
       <div class="rail-card__meta">
         <span class="mc-num">{{ course.finished ?? 0 }}/{{ course.total ?? 0 }} 课时</span>
@@ -57,6 +52,7 @@ const actionLabel = computed(() => (props.progress >= 100 ? '复习' : props.pro
 
 <style scoped>
 .rail-card {
+  position: relative;
   display: flex;
   flex: 0 0 232px;
   flex-direction: column;
@@ -68,10 +64,25 @@ const actionLabel = computed(() => (props.progress >= 100 ? '复习' : props.pro
 
 @media (hover: hover) and (pointer: fine) {
   .rail-card:hover {
-    border-color: var(--mc-primary);
+    border-color: var(--mc-primary-border);
     box-shadow: var(--mc-shadow-xs);
     transform: translateY(var(--mc-hover-lift));
   }
+
+  .rail-card:hover :deep(.art) {
+    transform: scale(1.03);
+  }
+}
+
+.rail-card:focus-within {
+  border-color: var(--mc-primary-border);
+  box-shadow: var(--mc-shadow-xs);
+  transform: translateY(var(--mc-hover-lift));
+}
+
+.rail-card:active {
+  box-shadow: none;
+  transform: scale(var(--mc-press-scale-soft));
 }
 
 .rail-card__cover {
@@ -80,6 +91,10 @@ const actionLabel = computed(() => (props.progress >= 100 ? '复习' : props.pro
   height: 148px;
   overflow: hidden;
   border-bottom: 1px solid var(--mc-border);
+}
+
+.rail-card__cover :deep(.art) {
+  transition: transform var(--mc-duration) var(--mc-ease-out);
 }
 
 .rail-card__body {
@@ -91,17 +106,34 @@ const actionLabel = computed(() => (props.progress >= 100 ? '复习' : props.pro
   min-width: 0;
 }
 
+/* 拉伸链接：整卡可点，标题即入口（截断在内层 span 上，链接自身不能裁剪） */
 .rail-card__name {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  display: block;
   min-height: calc(var(--mc-text-base) * var(--mc-leading) * 2);
   font-size: var(--mc-text-base);
   font-weight: var(--mc-font-semibold);
   line-height: var(--mc-leading);
   color: var(--mc-text);
+}
+
+.rail-card__name-text {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.rail-card__name::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.rail-card__name:hover,
+.rail-card__name:focus-visible {
+  color: var(--mc-primary-fg);
 }
 
 .rail-card__name:hover {
@@ -118,6 +150,8 @@ const actionLabel = computed(() => (props.progress >= 100 ? '复习' : props.pro
 }
 
 .rail-card__cta {
+  position: relative;
+  z-index: 2;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -129,16 +163,20 @@ const actionLabel = computed(() => (props.progress >= 100 ? '复习' : props.pro
   color: var(--mc-text-inverse);
   font-size: var(--mc-text-xs);
   font-weight: var(--mc-font-semibold);
-  transition: var(--mc-transition-colors);
+  transition: var(--mc-transition-all);
 }
 
 .rail-card__cta:hover {
-  background: var(--mc-primary-hover);
+  background: var(--mc-primary-deep);
+}
+
+.rail-card__cta:active {
+  transform: scale(var(--mc-press-scale));
 }
 
 .rail-card__cta:focus-visible {
-  outline: none;
-  box-shadow: var(--mc-focus-ring);
+  outline: var(--mc-focus-ring-width) solid var(--mc-primary);
+  outline-offset: var(--mc-focus-ring-offset);
 }
 
 @media (max-width: 1023px) {

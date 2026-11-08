@@ -13,7 +13,7 @@ defineProps<{ items: Recommendation[] }>();
 </script>
 
 <template>
-  <section v-if="items.length > 0" class="rec" aria-label="推荐课程">
+  <section v-if="items.length > 0" class="rec mc-fade-in" aria-label="推荐课程">
     <SectionHead title="推荐课程">
       <template #meta>同类优先 · 新上线其次</template>
     </SectionHead>

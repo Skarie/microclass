@@ -10,7 +10,7 @@ defineProps<{ courses: Course[]; progressOf: (course: Course) => number }>();
 </script>
 
 <template>
-  <section v-if="courses.length > 0" class="rail" aria-label="我的课程">
+  <section v-if="courses.length > 0" class="rail mc-fade-in" aria-label="我的课程">
     <SectionHead title="我的课程" action-text="全部课程" action-to="/my-courses">
       <template #meta>{{ courses.length }} 门</template>
     </SectionHead>

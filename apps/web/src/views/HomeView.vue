@@ -48,6 +48,7 @@ const {
   metrics,
   levelHint,
   progressOf,
+  loading,
   load,
 } = useHomeDashboard();
 const panel = usePanelStore();
@@ -64,7 +65,7 @@ onMounted(() => void load());
     <HomeAnnouncements />
 
     <!-- ③ 继续学习 -->
-    <HomeHero :course="heroCourse" :progress="heroCourse ? progressOf(heroCourse) : 0" />
+    <HomeHero :course="heroCourse" :progress="heroCourse ? progressOf(heroCourse) : 0" :loading="loading" />
 
     <!-- ④ 我的学习 -->
     <section class="home__block">

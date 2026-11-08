@@ -49,24 +49,34 @@
 .mc-card--interactive {
   transition:
     border-color var(--mc-transition),
+    background-color var(--mc-transition),
     box-shadow var(--mc-transition),
     transform var(--mc-transition);
 }
 
 .mc-card--interactive:hover {
-  border-color: var(--mc-primary);
+  border-color: var(--mc-primary-border);
   box-shadow: var(--mc-shadow-xs);
   transform: translateY(var(--mc-hover-lift));
 }
 
+/* 按下：停掉抬升、轻微内缩，给"已经点到了"的确认 */
 .mc-card--interactive:active {
   background: var(--mc-bg-hover);
-  transform: translateY(0);
+  transform: scale(var(--mc-press-scale-soft));
 }
 
+/* 键盘焦点与 hover 同等明显：同样描边、同样抬升 */
 .mc-card--interactive:focus-visible {
-  outline: 2px solid var(--mc-primary);
-  outline-offset: 2px;
+  outline: var(--mc-focus-ring-width) solid var(--mc-primary);
+  outline-offset: var(--mc-focus-ring-offset);
+}
+
+.mc-card--interactive:focus-visible,
+.mc-card--interactive:focus-within {
+  border-color: var(--mc-primary-border);
+  box-shadow: var(--mc-shadow-xs);
+  transform: translateY(var(--mc-hover-lift));
 }
 
 /* ---- 工具条里的输入控件：统一高度与宽度语义 ---- */
@@ -101,6 +111,58 @@
 
 .mc-table tbody tr:hover {
   background: var(--mc-bg-hover);
+}
+
+/* ---- 表格：可排序表头 ---- */
+/* 表头按钮：默认不抢眼，hover 浮出 ↕，已排序的列固定显示 ↑/↓（键盘聚焦与 hover 同等可见） */
+.mc-th-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mc-space-1);
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--mc-transition);
+}
+
+.mc-th-sort::after {
+  content: '↕';
+  margin-left: auto;
+  font-size: var(--mc-text-xs);
+  color: var(--mc-text-muted);
+  opacity: 0;
+  transition: opacity var(--mc-transition);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mc-th-sort:hover {
+    color: var(--mc-text);
+  }
+
+  .mc-th-sort:hover::after {
+    opacity: 0.7;
+  }
+}
+
+.mc-table th[aria-sort='ascending'] .mc-th-sort::after {
+  content: '↑';
+  opacity: 1;
+}
+
+.mc-table th[aria-sort='descending'] .mc-th-sort::after {
+  content: '↓';
+  opacity: 1;
+}
+
+.mc-th-sort:focus-visible {
+  outline: var(--mc-focus-ring-width) solid var(--mc-primary);
+  outline-offset: var(--mc-focus-ring-offset);
 }
 
 .mc-table .mc-num {
