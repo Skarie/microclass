@@ -2,6 +2,7 @@ import { computed, reactive, ref } from 'vue';
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import { errorMessage, useAsync } from '@/composables/useAsync';
+import { askConfirm } from '@/composables/use-confirm';
 import { useExamCountdown } from '@/composables/use-exam-countdown';
 import { useQuizFlow } from '@/composables/use-quiz-flow';
 import { useToastStore } from '@/stores/toast';
@@ -61,8 +62,13 @@ export function useExamTake() {
     }
     if (!auto) {
       const missing = list.length - flow.answeredCount.value;
-      const tip = missing > 0 ? `还有 ${missing} 题未作答，确定要交卷吗？` : '确定要交卷吗？交卷后不能修改。';
-      if (!window.confirm(tip)) return false;
+      const ok = await askConfirm({
+        title: '交卷确认',
+        message: missing > 0 ? `还有 ${missing} 题未作答，确定要交卷吗？` : '确定要交卷吗？',
+        detail: '交卷后不能修改答案；未作答的题目按错误计入成绩。',
+        confirmText: '交卷',
+      });
+      if (!ok) return false;
     }
 
     submitting.value = true;
@@ -85,10 +91,16 @@ export function useExamTake() {
     }
   }
 
-  onBeforeRouteLeave(() => {
+  onBeforeRouteLeave(async () => {
     if (!data.value || data.value.already || submitted.value) return true;
     if (questions.value.length > 0 && flow.answeredCount.value === questions.value.length) return true;
-    return window.confirm('试卷尚未提交，离开将丢失本次作答，确定离开吗？');
+    return askConfirm({
+      title: '离开考试',
+      message: '试卷尚未提交，离开将丢失本次作答。',
+      detail: '已作答内容不会保存；可以留在本页交卷后再离开。',
+      confirmText: '离开考试',
+      danger: true,
+    });
   });
 
   return reactive({

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
- * 封面角标：分类 chip（左上）与状态徽标（右上）共用。
- * 半透明白底保证图片上的可读性；状态同时用文字 + 圆点，颜色不是唯一信息载体。
+ * 封面角标：分类文字（左上）与状态（右上）共用。
+ * 统一中性软底 + 中性文字；状态只在 6px 圆点上用语义色，文字本身始终可读。
  */
 withDefaults(
   defineProps<{
@@ -34,7 +34,8 @@ withDefaults(
   overflow: hidden;
   border: 1px solid var(--mc-border);
   border-radius: var(--mc-radius-xs);
-  background: color-mix(in srgb, var(--mc-bg-elevated) 90%, transparent);
+  background: color-mix(in srgb, var(--mc-bg-elevated) 92%, transparent);
+  color: var(--mc-text-secondary);
   font-size: var(--mc-text-xs);
   font-weight: var(--mc-font-medium);
   line-height: var(--mc-leading-snug);
@@ -50,28 +51,19 @@ withDefaults(
   right: var(--mc-space-2);
 }
 
-.cover-tag--neutral {
-  color: var(--mc-text-secondary);
-}
-
-/* 状态徽标用语义色软底，分类 chip 保持白色半透底 */
-.cover-tag--primary {
-  border-color: var(--mc-primary-border);
-  background: var(--mc-primary-soft);
-  color: var(--mc-primary-fg);
-}
-
-.cover-tag--success {
-  border-color: var(--mc-success-soft);
-  background: var(--mc-success-soft);
-  color: var(--mc-success-fg);
-}
-
 .cover-tag__dot {
   width: 6px;
   height: 6px;
   flex: none;
   border-radius: var(--mc-radius-pill);
-  background: currentcolor;
+  background: var(--mc-text-muted);
+}
+
+.cover-tag--primary .cover-tag__dot {
+  background: var(--mc-primary);
+}
+
+.cover-tag--success .cover-tag__dot {
+  background: var(--mc-success);
 }
 </style>

@@ -1,6 +1,7 @@
 import { reactive, ref } from 'vue';
 import { api } from '@/api/client';
 import { errorMessage } from '@/composables/useAsync';
+import { askConfirm } from '@/composables/use-confirm';
 import { useToastStore } from '@/stores/toast';
 import type { MediaRoot } from '@/api/types';
 
@@ -96,12 +97,17 @@ export function useMediaRoots(deps: MediaRootDeps) {
       toast.warning('这是系统内置目录（站内上传的视频存这里），不能移除');
       return;
     }
-    if (
-      !window.confirm(
-        `确定移除媒体目录「${root.name}」吗？路径 ${root.path}${used > 0 ? `（当前有 ${used} 个课时在使用，需先改绑或删除）` : ''}`,
-      )
-    )
-      return;
+    const ok = await askConfirm({
+      title: '移除媒体目录',
+      message: `确定移除媒体目录「${root.name}」吗？路径：${root.path}`,
+      detail:
+        used > 0
+          ? `当前有 ${used} 个课时在使用，需先改绑或删除这些课时；移除后不影响磁盘上的原始视频。`
+          : '只解除登记，不会删除磁盘上的原始视频。',
+      confirmText: '移除',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await api.del<OkResponse>(`/media-roots/${root.id}`);
       toast.success(`媒体目录「${root.name}」已移除`);

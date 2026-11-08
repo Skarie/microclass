@@ -1,6 +1,7 @@
 import { reactive, ref } from 'vue';
 import { api } from '@/api/client';
 import { errorMessage } from '@/composables/useAsync';
+import { askConfirm } from '@/composables/use-confirm';
 import { useToastStore } from '@/stores/toast';
 import type { Lesson } from '@/api/types';
 
@@ -65,8 +66,14 @@ export function useCourseLessonActions(deps: CourseLessonActionDeps) {
   }
 
   async function removeLesson(lesson: Lesson): Promise<void> {
-    if (!window.confirm(`确定删除课时「${lesson.title}」吗？该课时的进度、练习记录与知识点会一并移除，且不可恢复。`))
-      return;
+    const ok = await askConfirm({
+      title: '删除课时',
+      message: `确定删除课时「${lesson.title}」吗？`,
+      detail: '该课时的进度、练习记录与知识点会一并移除，且不可恢复。',
+      confirmText: '删除',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await api.del<OkResponse>(`/lessons/${lesson.id}`);
       toast.success(`课时「${lesson.title}」已删除`);

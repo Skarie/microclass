@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import Icon from '@/components/Icon.vue';
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
 
 /**
  * 通用弹窗：受控显示、Esc 关闭、点击遮罩关闭、
@@ -10,14 +10,17 @@ const props = withDefaults(
   defineProps<{
     open: boolean;
     title: string;
+    /** 可选副标题：一句话说明这个弹窗要完成什么 */
+    description?: string;
     width?: string;
     closeOnBackdrop?: boolean;
   }>(),
-  { width: '560px', closeOnBackdrop: true },
+  { description: '', width: '560px', closeOnBackdrop: true },
 );
 
 const emit = defineEmits<{ close: [] }>();
 const panel = ref<HTMLElement | null>(null);
+const titleId = useId();
 
 function onKeydown(e: KeyboardEvent): void {
   if (e.key === 'Escape' && props.open) emit('close');
@@ -49,12 +52,15 @@ onBeforeUnmount(() => {
         class="modal-panel mc-card"
         role="dialog"
         aria-modal="true"
-        :aria-label="title"
+        :aria-labelledby="titleId"
         tabindex="-1"
         :style="{ width }"
       >
-        <header class="mc-card__header">
-          <span class="mc-card__title">{{ title }}</span>
+        <header class="mc-card__header modal-head">
+          <div class="modal-head__text">
+            <span :id="titleId" class="mc-card__title">{{ title }}</span>
+            <span v-if="description" class="modal-head__desc">{{ description }}</span>
+          </div>
           <button class="modal-close" type="button" aria-label="关闭" @click="emit('close')">
             <Icon name="close" :size="16" />
           </button>
@@ -120,7 +126,27 @@ onBeforeUnmount(() => {
 }
 
 .modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mc-space-4);
   overflow-y: auto;
+}
+
+.modal-head {
+  align-items: flex-start;
+}
+
+.modal-head__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mc-space-1);
+  min-width: 0;
+}
+
+.modal-head__desc {
+  font-size: var(--mc-text-xs);
+  line-height: var(--mc-leading);
+  color: var(--mc-text-muted);
 }
 
 .modal-footer {
@@ -131,5 +157,11 @@ onBeforeUnmount(() => {
   border-radius: 0 0 var(--mc-radius-md) var(--mc-radius-md);
   background: transparent;
   border-top: 1px solid var(--mc-border);
+}
+
+@media (max-width: 1023px) {
+  .modal-footer :deep(.mc-btn) {
+    min-height: var(--mc-touch-target-mobile);
+  }
 }
 </style>

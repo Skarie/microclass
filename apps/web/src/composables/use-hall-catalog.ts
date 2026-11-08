@@ -103,7 +103,7 @@ export function useHallCatalog() {
     try {
       const res = await api.post<{ fav: boolean }>(`/courses/${course.id}/fav`);
       course.fav = res.fav;
-      toast.success(res.fav ? '已加入我的收藏' : '已取消收藏');
+      toast.success(res.fav ? `已收藏「${course.name}」` : `已取消收藏「${course.name}」`);
     } catch (e) {
       toast.error(errorMessage(e));
     }

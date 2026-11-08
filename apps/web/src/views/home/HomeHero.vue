@@ -1,12 +1,12 @@
 <script setup lang="ts">
 /**
- * 首页 · 继续学习 Hero：整块主色底（纯色），左侧白字 + 白色主按钮 / 描边次按钮，
- * 右侧单色几何装饰（GeoArt）。不用图片、不用渐变，层级靠字号与留白。
+ * 首页 · 继续学习 Hero：纯主色块 + 白字 + 按钮。
+ * 右侧只放有信息含义的课程封面；没有封面时用课程名首字，不做装饰图形。
  */
 import { RouterLink } from 'vue-router';
-import GeoArt from '@/components/GeoArt.vue';
 import Icon from '@/components/Icon.vue';
-import ProgressBar from '@/components/ProgressBar.vue';
+import HomeHeroAside from './HomeHeroAside.vue';
+import HomeHeroProgress from './HomeHeroProgress.vue';
 import type { Course } from '@/api/types';
 
 defineProps<{ course: Course | null; progress: number }>();
@@ -14,8 +14,6 @@ defineProps<{ course: Course | null; progress: number }>();
 
 <template>
   <section class="hero" aria-label="继续学习">
-    <GeoArt class="hero__art" />
-
     <div class="hero__main">
       <p class="hero__eyebrow">
         <Icon name="play" :size="14" />
@@ -26,15 +24,7 @@ defineProps<{ course: Course | null; progress: number }>();
         <h2 class="hero__title">{{ course.name }}</h2>
         <p v-if="course.description" class="hero__desc">{{ course.description }}</p>
 
-        <div class="hero__progress">
-          <div class="hero__progress-head">
-            <span>
-              已学完 <strong class="mc-num">{{ course.finished ?? 0 }}</strong> / {{ course.total ?? 0 }} 课时
-            </span>
-            <span class="hero__percent mc-num">{{ progress }}%</span>
-          </div>
-          <ProgressBar :value="progress" tone="primary" :show-end="false" :aria-label="`${course.name} 学习进度`" />
-        </div>
+        <HomeHeroProgress :course="course" :progress="progress" />
 
         <div class="hero__actions">
           <RouterLink class="hero__cta" :to="{ name: 'course', params: { id: course.id } }">
@@ -57,12 +47,18 @@ defineProps<{ course: Course | null; progress: number }>();
         </div>
       </template>
     </div>
+
+    <HomeHeroAside v-if="course" :course="course" />
   </section>
 </template>
 
 <style scoped>
 .hero {
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mc-space-8);
   overflow: hidden;
   padding: var(--mc-space-10);
   border-radius: var(--mc-radius-lg);
@@ -71,9 +67,8 @@ defineProps<{ course: Course | null; progress: number }>();
 }
 
 .hero__main {
-  position: relative;
-  z-index: 1;
   display: flex;
+  flex: 1;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--mc-space-3);
@@ -113,42 +108,6 @@ defineProps<{ course: Course | null; progress: number }>();
   font-size: var(--mc-text-sm);
   line-height: var(--mc-leading);
   color: var(--mc-hero-muted);
-}
-
-.hero__progress {
-  display: flex;
-  flex-direction: column;
-  gap: var(--mc-space-1);
-  width: 100%;
-  max-width: 440px;
-  margin-top: var(--mc-space-2);
-}
-
-.hero__progress-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--mc-space-2);
-  font-size: var(--mc-text-xs);
-  color: var(--mc-hero-fg);
-}
-
-.hero__percent {
-  font-size: var(--mc-text-sm);
-  font-weight: var(--mc-font-semibold);
-}
-
-/* 进度条落在主色底上：轨道 / 填充改成白色系（只在本组件穿透一次） */
-.hero :deep(.pb__track) {
-  background: color-mix(in srgb, var(--mc-hero-fg) 24%, transparent);
-}
-
-.hero :deep(.pb__bar) {
-  background: var(--mc-hero-fg);
-}
-
-.hero :deep(.pb__end) {
-  background: var(--mc-hero-fg);
 }
 
 .hero__actions {

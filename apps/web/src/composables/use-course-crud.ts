@@ -2,6 +2,7 @@ import { computed, reactive, ref, type Ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import { errorMessage } from '@/composables/useAsync';
+import { askConfirm } from '@/composables/use-confirm';
 import { useToastStore } from '@/stores/toast';
 import type { MenuItem } from '@/components/DropdownMenu.vue';
 import type { Course } from '@/api/types';
@@ -125,12 +126,14 @@ export function useCourseCrud(deps: CourseCrudDeps) {
   }
 
   async function removeCourse(course: Course): Promise<void> {
-    if (
-      !window.confirm(
-        `确定删除课程「${course.name}」吗？该课程下的 ${course.total ?? 0} 个课时会变成「未归类课时」（可在课程管理的未归类列表里重新改绑），此操作不可恢复。`,
-      )
-    )
-      return;
+    const ok = await askConfirm({
+      title: '删除课程',
+      message: `确定删除课程「${course.name}」吗？该课程下的 ${course.total ?? 0} 个课时不会被删除。`,
+      detail: '课时会变成「未归类课时」，可在课程管理的未归类列表里重新改绑；课程本身删除后不可恢复。',
+      confirmText: '删除课程',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await api.del<OkResponse>(`/courses/${course.id}`);
       toast.success(`课程「${course.name}」已删除`);

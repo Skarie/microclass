@@ -2,9 +2,8 @@
 /**
  * 选题（整页三区，不是弹窗）。
  *
- * 为什么从弹窗改成整页：教师挑题是最花时间的动作，弹窗里塞"树 + 列表 + 试题篮"三栏后，
- * 每栏只剩两三百像素 —— 真机上「题型」被压成竖排、"操作"列直接被裁到弹窗外面，
- * 一屏还看不到几道题。这里改成整页：
+ * 为什么从弹窗改成整页：教师挑题最花时间，弹窗里塞"树 + 列表 + 试题篮"三栏后每栏只剩两三百像素，
+ * 真机上「题型」会被压成竖排、"操作"列直接被裁掉，一屏也看不到几道题；这里改成整页：
  *   左：范围（本课程/全库）+ 章节·知识点树 + 题型/难度/关键词/排序
  *   中：题目列表（题干给足宽度、可展开、行内「加入」）+ 全选本页 / 全选筛选结果 + 分页
  *   右：已选试题篮（题数、合计分值、题型分布、移除、去排卷）
@@ -12,6 +11,7 @@
 import { computed, reactive, ref, watch } from 'vue';
 import { api } from '@/api/client';
 import { errorMessage } from '@/composables/useAsync';
+import { askConfirm } from '@/composables/use-confirm';
 import { useToastStore } from '@/stores/toast';
 import Icon from '@/components/Icon.vue';
 import RangeTree from '@/components/compose/RangeTree.vue';
@@ -200,7 +200,7 @@ async function addChecked(): Promise<void> {
 async function addAllMatched(): Promise<void> {
   const total = pool.value?.total ?? 0;
   if (total === 0) return;
-  if (!window.confirm(`把当前筛选结果的 ${total} 道题全部加入试卷？`)) return;
+  if (!(await askConfirm({ title: '全部加入试卷', message: `把当前筛选的 ${total} 道题全部加入试卷？` }))) return;
   busy.value = true;
   try {
     const res = await api.post<{ added: number; matched: number; truncated: boolean }>(
@@ -224,7 +224,7 @@ async function addOne(id: number): Promise<void> {
   try {
     const res = await api.post<{ added: number }>(`/exams/${props.examId}/questions`, { questionIds: [id] });
     if (res.added === 0) toast.info('这道题已经在试卷里了');
-    else toast.success('已加入试卷');
+    else toast.success('已加入 1 题');
     emit('added', res.added);
     await refresh();
   } catch (e) {

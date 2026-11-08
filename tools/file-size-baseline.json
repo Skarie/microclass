@@ -12,7 +12,6 @@
   "apps/web/src/components/compose/QuestionPickerPanel.vue": 560,
   "apps/web/src/components/compose/QuestionTable.vue": 318,
   "apps/web/src/components/compose/RangeTree.vue": 374,
-  "apps/web/src/components/lessons/KnowledgeModal.vue": 392,
   "apps/web/src/components/lessons/LessonFormModal.vue": 523,
   "apps/web/src/components/lessons/VideoUploadModal.vue": 309,
   "apps/web/src/styles/tokens.css": 388,

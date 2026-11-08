@@ -7,6 +7,7 @@
 import { computed, type ComputedRef, type Ref } from 'vue';
 import { api } from '@/api/client';
 import { errorMessage } from '@/composables/useAsync';
+import { askConfirm } from '@/composables/use-confirm';
 import { useBankForm } from '@/composables/use-bank-form';
 import { useBankDifficulty } from '@/composables/use-bank-difficulty';
 import { useBankQuickTools } from '@/composables/use-bank-quick-tools';
@@ -48,11 +49,14 @@ export function useBankActions(deps: BankActionDeps) {
   });
 
   async function removeBank(bank: Bank): Promise<void> {
-    if (
-      !window.confirm(`确定删除题库「${bank.name}」吗？其中的 ${bank.question_count} 道题目会被一并删除，且不可恢复。`)
-    ) {
-      return;
-    }
+    const ok = await askConfirm({
+      title: '删除题库',
+      message: `确定删除题库「${bank.name}」吗？其中的 ${bank.question_count} 道题目会被一并删除。`,
+      detail: '删除后不可恢复；已生成的试卷与考试会保留，但不再包含这些题目。',
+      confirmText: '删除',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await api.del<OkResponse>(`/banks/${bank.id}`);
       toast.success(`题库「${bank.name}」已删除`);

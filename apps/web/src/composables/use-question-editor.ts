@@ -79,6 +79,7 @@ export function useQuestionEditor(deps: QuestionEditorDeps) {
     const bankId = deps.selectedBankId.value;
     if (bankId === null) return;
     const stem = qForm.stem.trim();
+    const preview = stem.length > 18 ? `${stem.slice(0, 18)}…` : stem;
     if (!stem) {
       toast.warning('请填写题干');
       return;
@@ -132,10 +133,10 @@ export function useQuestionEditor(deps: QuestionEditorDeps) {
     try {
       if (qEditingId.value === null) {
         await api.post<OkIdResponse>(`/banks/${bankId}/questions`, payload);
-        toast.success('题目已添加');
+        toast.success(`已添加题目「${preview}」`);
       } else {
         await api.put<OkResponse>(`/questions/${qEditingId.value}`, payload);
-        toast.success('题目已保存');
+        toast.success(`已保存题目「${preview}」`);
       }
       qOpen.value = false;
       await deps.loadQuestions();

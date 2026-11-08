@@ -1,6 +1,7 @@
 import { reactive, ref } from 'vue';
 import { api } from '@/api/client';
 import { errorMessage } from '@/composables/useAsync';
+import { askConfirm } from '@/composables/use-confirm';
 import { useToastStore } from '@/stores/toast';
 import type { Category } from '@/api/types';
 
@@ -56,7 +57,14 @@ export function useCategoryAdmin(deps: CategoryAdminDeps) {
   }
 
   async function removeCategory(category: Category): Promise<void> {
-    if (!window.confirm(`确定删除分类「${category.name}」吗？该分类下的课程会变成未分类。`)) return;
+    const ok = await askConfirm({
+      title: '删除分类',
+      message: `确定删除分类「${category.name}」吗？`,
+      detail: '分类下的课程不会删除，会变成「未分类」，可稍后重新归类。',
+      confirmText: '删除',
+      danger: true,
+    });
+    if (!ok) return;
     catBusy.value = true;
     try {
       await api.del<OkResponse>(`/categories/${category.id}`);

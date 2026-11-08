@@ -1,6 +1,7 @@
 import { computed, reactive, ref } from 'vue';
 import { api } from '@/api/client';
 import { errorMessage } from '@/composables/useAsync';
+import { askConfirm } from '@/composables/use-confirm';
 import { useToastStore } from '@/stores/toast';
 import type { ExamCompose, PaperQuestion } from '@/composables/use-exam-compose';
 
@@ -87,7 +88,14 @@ export function useExamPaper({ compose }: { compose: ExamCompose }) {
   /** 清空试卷（把题从这场考试移出，题目本身不删） */
   async function clearPaper(): Promise<void> {
     if (compose.paper.length === 0) return;
-    if (!window.confirm(`确定把试卷里的 ${compose.paper.length} 道题全部移出吗？（题目本身不会删除）`)) return;
+    const ok = await askConfirm({
+      title: '清空试卷',
+      message: `把试卷里的 ${compose.paper.length} 道题全部移出？`,
+      detail: '只从这场考试移出，题目本身不会删除，之后仍可重新加入。',
+      confirmText: '全部移出',
+      danger: true,
+    });
+    if (!ok) return;
     compose.busy = true;
     try {
       for (const q of compose.paper) await api.del(`/exams/${compose.examId}/questions/${q.id}`);

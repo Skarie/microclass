@@ -1,6 +1,7 @@
 import { computed, reactive, ref } from 'vue';
 import { api } from '@/api/client';
 import { errorMessage } from '@/composables/useAsync';
+import { askConfirm } from '@/composables/use-confirm';
 import { useToastStore } from '@/stores/toast';
 import type { Course, Lesson } from '@/api/types';
 import type { AssignScope } from '@/composables/use-course-lessons';
@@ -114,7 +115,14 @@ export function useLessonActions(deps: LessonActionDeps) {
   }
 
   async function removeLesson(lesson: Lesson): Promise<void> {
-    if (!window.confirm(`确定删除课时「${lesson.title}」吗？该课时的进度、练习记录与知识点会一并移除。`)) return;
+    const ok = await askConfirm({
+      title: '删除课时',
+      message: `确定删除课时「${lesson.title}」吗？`,
+      detail: '该课时的进度、练习记录与知识点会一并移除，且不可恢复。',
+      confirmText: '删除',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await api.del<{ ok: boolean }>(`/lessons/${lesson.id}`);
       toast.success(`课时「${lesson.title}」已删除`);
@@ -130,7 +138,14 @@ export function useLessonActions(deps: LessonActionDeps) {
       toast.warning('请先勾选要删除的课时');
       return;
     }
-    if (!window.confirm(`确定删除选中的 ${ids.length} 个课时吗？进度与练习记录会一并移除，不可恢复。`)) return;
+    const ok = await askConfirm({
+      title: '批量删除课时',
+      message: `确定删除选中的 ${ids.length} 个课时吗？`,
+      detail: '进度与练习记录会一并移除，且不可恢复。',
+      confirmText: `删除 ${ids.length} 个课时`,
+      danger: true,
+    });
+    if (!ok) return;
     try {
       for (const id of ids) await api.del<{ ok: boolean }>(`/lessons/${id}`);
       toast.success(`已删除 ${ids.length} 个课时`);

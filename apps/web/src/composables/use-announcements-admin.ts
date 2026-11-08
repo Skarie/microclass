@@ -39,7 +39,7 @@ export function useAnnouncementsAdmin() {
       } else {
         await api.put<Announcement>(`/admin/announcements/${id}`, payload);
       }
-      toast.success(id === undefined ? '公告已创建' : '公告已保存');
+      toast.success(id === undefined ? `已创建公告「${payload.title}」` : `已保存公告「${payload.title}」`);
       await load();
       return true;
     } catch (e) {

@@ -1,6 +1,7 @@
 import { computed, reactive, ref } from 'vue';
 import { api } from '@/api/client';
 import { errorMessage } from '@/composables/useAsync';
+import { askConfirm } from '@/composables/use-confirm';
 import { useAuthStore } from '@/stores/auth';
 import { useToastStore } from '@/stores/toast';
 import type { Role, User } from '@/api/types';
@@ -139,13 +140,14 @@ export function useUserAdmin(options: UseUserAdminOptions) {
       toast.error('不能删除当前登录的账号');
       return;
     }
-    if (
-      !window.confirm(
-        `确定删除账号「${user.username}」吗？该账号的学习进度会被清除，且不可恢复。管理员账号无法在这里删除。`,
-      )
-    ) {
-      return;
-    }
+    const ok = await askConfirm({
+      title: '删除账号',
+      message: `确定删除账号「${user.username}」吗？`,
+      detail: '该账号的学习进度会被清除，且不可恢复。',
+      confirmText: '删除',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await api.del<OkResponse>(`/users/${user.id}`);
       toast.success(`账号「${user.username}」已删除`);

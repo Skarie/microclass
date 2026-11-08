@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ConfirmHost from '@/components/ConfirmHost.vue';
 import ToastHost from '@/components/ToastHost.vue';
 </script>
 
@@ -6,4 +7,5 @@ import ToastHost from '@/components/ToastHost.vue';
   <a class="mc-skip-link" href="#mc-main">跳到主要内容</a>
   <RouterView />
   <ToastHost />
+  <ConfirmHost />
 </template>

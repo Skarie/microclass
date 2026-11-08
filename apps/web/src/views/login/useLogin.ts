@@ -76,7 +76,7 @@ export function useLogin() {
       if (isLogin.value) {
         await auth.login(form.username, form.password);
         persistRemember();
-        toast.success('登录成功');
+        toast.success(`欢迎回来，${auth.displayName}`);
       } else {
         await auth.register(form.username, form.password, form.displayName || undefined);
         persistRemember();

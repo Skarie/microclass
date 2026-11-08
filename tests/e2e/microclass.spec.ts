@@ -134,8 +134,9 @@ test.describe('微课堂端到端', () => {
       if (i < 2) await page.getByRole('button', { name: '下一题' }).click();
     }
 
-    page.once('dialog', (dialog) => void dialog.accept());
     await page.locator('.qhead__submit').click();
+    // 交卷确认改成全局确认弹窗（不再是原生 confirm）
+    await page.getByRole('dialog').getByRole('button', { name: '交卷' }).click();
 
     await expect(page).toHaveURL(/\/exams\/\d+\/result/);
     await expect(page.getByText(/及格/).first()).toBeVisible();
@@ -363,7 +364,7 @@ test.describe('微课堂端到端', () => {
     const editModal = page.getByRole('dialog');
     await editModal.getByLabel('难度').selectOption('hard');
     await editModal.getByRole('button', { name: '保存' }).click();
-    await expect(page.getByText('题目已保存')).toBeVisible();
+    await expect(page.getByText(/已保存题目/).first()).toBeVisible();
     await expect(row.locator('.diff-text')).toHaveAttribute('title', /人工/);
 
     // 再重算一次：人工标注的题保持「较难」，且被统计为跳过

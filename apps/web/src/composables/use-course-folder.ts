@@ -1,6 +1,7 @@
 import { reactive, ref } from 'vue';
 import { api } from '@/api/client';
 import { errorMessage } from '@/composables/useAsync';
+import { askConfirm } from '@/composables/use-confirm';
 import { useToastStore } from '@/stores/toast';
 import type { CourseManageResponse, MediaRoot } from '@/api/types';
 
@@ -108,7 +109,13 @@ export function useCourseFolder(deps: CourseFolderDeps) {
   }
 
   async function unbind(): Promise<void> {
-    if (!window.confirm('解绑后本课程不再与该文件夹联动，已导入的课时会保留。确定解绑吗？')) return;
+    const ok = await askConfirm({
+      title: '解绑课程文件夹',
+      message: '解绑后本课程不再与该文件夹联动。',
+      detail: '已经导入的课时会保留，不受影响。',
+      confirmText: '解绑',
+    });
+    if (!ok) return;
     try {
       await api.put<{ ok: boolean }>(`/courses/${deps.courseId()}/folder`, { rootId: null });
       toast.success('已解绑课程文件夹');

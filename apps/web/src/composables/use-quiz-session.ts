@@ -2,6 +2,7 @@ import { computed, reactive, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { api } from '@/api/client';
 import { errorMessage, useAsync } from '@/composables/useAsync';
+import { askConfirm } from '@/composables/use-confirm';
 import { useQuizFlow } from '@/composables/use-quiz-flow';
 import { useToastStore } from '@/stores/toast';
 import { sortQuestionsByType, summarizeQuiz } from '@/utils/quiz';
@@ -64,7 +65,15 @@ export function useQuizSession() {
       return false;
     }
     const missing = questions.value.length - flow.answeredCount.value;
-    if (missing > 0 && !window.confirm(`还有 ${missing} 题未作答，确定交卷吗？`)) return false;
+    if (missing > 0) {
+      const ok = await askConfirm({
+        title: '交卷确认',
+        message: `还有 ${missing} 题未作答，确定交卷吗？`,
+        detail: '交卷后不能修改答案；未作答的题目按错误计入结果。',
+        confirmText: '交卷',
+      });
+      if (!ok) return false;
+    }
     submitting.value = true;
     try {
       const payload = { answers: flow.buildAnswersPayload() };

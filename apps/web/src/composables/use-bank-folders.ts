@@ -7,6 +7,7 @@
 import { computed, ref } from 'vue';
 import { api } from '@/api/client';
 import { errorMessage } from '@/composables/useAsync';
+import { askConfirm } from '@/composables/use-confirm';
 import { useToastStore } from '@/stores/toast';
 import {
   allFolderIds,
@@ -150,9 +151,14 @@ export function useBankFolders(deps: BankFolderDeps) {
 
   /* ---------------- 删除（非空 409 由后端拦截） ---------------- */
   async function deleteFolder(folder: BankFolder): Promise<void> {
-    if (!window.confirm(`确定删除文件夹「${folder.name}」吗？只有空文件夹可以删除，里面的题库和子文件夹需要先移走。`)) {
-      return;
-    }
+    const ok = await askConfirm({
+      title: '删除文件夹',
+      message: `确定删除文件夹「${folder.name}」吗？`,
+      detail: '只有空文件夹可以删除；里面的题库和子文件夹需要先移走。',
+      confirmText: '删除',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await api.del<{ ok: boolean }>(`/banks/folders/${folder.id}`);
       toast.success(`文件夹「${folder.name}」已删除`);

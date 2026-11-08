@@ -82,11 +82,6 @@ const actionLabel = computed(() => (done.value ? '复习' : props.progress > 0 ?
     box-shadow: var(--mc-shadow-xs);
     transform: translateY(var(--mc-hover-lift));
   }
-
-  /* 卡片 hover：封面的几何构图轻微放大 1.02，角标不动 */
-  .course-card--tile:hover :deep(.cover__art) {
-    transform: scale(1.02);
-  }
 }
 
 .course-card__body {

@@ -73,7 +73,7 @@ export function useExamSettings({ compose }: { compose: ExamCompose }) {
         shuffleQuestions: settings.shuffleQuestions,
         showAnswers: settings.showAnswers,
       });
-      toast.success('考试设置已保存');
+      toast.success(`考试设置已保存（${settings.durationMinutes} 分钟 / ${settings.passScore} 分及格）`);
       await compose.loadExam();
     } catch (e) {
       toast.error(errorMessage(e));

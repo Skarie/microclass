@@ -2,6 +2,7 @@ import { computed, nextTick, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import { errorMessage, useAsync } from '@/composables/useAsync';
+import { askConfirm } from '@/composables/use-confirm';
 import { useQuizFlow } from '@/composables/use-quiz-flow';
 import { useToastStore } from '@/stores/toast';
 import { judgeLocally, summarizeQuiz } from '@/utils/quiz';
@@ -116,7 +117,13 @@ export function useWrongBook() {
   }
 
   async function remove(item: WrongItem): Promise<void> {
-    if (!window.confirm('确定要把这道题从错题本移除吗？')) return;
+    const ok = await askConfirm({
+      title: '移出错题本',
+      message: '确定把这道题从错题本移除吗？',
+      detail: '移除后本页不再显示；题目与作答记录本身不受影响。',
+      confirmText: '移除',
+    });
+    if (!ok) return;
     busyId.value = item.id;
     try {
       await api.del(`/me/wrong-questions/${item.id}`);

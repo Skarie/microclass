@@ -1,6 +1,7 @@
 import { reactive, ref } from 'vue';
 import { api } from '@/api/client';
 import { errorMessage } from '@/composables/useAsync';
+import { askConfirm } from '@/composables/use-confirm';
 import { useToastStore } from '@/stores/toast';
 import type { Exam } from '@/api/types';
 import type { useExamAdminList } from './use-exam-admin-list';
@@ -109,13 +110,16 @@ export function useExamAdminForm({ list, scores }: ExamAdminFormDeps) {
   async function togglePublish(exam: Exam): Promise<void> {
     const next: Exam['status'] = exam.status === 'published' ? 'draft' : 'published';
     const action = next === 'published' ? '发布' : '撤下';
-    if (
-      !window.confirm(
-        `确定${action}考试「${exam.title}」吗？${next === 'published' ? '发布后学员即可在课程中看到并参加考试。' : '撤下后学员将无法再进入该考试。'}`,
-      )
-    ) {
-      return;
-    }
+    const ok = await askConfirm({
+      title: next === 'published' ? '发布考试' : '撤下考试',
+      message: `确定${action}考试「${exam.title}」吗？`,
+      detail:
+        next === 'published'
+          ? '发布后学员即可在课程中看到并参加考试。'
+          : '撤下后学员将无法再进入该考试，已提交的成绩保留。',
+      confirmText: action,
+    });
+    if (!ok) return;
     try {
       await api.put<OkResponse>(`/exams/${exam.id}`, {
         courseId: exam.course_id,
@@ -133,13 +137,14 @@ export function useExamAdminForm({ list, scores }: ExamAdminFormDeps) {
   }
 
   async function removeExam(exam: Exam): Promise<void> {
-    if (
-      !window.confirm(
-        `确定删除考试「${exam.title}」吗？试卷组卷与 ${exam.attempt_count ?? 0} 份作答成绩会一并删除，且不可恢复。`,
-      )
-    ) {
-      return;
-    }
+    const ok = await askConfirm({
+      title: '删除考试',
+      message: `确定删除考试「${exam.title}」吗？`,
+      detail: `试卷组卷与 ${exam.attempt_count ?? 0} 份作答成绩会一并删除，且不可恢复。`,
+      confirmText: '删除',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await api.del<OkResponse>(`/exams/${exam.id}`);
       toast.success(`考试「${exam.title}」已删除`);

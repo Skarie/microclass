@@ -1,6 +1,7 @@
 import { computed, reactive, ref } from 'vue';
 import { api } from '@/api/client';
 import { errorMessage, useAsync } from '@/composables/useAsync';
+import { askConfirm } from '@/composables/use-confirm';
 import { useToastStore } from '@/stores/toast';
 import type { Knowledge, KnowledgePayload } from '@/api/knowledge';
 
@@ -59,10 +60,10 @@ export function useCourseKnowledge(deps: CourseKnowledgeDeps) {
     try {
       if (editing.value) {
         await api.put<OkIdResponse>(`/knowledge/${editing.value.id}`, payload);
-        toast.success('课程知识点已保存');
+        toast.success(`已保存课程知识点「${payload.title}」`);
       } else {
         await api.post<OkIdResponse>(`/courses/${deps.courseId()}/knowledge`, payload);
-        toast.success('课程知识点已添加');
+        toast.success(`已添加课程知识点「${payload.title}」`);
       }
       dialogOpen.value = false;
       await load();
@@ -74,10 +75,17 @@ export function useCourseKnowledge(deps: CourseKnowledgeDeps) {
   }
 
   async function remove(item: Knowledge): Promise<void> {
-    if (!window.confirm(`确定删除课程知识点「${item.title}」吗？删除后本课程所有课时的学生都将不再看到它。`)) return;
+    const ok = await askConfirm({
+      title: '删除课程知识点',
+      message: `确定删除课程知识点「${item.title}」吗？`,
+      detail: '删除后本课程所有课时的学生都将不再看到它，且不可恢复。',
+      confirmText: '删除',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await api.del<OkIdResponse>(`/knowledge/${item.id}`);
-      toast.success('课程知识点已删除');
+      toast.success(`已删除课程知识点「${item.title}」`);
       if (editing.value?.id === item.id) dialogOpen.value = false;
       await load();
     } catch (e) {

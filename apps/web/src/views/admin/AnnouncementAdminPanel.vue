@@ -7,19 +7,18 @@
  * 写操作成功后 composable 会重新拉列表并 toast。
  */
 import { onMounted, ref } from 'vue';
-import AppModal from '@/components/AppModal.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import Icon from '@/components/Icon.vue';
 import AnnouncementFormDialog from './AnnouncementFormDialog.vue';
 import AnnouncementRow from './AnnouncementRow.vue';
 import { useAnnouncementsAdmin } from '@/composables/use-announcements-admin';
+import { askConfirm } from '@/composables/use-confirm';
 import type { Announcement, AnnouncementPayload } from '@/api/announcement';
 
 const { items, loading, saving, removing, load, save, remove } = useAnnouncementsAdmin();
 
 const formOpen = ref(false);
 const editing = ref<Announcement | null>(null);
-const deleteTarget = ref<Announcement | null>(null);
 
 function openCreate(): void {
   editing.value = null;
@@ -35,10 +34,15 @@ async function submit(payload: AnnouncementPayload): Promise<void> {
   if (await save(payload, editing.value?.id)) formOpen.value = false;
 }
 
-async function confirmDelete(): Promise<void> {
-  const target = deleteTarget.value;
-  if (!target) return;
-  if (await remove(target.id)) deleteTarget.value = null;
+async function removeAnnouncement(item: Announcement): Promise<void> {
+  const ok = await askConfirm({
+    title: '删除公告',
+    message: `确定删除「${item.title}」吗？`,
+    detail: '删除后学员首页立即不再显示，且不可恢复。',
+    confirmText: '删除',
+    danger: true,
+  });
+  if (ok) await remove(item.id);
 }
 
 onMounted(() => void load());
@@ -84,7 +88,7 @@ onMounted(() => void load());
         :item="item"
         :removing="removing === item.id"
         @edit="openEdit(item)"
-        @remove="deleteTarget = item"
+        @remove="removeAnnouncement(item)"
       />
     </ul>
 
@@ -95,19 +99,6 @@ onMounted(() => void load());
       @close="formOpen = false"
       @submit="submit"
     />
-
-    <AppModal :open="deleteTarget !== null" title="删除公告" width="440px" @close="deleteTarget = null">
-      <p class="ann-admin__confirm">
-        确定删除「<strong>{{ deleteTarget?.title }}</strong
-        >」？删除后学员首页立即不再显示，且无法恢复。
-      </p>
-      <template #footer>
-        <button class="mc-btn" type="button" @click="deleteTarget = null">取消</button>
-        <button class="mc-btn mc-btn--danger" type="button" :disabled="removing !== null" @click="confirmDelete">
-          {{ removing !== null ? '删除中…' : '删除' }}
-        </button>
-      </template>
-    </AppModal>
   </section>
 </template>
 
@@ -127,13 +118,6 @@ onMounted(() => void load());
   margin: 0;
   padding: 0;
   list-style: none;
-}
-
-.ann-admin__confirm {
-  margin: 0;
-  font-size: var(--mc-text-sm);
-  line-height: var(--mc-leading);
-  color: var(--mc-text-secondary);
 }
 
 /* 窄屏：卡头允许换行，标题与计数各自不折行（否则「公告管理」会被压成两行） */

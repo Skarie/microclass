@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
- * 平铺卡片封面：分类实底色 + 白色几何构图（CourseCoverArt），
- * 左上分类 chip、右上状态徽标；真实封面图不再参与构图，保证同页所有卡片一个系统。
+ * 平铺卡片封面：统一主色封面 + 中性分类角标 + 状态徽标。
+ * 真实封面图不参与构图，同页所有封面保持一个系统。
  */
 import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
@@ -39,9 +39,5 @@ const statusTone = computed(() =>
   overflow: hidden;
   border-bottom: 1px solid var(--mc-border);
   border-radius: var(--mc-radius-md) var(--mc-radius-md) 0 0;
-}
-
-.cover__art {
-  transition: transform var(--mc-duration-slow) var(--mc-ease-out);
 }
 </style>

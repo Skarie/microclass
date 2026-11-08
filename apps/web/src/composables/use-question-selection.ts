@@ -8,6 +8,7 @@
 import { computed, ref, type Ref } from 'vue';
 import { api } from '@/api/client';
 import { errorMessage } from '@/composables/useAsync';
+import { askConfirm } from '@/composables/use-confirm';
 import { useToastStore } from '@/stores/toast';
 import { difficultyLabel } from '@/composables/difficulty';
 import type { QuestionView } from '@/api/types';
@@ -126,7 +127,14 @@ export function useQuestionSelection(deps: QuestionSelectionDeps) {
     const bankId = deps.selectedBankId.value;
     const ids = [...selectedIds.value];
     if (bankId === null || ids.length === 0) return;
-    if (!window.confirm(`确定删除选中的 ${ids.length} 道题吗？删除后不可恢复。`)) return;
+    const ok = await askConfirm({
+      title: '批量删除题目',
+      message: `确定删除选中的 ${ids.length} 道题吗？`,
+      detail: '删除后不可恢复，已组好的试卷会同步移除这些题目。',
+      confirmText: `删除 ${ids.length} 道题`,
+      danger: true,
+    });
+    if (!ok) return;
     bulkBusy.value = true;
     try {
       const res = await api.post<{ deleted: number; skipped: number }>(`/banks/${bankId}/questions/bulk-delete`, {
@@ -146,10 +154,17 @@ export function useQuestionSelection(deps: QuestionSelectionDeps) {
   /** 单条删除：删的是当前页最后一道且不在第一页时，回退一页（避免停在空页） */
   async function removeQuestion(question: QuestionView): Promise<void> {
     const preview = question.stem.length > 20 ? `${question.stem.slice(0, 20)}…` : question.stem;
-    if (!window.confirm(`确定删除题目「${preview}」吗？该题目会从题库和已组试卷中移除。`)) return;
+    const ok = await askConfirm({
+      title: '删除题目',
+      message: `确定删除题目「${preview}」吗？`,
+      detail: '该题目会从题库和已组试卷中移除，已关联的练习记录会保留。',
+      confirmText: '删除',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await api.del<{ ok: boolean }>(`/questions/${question.id}`);
-      toast.success('题目已删除');
+      toast.success(`已删除题目「${preview}」`);
       if (deps.questions.value.length === 1 && deps.page.value > 1) deps.page.value -= 1;
       await deps.loadQuestions();
       await deps.loadBanks();

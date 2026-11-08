@@ -33,7 +33,7 @@ export function useWatchNotes(deps: WatchNotesDeps) {
       await api.post(`/lessons/${deps.lessonId.value}/notes`, { pos: Math.round(deps.currentTime()), text });
       noteText.value = '';
       await loadNotes();
-      toast.success('笔记已保存');
+      toast.success(`已保存笔记（${text.length} 字）`);
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {

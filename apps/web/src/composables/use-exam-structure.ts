@@ -55,7 +55,7 @@ export function useExamStructure({ compose, random }: { compose: ExamCompose; ra
           : {}),
         applyScores: true,
       });
-      toast.success('试卷结构已保存');
+      toast.success(`试卷结构已保存（${sections.value.filter((s) => s.name.trim() !== '').length} 个大题）`);
       await compose.loadPaper();
     } catch (e) {
       toast.error(errorMessage(e));

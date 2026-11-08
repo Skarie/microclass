@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 首页「我的课程」横滑卡：分类色块封面（几何构图）+ 状态 / 分类角标 + 进度 + 实心主色小按钮。
+ * 首页「我的课程」横滑卡：统一主色封面 + 中性状态 / 分类角标 + 进度 + 实心主色小按钮。
  */
 import { computed } from 'vue';
 import { RouterLink } from 'vue-router';

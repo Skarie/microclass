@@ -8,7 +8,7 @@ import Tag from '@/components/Tag.vue';
 import { STATUS_LABEL, statusOf } from '@/utils/course-meta';
 import type { Course } from '@/api/types';
 
-/** 课程大厅「列表」行：40px 分类色块 + 首字、状态、统计、进度与收藏/学习按钮。 */
+/** 课程大厅「列表」行：40px 中性首字块、状态、统计、进度与收藏/学习按钮。 */
 const props = defineProps<{
   course: Course;
   progress: number;

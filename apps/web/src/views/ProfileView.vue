@@ -6,6 +6,7 @@ import { computed, ref } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import { errorMessage, useAsync } from '@/composables/useAsync';
+import { askConfirm } from '@/composables/use-confirm';
 import { useAuthStore } from '@/stores/auth';
 import { useToastStore } from '@/stores/toast';
 import PageHeader from '@/components/PageHeader.vue';
@@ -40,7 +41,6 @@ const LEVEL_MINUTES: readonly number[] = [0, 10, 60, 180, 420];
 const auth = useAuthStore();
 const toast = useToastStore();
 const router = useRouter();
-
 const refreshing = ref(false);
 const pwdOld = ref('');
 const pwdNew = ref('');
@@ -144,7 +144,7 @@ async function submitPassword(): Promise<void> {
 }
 
 async function logout(): Promise<void> {
-  if (!window.confirm('确定要退出登录吗？')) return;
+  if (!(await askConfirm({ title: '退出登录', message: '确定退出当前账号吗？退出后需重新输入账号密码。' }))) return;
   loggingOut.value = true;
   try {
     await auth.logout();

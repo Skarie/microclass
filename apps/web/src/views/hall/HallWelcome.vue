@@ -1,11 +1,10 @@
 <script setup lang="ts">
 /**
- * 课程大厅 · 欢迎条：主色实底 + 白字 + 白色主按钮 / 描边次按钮，右侧几何装饰。
- * 文案只讲真实状态：上次在学什么、共有多少门课。
+ * 课程大厅 · 欢迎条：主色实底 + 白字 + 白色主按钮 / 描边次按钮。
+ * 不画几何装饰；文案只讲真实状态：上次在学什么、共有多少门课。
  */
 import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
-import GeoArt from '@/components/GeoArt.vue';
 import Icon from '@/components/Icon.vue';
 import type { HallCatalog } from '@/composables/use-hall-catalog';
 
@@ -19,8 +18,6 @@ const continueTo = computed(() =>
 
 <template>
   <section class="welcome" aria-label="课程大厅引导">
-    <GeoArt class="welcome__art" />
-
     <div class="welcome__text">
       <p class="welcome__eyebrow">
         <Icon name="hall" :size="14" />
