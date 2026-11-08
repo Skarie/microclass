@@ -70,7 +70,7 @@ const label = computed(() => (props.course.category_name ?? '').trim());
       <div class="art__body">
         <span v-if="label" class="art__label">{{ label }}</span>
         <span class="art__foot">
-          <span class="art__name" aria-hidden="true">{{ course.name }}</span>
+          <span v-if="isHero" class="art__name" aria-hidden="true">{{ course.name }}</span>
           <span v-if="meta" class="art__meta" aria-hidden="true">{{ meta }}</span>
         </span>
       </div>
