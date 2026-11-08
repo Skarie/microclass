@@ -5,8 +5,8 @@ import type { OptionState } from './quiz-types';
 
 /**
  * 泛雅式选项行：48px 高、8px 圆角、白底细边；字母/「对错」圆标 24px。
- * 选中 = 左侧 3px 主色内阴影 + 浅主色底 + 主色实心圆标；多选把圆标换成方形。
- * 解析态正确行绿底打勾、错误行红底打叉。
+ * 选中 = 整卡主色描边 + 浅主色底 + 主色实心圆标；多选把圆标换成方形。
+ * 解析态正确行绿描边 + 软底 + 打勾，错误行红描边 + 软底 + 打叉。
  */
 const props = withDefaults(
   defineProps<{
@@ -139,7 +139,6 @@ const emit = defineEmits<{ toggle: [value: string] }>();
 .opt--correct {
   border-color: var(--mc-success);
   background: var(--mc-success-soft);
-  box-shadow: inset 3px 0 0 var(--mc-success);
 }
 
 .opt--correct .opt__marker {
@@ -154,7 +153,6 @@ const emit = defineEmits<{ toggle: [value: string] }>();
 .opt--wrong {
   border-color: var(--mc-danger);
   background: var(--mc-danger-soft);
-  box-shadow: inset 3px 0 0 var(--mc-danger);
 }
 
 .opt--wrong .opt__marker {

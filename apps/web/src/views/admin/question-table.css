@@ -25,10 +25,9 @@
   background: var(--mc-primary-soft);
 }
 
-/* 键盘流高亮：↑↓ 移动时能看清当前在哪一题 */
+/* 键盘流高亮：↑↓ 移动时整行铺一层浅主色，不靠侧边色条 */
 .row--active td {
-  box-shadow: inset 3px 0 0 var(--mc-primary);
-  background: var(--mc-surface-2);
+  background: color-mix(in srgb, var(--mc-primary) 8%, var(--mc-bg-elevated));
 }
 
 /* 行密度偏好：紧凑模式压掉内边距，一屏多看几题 */
@@ -37,7 +36,7 @@
   padding-bottom: var(--mc-space-1);
 }
 
-/* 难度：可读文字 + 颜色分级（原来显示 ★★★☆☆ 56 模型，用户根本不知道是什么） */
+/* 难度：可读文字 + 分数，颜色只做等级提示 */
 .diff-text {
   padding: 1px 8px;
   border-radius: var(--mc-radius-pill);

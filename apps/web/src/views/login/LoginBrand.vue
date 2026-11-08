@@ -25,7 +25,7 @@ const features: { icon: IconName; title: string; text: string }[] = [
 
       <div class="brand__pitch">
         <h2 class="brand__title">看的每一分钟，<br />都算数。</h2>
-        <p class="brand__sub">企业内部的轻量学习平台：课程、练习与学习记录，一个地方看全。</p>
+        <p class="brand__sub">课程、练习与学习记录，都在本机。</p>
       </div>
 
       <ul class="brand__features">

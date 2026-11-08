@@ -4,6 +4,8 @@
  * 三档 / 五级 / 来源分布 + 重算与按作答校准入口。
  * 只负责展示与触发，数据处理留在父组件。
  */
+import { LEVEL_LABEL } from '@/composables/difficulty';
+
 /** 三档难度中文名 */
 const DIFFICULTY_LABEL: Record<string, string> = { easy: '基础', medium: '中等', hard: '较难' };
 
@@ -54,7 +56,7 @@ function pct(part: number, total: number): string {
     <p class="mc-muted">
       五级：
       <span v-for="l in difficulty.levels" :key="l.level" class="health__kind">
-        {{ l.level === 0 ? '未评估' : `${l.level}★` }} {{ l.questions }}
+        {{ LEVEL_LABEL[l.level] ?? '未评估' }} {{ l.questions }} 题
       </span>
     </p>
     <p class="mc-muted">

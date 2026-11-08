@@ -24,7 +24,7 @@ const catalog = useHallCatalog();
   <section class="hall">
     <PageHeader
       title="课程大厅"
-      description="按分类浏览全部课程；点课程进入章节与课时，继续上次的进度。"
+      description="按分类浏览课程；进入课程查看章节与课时。"
       icon="hall"
       :breadcrumb="[{ label: '首页', to: '/' }, { label: '课程大厅' }]"
     >

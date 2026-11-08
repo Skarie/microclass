@@ -29,7 +29,7 @@ onMounted(() => void load());
 
 <template>
   <section class="cal" aria-label="学习日历">
-    <SectionHead title="学习日历" icon="flame">
+    <SectionHead title="学习日历">
       <template #meta>近 30 天</template>
     </SectionHead>
 

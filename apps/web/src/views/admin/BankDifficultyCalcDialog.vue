@@ -5,6 +5,7 @@
  */
 import AppModal from '@/components/AppModal.vue';
 import RichText from '@/components/RichText.vue';
+import { LEVEL_LABEL } from '@/composables/difficulty';
 import type { DifficultyPreview } from './bankTypes';
 
 /** 三档难度中文名 */
@@ -45,7 +46,7 @@ const emit = defineEmits<{ close: []; apply: []; 'toggle-scope': [] }>();
       </p>
       <p class="mc-muted">
         判定方式（主流做法）：内容特征先验（学段年级、题型、算式与公式复杂度、小问数、题干阅读量、看图、高阶目标动词、
-        卷型与知识点标注）→ 0–100 分 → 按**分位数**分档，保证结构合理。作答数据积累后会再做一次校准。
+        卷型与知识点标注）→ 0–100 分 → 按分位数分档，保证结构合理。作答数据积累后会再做一次校准。
       </p>
 
       <div class="diff-preview__grid">
@@ -56,7 +57,7 @@ const emit = defineEmits<{ close: []; apply: []; 'toggle-scope': [] }>();
           </p>
           <div class="mc-label">五级口径</div>
           <p v-for="l in preview.predicted.levels" :key="l.level" class="mc-muted">
-            {{ l.level }}★ {{ l.label }}：{{ l.questions }} 题（{{ l.ratio }}%）
+            {{ LEVEL_LABEL[l.level] ?? l.label }}：{{ l.questions }} 题（{{ l.ratio }}%）
           </p>
         </div>
         <div>

@@ -182,23 +182,8 @@
   --mc-glass-border: rgb(255 255 255 / 60%);
   --mc-glass-blur: saturate(105%) blur(3px);
 
-  /* ================= 渐变（只保留功能性与单色，不做装饰） ================= */
-  --mc-gradient-brand: linear-gradient(135deg, #00a67d 0%, #00805f 100%);
-  --mc-gradient-brand-soft: linear-gradient(135deg, #e8f6f1 0%, #eef4ff 100%);
   /* 无封面兜底纹理：单色 45° 细斜线（6%），颜色只在这里定义 */
   --mc-cover-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpath d='M-6 30 30-6M-6 18 18-6M6 30 30 6' stroke='%2384847e' stroke-opacity='0.06' stroke-width='1'/%3E%3C/svg%3E");
-  /* 图文融合时的渐变蒙版（第 30 条） */
-  --mc-gradient-veil: linear-gradient(180deg, transparent 30%, rgb(18 16 40 / 68%) 100%);
-  /* 掠过高光：彻底不要（装饰性亮面是 AI 味来源） */
-  --mc-gradient-sheen: none;
-  /* 功能性渐变：骨架屏与加载微光——只表达"加载中"，不做装饰 */
-  --mc-gradient-shimmer: linear-gradient(
-    90deg,
-    var(--mc-bg-sunken) 25%,
-    var(--mc-bg-hover) 37%,
-    var(--mc-bg-sunken) 63%
-  );
-  --mc-gradient-sheen-sweep: linear-gradient(90deg, transparent, var(--mc-surface-2-strong), transparent);
   /* ================= 动效（短、不弹） ================= */
   --mc-transition: 150ms cubic-bezier(0.32, 0.72, 0, 1);
 
@@ -361,10 +346,6 @@ html[data-theme='dark'] {
   --mc-overlay-strong: rgb(10 10 11 / 72%);
   --mc-glass-bg: rgb(18 18 19 / 92%);
   --mc-glass-border: rgb(255 255 255 / 8%);
-
-  --mc-gradient-brand: linear-gradient(135deg, #2fbf94 0%, #00805f 100%);
-  --mc-gradient-brand-soft: linear-gradient(135deg, #10281f 0%, #16213a 100%);
-  --mc-gradient-sheen: none;
 
   --mc-chart-1: #2fbf94;
   --mc-chart-2: #fb923c;

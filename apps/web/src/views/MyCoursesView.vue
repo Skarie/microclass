@@ -55,7 +55,7 @@ const isEmpty = computed(() => learning.value.length + finished.value.length + f
   <section class="my">
     <PageHeader
       title="我的课程"
-      description="在学、收藏与已学完的课程都在这里；点一门课继续上次的进度。"
+      description="在学、收藏与已学完的课程；点一门课继续上次的进度。"
       icon="courses"
       :breadcrumb="[{ label: '首页' }, { label: '我的课程' }]"
     />
@@ -68,7 +68,7 @@ const isEmpty = computed(() => learning.value.length + finished.value.length + f
       v-else-if="isEmpty"
       icon="courses"
       title="还没有在学的课程"
-      description="去课程大厅挑一门开始吧；学过、收藏、学完的课程会自动出现在这里。"
+      description="从课程大厅开始第一门课。"
       action-text="去课程大厅"
       @action="$router.push({ name: 'hall' })"
     />

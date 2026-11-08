@@ -83,8 +83,8 @@ withDefaults(
   }
 }
 
-/* KPI 图标块：按语义域上色（主色 / 青 / 靛 / 赭 / 中性），不再全部灰色。
-   数字用对应 strong 色，保证四张卡在远处也能靠颜色区分。 */
+/* KPI 图标块：默认中性；只有 success / warning / danger 这类真实状态才上色，
+   数字同理。分类色（课程/课时/题目/账号）不再各配一种颜色。 */
 .stat__icon {
   display: inline-flex;
   align-items: center;
@@ -93,27 +93,8 @@ withDefaults(
   height: 38px;
   border-radius: var(--mc-radius-sm);
   flex: none;
-  background: var(--stat-soft, var(--mc-bg-sunken));
-  color: var(--stat-fg, var(--mc-text-secondary));
-}
-
-.stat--primary {
-  --stat-soft: var(--mc-primary-soft);
-  --stat-fg: var(--mc-primary-fg);
-  --stat-strong: var(--mc-primary-strong);
-}
-
-.stat--cyan {
-  --stat-soft: var(--mc-cyan-soft);
-  --stat-fg: var(--mc-cyan-fg);
-  --stat-strong: var(--mc-cyan-strong);
-}
-
-.stat--info,
-.stat--indigo {
-  --stat-soft: var(--mc-indigo-soft);
-  --stat-fg: var(--mc-indigo-fg);
-  --stat-strong: var(--mc-indigo-strong);
+  background: var(--mc-bg-sunken);
+  color: var(--mc-text-secondary);
 }
 
 .stat--success {
@@ -122,17 +103,23 @@ withDefaults(
   --stat-strong: var(--mc-success-fg);
 }
 
-.stat--warning,
-.stat--danger {
-  --stat-soft: var(--mc-terra-soft);
-  --stat-fg: var(--mc-terra-fg);
-  --stat-strong: var(--mc-terra-strong);
+.stat--warning {
+  --stat-soft: var(--mc-warning-soft);
+  --stat-fg: var(--mc-warning-fg);
+  --stat-strong: var(--mc-warning-fg);
 }
 
-.stat--neutral {
-  --stat-soft: var(--mc-bg-sunken);
-  --stat-fg: var(--mc-text-secondary);
-  --stat-strong: var(--mc-neutral-strong);
+.stat--danger {
+  --stat-soft: var(--mc-danger-soft);
+  --stat-fg: var(--mc-danger-fg);
+  --stat-strong: var(--mc-danger-fg);
+}
+
+.stat--success .stat__icon,
+.stat--warning .stat__icon,
+.stat--danger .stat__icon {
+  background: var(--stat-soft);
+  color: var(--stat-fg);
 }
 
 .stat__body {

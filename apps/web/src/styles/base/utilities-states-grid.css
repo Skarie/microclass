@@ -1,6 +1,6 @@
 /*
  * 工具类与状态（原 base.css 405-569 行）：文本/布局工具类、空状态、骨架屏、进度、栅格、减弱动效。
- * 保持原顺序；2.1 层对 .mc-skeleton 的增强位于 modern-visual.css。
+ * 保持原顺序；.mc-skeleton 的最终形态在 modern-visual.css。
  */
 
 /* ---------- 文本工具类 ---------- */
@@ -109,23 +109,6 @@
 
 .mc-skeleton--h320 {
   height: 320px;
-}
-
-.mc-skeleton {
-  border-radius: var(--mc-radius);
-  background-image: var(--mc-gradient-shimmer);
-  background-size: 400% 100%;
-  animation: mc-skeleton 1.4s ease infinite;
-}
-
-@keyframes mc-skeleton {
-  0% {
-    background-position: 100% 50%;
-  }
-
-  100% {
-    background-position: 0 50%;
-  }
 }
 
 /* ---------- 进度 ---------- */

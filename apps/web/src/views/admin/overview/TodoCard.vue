@@ -29,13 +29,12 @@ defineProps<{
 <template>
   <section class="mc-card">
     <div class="mc-card__header">
-      <span class="mc-row todo__title">
-        <Icon name="alert" :size="16" />
+      <span class="todo__title">
         <span class="mc-card__title">需要处理</span>
       </span>
       <Tag v-if="todos.length === 0" tone="success" size="sm" icon="check">暂无待办</Tag>
       <div class="mc-spacer" />
-      <span v-if="cachedText" class="mc-muted">
+      <span v-if="cachedText" class="mc-muted todo__cache">
         体检缓存时间 {{ cachedText }}
         <template v-if="healthLoading">（更新中…）</template>
       </span>
@@ -76,8 +75,18 @@ defineProps<{
 
 <style scoped>
 .todo__title {
-  align-items: center;
-  gap: var(--mc-space-2);
+  flex: none;
+  white-space: nowrap;
+}
+
+.todo__cache {
+  text-align: right;
+}
+
+@media (max-width: 640px) {
+  .todo__cache {
+    display: none;
+  }
 }
 
 .todo__loading {

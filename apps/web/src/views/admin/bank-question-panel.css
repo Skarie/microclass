@@ -79,6 +79,7 @@
 /* 批量操作条：选中后从筛选行下方滑出（用背景色区分"操作态"） */
 .bulk-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--mc-space-2);
   padding: var(--mc-space-2) var(--mc-space-3);
@@ -88,6 +89,7 @@
 }
 
 .bulk-bar__count {
+  white-space: nowrap;
   font-size: var(--mc-text-sm);
   font-weight: var(--mc-font-medium);
   color: var(--mc-primary-fg);

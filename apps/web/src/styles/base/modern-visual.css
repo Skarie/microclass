@@ -1,6 +1,6 @@
 /*
- * 2.1 现代视觉工具层（原 base.css 727-877 行）：动态卡片、品牌卡、渐变/蒙版/毛玻璃、骨架微光、入场动效。
- * 必须最后导入；其中重复定义的 .mc-card--interactive/.mc-skeleton 依赖此处靠后的级联位置。
+ * 2.1 现代视觉工具层（原 base.css 727-877 行）：动态卡片、品牌卡、毛玻璃、骨架呼吸、入场动效。
+ * 必须最后导入；.mc-card--interactive/.mc-skeleton 的最终形态以此处为准。
  */
 
 /* ================= 2.1 现代视觉工具层 ================= */
@@ -18,31 +18,6 @@
   border-color: var(--mc-primary-border);
 }
 
-/* 渐变文字：用于大标题、数字看板 */
-.mc-gradient-text {
-  /* 墨卷不用渐变字：改为深主色强调 */
-  color: var(--mc-primary-fg);
-  font-weight: var(--mc-font-semibold);
-}
-
-/* 渐变横幅：登录页/首页/课程封面缺图时的兜底 */
-.mc-gradient-surface {
-  background-image: var(--mc-gradient-brand);
-}
-
-.mc-gradient-soft {
-  background-image: var(--mc-gradient-brand-soft);
-}
-
-/* 第 30 条：图片上压文字时加渐变蒙版，保证可读性 */
-.mc-veil::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: var(--mc-gradient-veil);
-  pointer-events: none;
-}
-
 /* 毛玻璃：顶栏、悬浮面板、模态遮罩之上 */
 .mc-glass {
   background: var(--mc-glass-bg);
@@ -51,7 +26,7 @@
   backdrop-filter: var(--mc-glass-blur);
 }
 
-/* 骨架屏：加载中的微光扫过 */
+/* 骨架屏：纯色半透明呼吸，不用渐变扫光 */
 .mc-skeleton {
   position: relative;
   overflow: hidden;
@@ -63,14 +38,15 @@
   content: '';
   position: absolute;
   inset: 0;
-  background-image: var(--mc-gradient-sheen-sweep);
-  transform: translateX(-100%);
-  animation: mc-shimmer 1.4s var(--mc-ease) infinite;
+  background: var(--mc-surface-2-strong);
+  opacity: 0;
+  pointer-events: none;
+  animation: mc-skeleton-pulse 1.4s ease-in-out infinite;
 }
 
-@keyframes mc-shimmer {
-  to {
-    transform: translateX(100%);
+@keyframes mc-skeleton-pulse {
+  50% {
+    opacity: 1;
   }
 }
 

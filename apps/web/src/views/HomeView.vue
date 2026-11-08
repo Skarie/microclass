@@ -68,7 +68,7 @@ onMounted(() => void load());
 
     <!-- ④ 我的学习 -->
     <section class="home__block">
-      <SectionHead title="我的学习" icon="chartBar" />
+      <SectionHead title="我的学习" />
       <HomeBoard
         :metrics="metrics"
         :level="summary?.level ?? '—'"
@@ -94,7 +94,7 @@ onMounted(() => void load());
 
     <!-- ⑧ 学习资产 -->
     <section class="home__block">
-      <SectionHead title="学习资产" icon="folder" />
+      <SectionHead title="学习资产" />
       <HomeAssets
         :learning-count="learning.length"
         :finished-count="finishedCourses.length"

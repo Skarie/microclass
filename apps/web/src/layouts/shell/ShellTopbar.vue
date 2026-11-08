@@ -9,6 +9,7 @@ import { useAuthStore } from '@/stores/auth';
 import { usePanelStore } from '@/stores/panel';
 import { useThemeStore } from '@/stores/theme';
 import type { Summary } from '@/api/types';
+import { levelName } from '@/utils/level';
 
 /**
  * 顶栏：品牌 + 一级导航 + 等级 / 主题 / 双面板切换 / 管理菜单 / 用户菜单 / 窄屏菜单按钮。
@@ -39,7 +40,7 @@ const { userName, manageMenuItems, userMenuItems, onUserSelect, onManageSelect }
 
     <span v-if="summary" class="topbar__level" :title="`学习时长 ${summary.minutes} 分钟`">
       <Icon name="graduation" :size="14" />
-      {{ summary.level }}
+      {{ levelName(summary.level) }}
     </span>
 
     <button

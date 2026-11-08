@@ -15,8 +15,8 @@ const empty = computed(() => props.wrongPending === 0 && props.practiceCount ===
 
 <template>
   <section class="todo" aria-label="今日待办">
-    <SectionHead title="今日待办" icon="check-circle">
-      <template #meta>{{ empty ? '已清空' : '按优先级处理' }}</template>
+    <SectionHead title="今日待办">
+      <template #meta>{{ empty ? '已清空' : `${wrongPending + practiceCount} 项` }}</template>
     </SectionHead>
 
     <p v-if="empty" class="todo__empty">
@@ -28,8 +28,8 @@ const empty = computed(() => props.wrongPending === 0 && props.practiceCount ===
     </p>
 
     <div v-else class="todo__grid">
-      <article class="todo__card todo__card--terra">
-        <span class="todo__icon todo__icon--warning"><Icon name="wrong" :size="18" /></span>
+      <article class="todo__card">
+        <span class="todo__icon"><Icon name="wrong" :size="18" /></span>
         <span class="todo__main">
           <span class="todo__label">错题待复习</span>
           <span class="todo__value"
@@ -44,12 +44,12 @@ const empty = computed(() => props.wrongPending === 0 && props.practiceCount ===
         <span v-else class="todo__hint">已清空</span>
       </article>
 
-      <article class="todo__card todo__card--primary">
-        <span class="todo__icon todo__icon--primary"><Icon name="pen-line" :size="18" /></span>
+      <article class="todo__card">
+        <span class="todo__icon"><Icon name="pen-line" :size="18" /></span>
         <span class="todo__main">
-          <span class="todo__label">未完成练习</span>
+          <span class="todo__label">未完成课程</span>
           <span class="todo__value"
-            ><strong class="mc-num">{{ practiceCount }}</strong> 门课程</span
+            ><strong class="mc-num">{{ practiceCount }}</strong> 门</span
           >
           <span class="todo__hint">已开始但还没学完</span>
         </span>
@@ -77,19 +77,9 @@ const empty = computed(() => props.wrongPending === 0 && props.practiceCount ===
   gap: var(--mc-space-3);
   overflow: hidden;
   padding: var(--mc-space-4);
-  border: 1px solid var(--todo-border, var(--mc-border));
+  border: 1px solid var(--mc-border);
   border-radius: var(--mc-radius-md);
-  background: var(--todo-bg, var(--mc-bg-elevated));
-}
-
-.todo__card--terra {
-  --todo-bg: var(--mc-terra-soft);
-  --todo-border: var(--mc-terra-border);
-}
-
-.todo__card--primary {
-  --todo-bg: var(--mc-primary-soft);
-  --todo-border: var(--mc-primary-border);
+  background: var(--mc-bg-elevated);
 }
 
 .todo__icon {
@@ -100,22 +90,8 @@ const empty = computed(() => props.wrongPending === 0 && props.practiceCount ===
   height: 40px;
   flex: none;
   border-radius: var(--mc-radius);
-}
-
-.todo__icon--warning {
-  background: var(--mc-warning-soft);
-  color: var(--mc-warning-fg);
-}
-
-.todo__icon--primary {
-  background: var(--mc-primary-soft);
-  color: var(--mc-primary-fg);
-}
-
-/* 卡片本身是浅色块：图标块回到白底，避免软底叠软底 */
-.todo__card .todo__icon {
-  background: var(--mc-bg-elevated);
-  color: var(--todo-bar);
+  background: var(--mc-bg-sunken);
+  color: var(--mc-text-secondary);
 }
 
 .todo__main {
@@ -141,7 +117,7 @@ const empty = computed(() => props.wrongPending === 0 && props.practiceCount ===
   margin-right: var(--mc-space-1);
   font-size: var(--mc-text-2xl);
   line-height: var(--mc-leading-display);
-  color: var(--mc-terra-strong);
+  color: var(--mc-text);
 }
 
 .todo__hint {

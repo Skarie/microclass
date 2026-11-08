@@ -24,9 +24,7 @@ defineProps<{ course: Course | null; progress: number }>();
 
       <template v-if="course">
         <h2 class="hero__title">{{ course.name }}</h2>
-        <p class="hero__desc">
-          {{ course.description || '从上次停下的地方继续，学完的课时会自动记录在这里。' }}
-        </p>
+        <p v-if="course.description" class="hero__desc">{{ course.description }}</p>
 
         <div class="hero__progress">
           <div class="hero__progress-head">
@@ -48,8 +46,8 @@ defineProps<{ course: Course | null; progress: number }>();
       </template>
 
       <template v-else>
-        <h2 class="hero__title">从一门课开始，把学习变成日常</h2>
-        <p class="hero__desc">从课程大厅挑一门课开始；学完第一节课后，这里会显示你的进度。</p>
+        <h2 class="hero__title">还没有在学的课程</h2>
+        <p class="hero__desc">去课程大厅选一门，从第一课时开始。</p>
         <div class="hero__actions">
           <RouterLink class="hero__cta" :to="{ name: 'hall' }">
             去课程大厅

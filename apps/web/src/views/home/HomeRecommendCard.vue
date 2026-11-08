@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
- * 推荐课程卡：分类色块 + 几何封面 + 白色大水印序号（01/02/03）+
- * 推荐理由标签 + 名称 / 简介 / 课时 + 实心主色入口。
+ * 推荐课程卡：封面 + 推荐理由标签 + 名称 / 简介 / 课时 + 实心主色入口。
+ * 不做大号水印序号：卡片只表达推荐理由与课程事实。
  */
 import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
@@ -11,9 +11,8 @@ import Icon from '@/components/Icon.vue';
 import Tag from '@/components/Tag.vue';
 import { REASON_LABEL, REASON_TONE, type Recommendation } from '@/utils/course-recommend';
 
-const props = defineProps<{ recommendation: Recommendation; index: number }>();
+const props = defineProps<{ recommendation: Recommendation }>();
 const course = computed(() => props.recommendation.course);
-const order = computed(() => String(props.index + 1).padStart(2, '0'));
 </script>
 
 <template>
@@ -29,7 +28,6 @@ const order = computed(() => String(props.index + 1).padStart(2, '0'));
       <span class="rec-card__reason">
         <Tag :tone="REASON_TONE[recommendation.reason]" size="sm">{{ REASON_LABEL[recommendation.reason] }}</Tag>
       </span>
-      <span class="rec-card__order" aria-hidden="true">{{ order }}</span>
     </RouterLink>
 
     <div class="rec-card__body">
@@ -81,19 +79,6 @@ const order = computed(() => String(props.index + 1).padStart(2, '0'));
   right: var(--mc-space-2);
   z-index: 1;
   display: inline-flex;
-}
-
-/* 编辑部式序号：34 档放大 1.4 倍到 48 视觉，不新增字号档位 */
-.rec-card__order {
-  position: absolute;
-  right: var(--mc-space-3);
-  bottom: 0;
-  color: var(--mc-hero-fg);
-  font-size: calc(var(--mc-text-4xl) * 1.4);
-  font-weight: var(--mc-font-bold);
-  line-height: var(--mc-leading-display);
-  opacity: 0.26;
-  pointer-events: none;
 }
 
 .rec-card__body {

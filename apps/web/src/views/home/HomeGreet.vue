@@ -23,9 +23,9 @@ const auth = useAuthStore();
       <h1 class="home__title">你好，{{ auth.user?.display_name || auth.user?.username || '同学' }}</h1>
       <p class="home__sub">
         <template v-if="learning.length > 0">
-          有 <strong class="mc-num">{{ learning.length }}</strong> 门课正在进行，按自己的节奏继续推进。
+          有 <strong class="mc-num">{{ learning.length }}</strong> 门课在学。
         </template>
-        <template v-else> 还没有在学课程 —— 去课程大厅挑一门开始吧。 </template>
+        <template v-else>还没有在学的课程。</template>
       </p>
     </div>
     <RouterLink class="mc-btn mc-btn--primary" :to="{ name: 'hall' }">

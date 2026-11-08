@@ -14,12 +14,12 @@ defineProps<{ items: Recommendation[] }>();
 
 <template>
   <section v-if="items.length > 0" class="rec" aria-label="推荐课程">
-    <SectionHead title="推荐课程" icon="sparkles">
+    <SectionHead title="推荐课程">
       <template #meta>同类优先 · 新上线其次</template>
     </SectionHead>
 
     <ul class="rec__list">
-      <HomeRecommendCard v-for="(item, index) in items" :key="item.course.id" :recommendation="item" :index="index" />
+      <HomeRecommendCard v-for="item in items" :key="item.course.id" :recommendation="item" />
     </ul>
   </section>
 </template>

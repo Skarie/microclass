@@ -33,13 +33,10 @@ interface WrongBook {
   pending: number;
 }
 
-export type MetricTone = 'primary' | 'cyan' | 'indigo' | 'terra' | 'neutral';
-
 export interface HomeMetric {
   label: string;
   value: number;
   unit: string;
-  tone: MetricTone;
   icon: IconName;
 }
 
@@ -90,22 +87,20 @@ export function useHomeDashboard() {
   const practiceCount = computed(() => learning.value.length);
   const hasTodo = computed(() => wrongPending.value + practiceCount.value > 0);
 
-  /** 看板头条指标：全部真实；四张卡各用一种语义色（数据 / 学习 / 练习 / 提醒） */
+  /** 看板头条指标：全部真实；只保留图标与数字，不再按分类给每张卡上色 */
   const metrics = computed<HomeMetric[]>(() => [
-    { label: '学习时长', value: summary.value?.minutes ?? 0, unit: '分钟', tone: 'indigo', icon: 'clock' },
+    { label: '学习时长', value: summary.value?.minutes ?? 0, unit: '分钟', icon: 'clock' },
     {
       label: '已完成课时',
       value: summary.value?.finishedLessons ?? 0,
       unit: '个',
-      tone: 'primary',
       icon: 'check-circle',
     },
-    { label: '完成练习', value: summary.value?.quizzed ?? 0, unit: '次', tone: 'cyan', icon: 'pen-line' },
+    { label: '完成练习', value: summary.value?.quizzed ?? 0, unit: '次', icon: 'pen-line' },
     {
       label: '错题待复习',
       value: wrong.value?.pending ?? 0,
       unit: '题',
-      tone: 'terra',
       icon: 'wrong',
     },
   ]);

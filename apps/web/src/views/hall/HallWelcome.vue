@@ -30,9 +30,9 @@ const continueTo = computed(() =>
         上次在学 <strong>{{ course.name }}</strong
         >，已完成 <span class="mc-num">{{ course.finished ?? 0 }}/{{ course.total ?? 0 }}</span> 课时。
       </p>
-      <p v-else class="welcome__line">还没有在学的课程，从下面挑一门开始；学完第一节课后会自动出现在首页。</p>
+      <p v-else class="welcome__line">还没有在学的课程。</p>
       <p class="welcome__hint">
-        共 <strong class="mc-num">{{ catalog.courses.length }}</strong> 门课程，按分类整理；也可以直接搜索课程名或简介。
+        共 <strong class="mc-num">{{ catalog.courses.length }}</strong> 门课程，可按分类浏览或搜索。
       </p>
     </div>
 
