@@ -31,7 +31,7 @@ const emit = defineEmits<{ next: [] }>();
         当前范围：<strong>{{ range.rangeSummary }}</strong>
       </p>
       <p v-if="(range.facets?.total ?? 0) === 0 && range.scope === 'course'" class="stp__emptyhint">
-        <Icon name="alert" :size="15" />
+        <Icon name="alert" :size="16" />
         <span>本课程没有绑定题库的题目（导入的题常常只归到题库）。把右上角范围改成「全库所有题」就能按章节挑。</span>
       </p>
       <button
@@ -63,7 +63,7 @@ const emit = defineEmits<{ next: [] }>();
         <span class="mc-spacer" />
         <button class="mc-btn mc-btn--primary" type="button" @click="emit('next')">
           下一步：选择组卷方式
-          <Icon name="arrow-right" :size="15" />
+          <Icon name="arrow-right" :size="16" />
         </button>
       </div>
     </div>

@@ -34,7 +34,7 @@ const { onUserSelect } = useShellMenus();
     <template v-if="auth.isTeacher">
       <button class="drawer__group" type="button" :aria-expanded="manageOpen" @click="emit('toggleManage')">
         <span>教学管理</span>
-        <Icon :name="manageOpen ? 'minus' : 'plus'" :size="15" />
+        <Icon :name="manageOpen ? 'minus' : 'plus'" :size="16" />
       </button>
       <RouterLink
         v-for="item in visibleManageNav"
@@ -45,7 +45,7 @@ const { onUserSelect } = useShellMenus();
         :to="item.to"
         @click="emit('close')"
       >
-        <Icon :name="item.icon" :size="17" />
+        <Icon :name="item.icon" :size="18" />
         {{ item.label }}
       </RouterLink>
     </template>

@@ -210,11 +210,11 @@ onMounted(async () => {
     >
       <template #actions>
         <button class="mc-btn mc-btn--sm" type="button" :disabled="healthLoading" @click="loadHealth(true)">
-          <Icon name="shield" :size="15" />
+          <Icon name="shield" :size="16" />
           {{ healthLoading ? '体检中…' : '重新体检' }}
         </button>
         <button class="mc-btn mc-btn--sm" type="button" :disabled="loading" @click="loadCore()">
-          <Icon name="refresh" :size="15" />
+          <Icon name="refresh" :size="16" />
           刷新
         </button>
       </template>

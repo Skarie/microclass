@@ -136,7 +136,7 @@ void ICONS;
     </div>
 
     <div class="tree__search">
-      <Icon name="search" :size="15" />
+      <Icon name="search" :size="16" />
       <input
         v-model.trim="pointSearch"
         class="mc-input"
@@ -168,7 +168,7 @@ void ICONS;
           </button>
           <label class="tree__check">
             <input type="checkbox" :checked="isBookChecked(book.book)" @change="toggleBook(book)" />
-            <Icon name="book-open" :size="15" />
+            <Icon name="book-open" :size="16" />
             <span class="tree__label">{{ book.label }}</span>
           </label>
           <span class="tree__badge">{{ book.count }}</span>
@@ -184,7 +184,7 @@ void ICONS;
                 :aria-label="`展开/收起 ${c.chapter} 的知识点`"
                 @click="toggleExpandChapter(c.chapter)"
               >
-                <Icon :name="expandedChapters.includes(c.chapter) ? 'chevron-down' : 'chevron-right'" :size="13" />
+                <Icon :name="expandedChapters.includes(c.chapter) ? 'chevron-down' : 'chevron-right'" :size="14" />
               </button>
               <label class="tree__check">
                 <input type="checkbox" :checked="isChapterChecked(c.chapter)" @change="toggleChapter(c.chapter)" />
@@ -224,7 +224,7 @@ void ICONS;
       <span v-for="p in selected.points" :key="p" class="tree__chip">
         {{ pointLabel(p) }}
         <button class="tree__chipx" type="button" :aria-label="`取消选择 ${p}`" @click="togglePoint(p)">
-          <Icon name="close" :size="12" />
+          <Icon name="close" :size="14" />
         </button>
       </span>
     </div>

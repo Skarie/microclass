@@ -30,7 +30,7 @@ const state = reactive(props.practice);
       <ul v-if="state.banks.length > 0" class="practice__list">
         <li v-for="(bank, index) in state.banks" :key="`${bank.bankId}-${bank.chapter}-${bank.section}-${index}`">
           <RouterLink class="practice__item" :to="{ name: 'quiz', params: { id: lessonId } }">
-            <Icon name="bank" :size="15" class="practice__icon" />
+            <Icon name="bank" :size="16" class="practice__icon" />
             <span class="practice__name" :title="practiceBankLabel(bank)">{{ practiceBankLabel(bank) }}</span>
             <Icon name="chevron-right" :size="14" class="practice__arrow" />
           </RouterLink>
@@ -40,7 +40,7 @@ const state = reactive(props.practice);
       <ul v-if="state.questions.length > 0" class="practice__list">
         <li v-for="question in state.questions" :key="question.linkId">
           <RouterLink class="practice__item" :to="{ name: 'quiz', params: { id: lessonId } }">
-            <Icon name="pen-line" :size="15" class="practice__icon" />
+            <Icon name="pen-line" :size="16" class="practice__icon" />
             <span class="practice__name" :title="question.stem">{{ stemPreview(question.stem) }}</span>
             <Icon name="chevron-right" :size="14" class="practice__arrow" />
           </RouterLink>

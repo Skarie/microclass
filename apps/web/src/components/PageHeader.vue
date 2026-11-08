@@ -33,7 +33,7 @@ withDefaults(
     <div class="ph__main">
       <div class="ph__text">
         <h1 class="ph__title">
-          <span v-if="icon" class="ph__icon"><Icon :name="icon" :size="22" /></span>
+          <span v-if="icon" class="ph__icon"><Icon :name="icon" :size="20" /></span>
           {{ title }}
         </h1>
         <p v-if="description" class="ph__desc">{{ description }}</p>
@@ -137,9 +137,12 @@ withDefaults(
 
 .ph__desc {
   margin: 0;
+  /* 中文一行 ≈ 2ch，76ch 只有 38 个汉字，长描述会被挤成「孤字换行」；给到 ~60 字 */
+  max-width: 860px;
   font-size: var(--mc-text-sm);
   color: var(--mc-text-secondary);
-  max-width: 76ch;
+  /* 避免最后一行只剩一两个字（中文描述尤其常见） */
+  text-wrap: pretty;
 }
 
 .ph__actions {

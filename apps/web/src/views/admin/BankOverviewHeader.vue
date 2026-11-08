@@ -30,7 +30,7 @@ const emit = defineEmits<{ 'pick-unbound': [] }>();
     <button class="kpi__card kpi__card--action" type="button" @click="emit('pick-unbound')">
       <div class="kpi__label">未关联课程</div>
       <div class="kpi__value">{{ binding.unbound.toLocaleString() }}</div>
-      <div class="kpi__sub mc-muted">点这里看未关联题库 →</div>
+      <div class="kpi__sub mc-muted">查看未关联题库 →</div>
     </button>
     <div class="kpi__card">
       <div class="kpi__label">待补答案</div>

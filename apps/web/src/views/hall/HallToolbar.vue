@@ -16,7 +16,7 @@ const state = reactive(props.catalog);
   <Toolbar>
     <template #left>
       <label class="hall__search">
-        <Icon name="search" :size="15" />
+        <Icon name="search" :size="16" />
         <input
           v-model.trim="state.keyword"
           class="mc-input mc-input--search hall__search-input"
@@ -51,7 +51,7 @@ const state = reactive(props.catalog);
           title="卡片展示"
           @click="state.setViewMode('cards')"
         >
-          <Icon name="grid" :size="15" />
+          <Icon name="grid" :size="16" />
         </button>
         <button
           class="mc-btn mc-btn--sm mc-btn--icon"
@@ -62,11 +62,11 @@ const state = reactive(props.catalog);
           title="列表展示"
           @click="state.setViewMode('list')"
         >
-          <Icon name="list" :size="15" />
+          <Icon name="list" :size="16" />
         </button>
       </div>
       <button v-if="state.hasFilter" class="mc-btn mc-btn--sm mc-btn--ghost" type="button" @click="state.resetFilters">
-        <Icon name="reset" :size="15" />
+        <Icon name="reset" :size="16" />
         重置
       </button>
     </template>

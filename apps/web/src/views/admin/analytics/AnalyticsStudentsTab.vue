@@ -38,7 +38,7 @@ defineProps<{ students: StudentsResponse | null; bars: BarItem[] }>();
               <td>{{ pct(s.accuracy) }}</td>
               <td>
                 <Tag :tone="MASTERY_TONE[s.level]" size="sm">
-                  <Icon :name="MASTERY_ICON[s.level]" :size="13" />
+                  <Icon :name="MASTERY_ICON[s.level]" :size="14" />
                   {{ MASTERY_LABEL[s.level] }}
                 </Tag>
               </td>

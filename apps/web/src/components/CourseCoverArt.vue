@@ -1,13 +1,15 @@
 <script setup lang="ts">
 /**
- * 课程封面：封面是「内容图像」，不是装饰。有真封面就用真图，没有就生成设计封面。
+ * 课程封面：封面是「图像」，不是装饰。有真封面就用真图，没有就生成编辑式封面。
  *
  * 生成规则固定、可预期，不做随机（随机会让同一门课在首页和大厅变成两个样）：
- *   ① 底色 = 分类名 hash 到三色盘之一（深主绿 / 炭灰 / 赭石），同分类同色，全站只有 3 种；
- *   ② 右侧一组固定几何：2px 描边圆 + 实心圆 + 两道 45° 斜线（白色 30%~34%）；
- *   ③ 左下固定文字块：课程名首字（大号白色 600）+ 课程名（小号白色 76%，最多 2 行）。
+ *   ① 纸底 = 分类名 hash 到三色盘之一（雾绿 / 石白 / 沙色），同分类同色，全站只有 3 种；
+ *   ② 左上分类小标签、右下一条 14% 的细线；只有 Hero 这一种「像书封」的用法才印课程名；
+ *   ③ 只有排版和留白 —— 没有大字首字、没有实色块、没有彩色几何。
  *
- * 列表里的 40×40 缩略图不参与构图：中性块 + 首字。一列里排十几个色块只会更吵。
+ * 为什么卡片不印课程名：卡体标题就在封面正下方，同一串字上下相邻出现两次是最刺眼的重复
+ * （自查清单第 3 条）。封面上只放卡体没有的信息（分类），课程名交给标题。
+ * 列表里的 40×40 缩略图同样不参与构图：中性块 + 首字。一列里排十几个色块只会更吵。
  */
 import { computed, ref, watch } from 'vue';
 import { COVER_CARD_WIDTH, COVER_HERO_WIDTH, coverUrl } from '@/utils/course-cover';
@@ -16,7 +18,15 @@ import type { Course } from '@/api/types';
 
 type CoverVariant = 'card' | 'row' | 'hero';
 
-const props = withDefaults(defineProps<{ course: Course; variant?: CoverVariant }>(), { variant: 'card' });
+const props = withDefaults(
+  defineProps<{
+    course: Course;
+    variant?: CoverVariant;
+    /** 次级的次级信息（如「30 课时」）：调用方传入；调用方自己已经显示过就别传，避免重复 */
+    meta?: string;
+  }>(),
+  { variant: 'card', meta: '' },
+);
 
 /** 真图 404 / 解码失败时回落到设计封面，不留一个破图占位 */
 const broken = ref(false);
@@ -33,6 +43,7 @@ const isRow = computed(() => props.variant === 'row');
 const src = computed(() => coverUrl(props.course.id, isHero.value ? COVER_HERO_WIDTH : COVER_CARD_WIDTH));
 const tone = computed(() => coverToneForCategory(props.course.category_name));
 const initial = computed(() => coverInitial(props.course.name));
+const label = computed(() => (props.course.category_name ?? '').trim());
 </script>
 
 <template>
@@ -50,17 +61,19 @@ const initial = computed(() => coverInitial(props.course.name));
     <span v-else-if="isRow" class="art__row-initial" aria-hidden="true">{{ initial }}</span>
 
     <template v-else>
-      <!-- 几何装饰：一个正方形 SVG 贴右下角，随封面高度等比缩放，不会随宽度被拉扁 -->
-      <svg class="art__deco" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
-        <circle class="art__ring" cx="116" cy="62" r="46" />
-        <circle class="art__dot" cx="74" cy="74" r="8" />
-        <path class="art__lines" d="M54 120 100 74M82 120 120 82" />
+      <!-- 极细线：一个描边圆弧 + 一道 45° 线，压在右下角，14% 墨色 -->
+      <svg class="art__rule" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
+        <circle cx="78" cy="42" r="44" />
+        <path d="M0 120 120 0" />
       </svg>
 
-      <span class="art__text">
-        <span class="art__initial" aria-hidden="true">{{ initial }}</span>
-        <span v-if="isHero" class="art__name">{{ course.name }}</span>
-      </span>
+      <div class="art__body">
+        <span v-if="label" class="art__label">{{ label }}</span>
+        <span class="art__foot">
+          <span class="art__name" aria-hidden="true">{{ course.name }}</span>
+          <span v-if="meta" class="art__meta" aria-hidden="true">{{ meta }}</span>
+        </span>
+      </div>
     </template>
   </div>
 </template>
@@ -72,21 +85,21 @@ const initial = computed(() => coverInitial(props.course.name));
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: var(--mc-bg-sunken);
-  color: var(--mc-cover-fg);
+  background: var(--mc-cover-stone);
+  color: var(--mc-cover-ink);
 }
 
-/* 三色盘：底色只由分类决定，暗色主题也不换（封面是图像，不该跟着主题走） */
-.art[data-tone='green'] {
-  background: var(--mc-cover-green);
+/* 三色盘：纸底只由分类决定；暗色主题在 tokens 里整体降一档，构图不变 */
+.art[data-tone='mist'] {
+  background: var(--mc-cover-mist);
 }
 
-.art[data-tone='charcoal'] {
-  background: var(--mc-cover-charcoal);
+.art[data-tone='stone'] {
+  background: var(--mc-cover-stone);
 }
 
-.art[data-tone='ochre'] {
-  background: var(--mc-cover-ochre);
+.art[data-tone='sand'] {
+  background: var(--mc-cover-sand);
 }
 
 .art__img {
@@ -96,86 +109,101 @@ const initial = computed(() => coverInitial(props.course.name));
   object-fit: cover;
 }
 
-/* ---------- 设计封面：几何 ---------- */
-.art__deco {
+/* ---------- 编辑式封面：细线 + 文字 ---------- */
+.art__rule {
   position: absolute;
-  right: 0;
-  bottom: 0;
-  height: 92%;
-  aspect-ratio: 1;
-  transform: translateX(14%);
-  overflow: visible;
+  right: calc(var(--mc-space-6) * -1);
+  bottom: calc(var(--mc-space-6) * -1);
+  width: 120px;
+  height: 120px;
+  fill: none;
+  stroke: var(--mc-cover-rule);
+  stroke-width: 1;
   pointer-events: none;
 }
 
-.art__ring {
-  fill: none;
-  stroke: var(--mc-cover-line);
-  stroke-width: 2;
-}
-
-.art__dot {
-  fill: var(--mc-cover-line-strong);
-}
-
-.art__lines {
-  fill: none;
-  stroke: var(--mc-cover-line-strong);
-  stroke-width: 2;
-  stroke-linecap: round;
-}
-
-/* ---------- 设计封面：文字块 ---------- */
-.art__text {
+.art__body {
   position: absolute;
-  bottom: var(--mc-space-3);
-  left: var(--mc-space-4);
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--mc-space-2);
+  padding: var(--mc-space-4);
+}
+
+.art__label {
+  /* 右上角可能压着状态徽标，标签提前收窄，长分类名不会钻到徽标底下 */
+  max-width: calc(100% - 56px);
+  overflow: hidden;
+  color: var(--mc-cover-ink-muted);
+  font-size: var(--mc-text-xs);
+  font-weight: var(--mc-font-medium);
+  letter-spacing: var(--mc-tracking-label);
+  line-height: var(--mc-leading-snug);
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.art__foot {
   display: flex;
   flex-direction: column;
   gap: var(--mc-space-1);
-  max-width: 66%;
   min-width: 0;
+  /* 给右下角的细线让位，长标题的第二行不会压在圆弧上 */
+  padding-right: var(--mc-space-6);
 }
 
-.art__initial {
-  font-size: var(--mc-text-4xl);
-  font-weight: var(--mc-font-semibold);
-  line-height: var(--mc-leading-tight);
-  letter-spacing: var(--mc-tracking-cn);
-}
-
+/* 封面上的课程名是"印在纸上的一行小字"，不是第二个标题：
+   卡片里只给一行，长名字省略，避免同一个名字在封面和标题里各占两行。 */
 .art__name {
+  overflow: hidden;
+  color: var(--mc-cover-ink-muted);
+  font-size: var(--mc-text-xs);
+  font-weight: var(--mc-font-medium);
+  letter-spacing: var(--mc-tracking-cn);
+  line-height: var(--mc-leading-snug);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.art__meta {
+  overflow: hidden;
+  color: var(--mc-cover-ink-muted);
+  font-size: var(--mc-text-xs);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--mc-leading-snug);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Hero：同一构图，留白放大一档 ---------- */
+.art--hero .art__body {
+  padding: var(--mc-space-5);
+}
+
+.art--hero .art__name {
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   line-clamp: 2;
-  font-size: var(--mc-text-xs);
-  line-height: var(--mc-leading-snug);
-  color: var(--mc-cover-name);
-}
-
-.art--hero .art__text {
-  bottom: var(--mc-space-4);
-  left: var(--mc-space-5);
-  max-width: 64%;
-}
-
-.art--hero .art__initial {
-  font-size: var(--mc-text-4xl);
-}
-
-.art--hero .art__name {
   font-size: var(--mc-text-sm);
+  white-space: normal;
+}
+
+.art--hero .art__foot {
+  padding-right: var(--mc-space-8);
 }
 
 /* ---------- 列表缩略图：中性块 + 首字 ---------- */
-.art.art--row {
+.art--row {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--mc-bg-sunken);
-  color: var(--mc-text-secondary);
+  background: var(--mc-cover-row-bg);
+  color: var(--mc-cover-row-fg);
 }
 
 .art__row-initial {

@@ -71,6 +71,9 @@
 .mc-hint {
   font-size: var(--mc-text-xs);
   color: var(--mc-text-muted);
+  /* 说明文字也要控行长：整段横贯 1200px 时读不下去（中文约 60 字/行） */
+  max-width: 860px;
+  text-wrap: pretty;
 }
 
 .mc-error-text {

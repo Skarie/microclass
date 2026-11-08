@@ -28,19 +28,19 @@ export const STATUS_LABEL: Record<CourseStatus, string> = {
 };
 
 /**
- * 设计封面的三色盘（深主绿 / 炭灰 / 赭石）。
+ * 设计封面的三色盘（雾绿 / 石白 / 沙色）—— 都是极浅纸底，靠色相而不是明暗区分。
  *
  * 为什么是纯函数 + 固定顺序：封面必须「同分类同色、全站只有 3 种」。
  * 任何随机数或 Date 参与都会让同一门课在首页和大厅变色，所以只做字符串 hash。
- * 无分类（或分类名全空白）统一落到炭灰 —— 中性色是"没有分类"的默认表达。
+ * 无分类（或分类名全空白）统一落到石白 —— 中性色是"没有分类"的默认表达。
  */
-export type CoverTone = 'green' | 'charcoal' | 'ochre';
+export type CoverTone = 'mist' | 'stone' | 'sand';
 
-const COVER_TONES: readonly CoverTone[] = ['green', 'charcoal', 'ochre'];
+const COVER_TONES: readonly CoverTone[] = ['mist', 'stone', 'sand'];
 
 export function coverToneForCategory(categoryName?: string | null): CoverTone {
   const key = (categoryName ?? '').trim();
-  if (key === '') return 'charcoal';
+  if (key === '') return 'stone';
   // FNV-1a：相近的分类名（小学数学 / 小学语文）也能散到不同色上，
   // 简单 hash 会让「小学数学」「初中数学」这类前缀相同的名字全撞到同一个桶。
   let hash = 2166136261;

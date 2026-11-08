@@ -18,11 +18,11 @@ const emit = defineEmits<{
   <PageHeader :title="`组卷：${title}`" icon="exam">
     <template #actions>
       <button class="mc-btn mc-btn--sm" type="button" @click="emit('back')">
-        <Icon name="arrow-left" :size="15" />
+        <Icon name="arrow-left" :size="16" />
         返回考试列表
       </button>
       <button class="mc-btn mc-btn--sm" type="button" :disabled="paperCount === 0" @click="emit('blueprint')">
-        <Icon name="grid" :size="15" />
+        <Icon name="grid" :size="16" />
         按细目表配题
       </button>
       <button
@@ -31,7 +31,7 @@ const emit = defineEmits<{
         :disabled="paperCount === 0"
         @click="emit('print')"
       >
-        <Icon name="print" :size="15" />
+        <Icon name="print" :size="16" />
         打印预览
       </button>
     </template>

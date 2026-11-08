@@ -36,7 +36,7 @@ function onMenu(course: Course, key: string): void {
     <article v-for="course in courses" :key="course.id" class="card" @click="emit('manage', course)">
       <div class="card__cover">
         <img v-if="course.cover" :src="`/api/v1/course-cover/${course.id}`" :alt="course.name" loading="lazy" />
-        <span v-else class="card__initial" aria-hidden="true"><Icon name="graduation" :size="26" /></span>
+        <span v-else class="card__initial" aria-hidden="true"><Icon name="graduation" :size="24" /></span>
         <span class="mc-badge card__status" :class="course.published === 1 ? '' : 'mc-badge--warning'">
           {{ course.published === 1 ? '已发布' : '草稿' }}
         </span>

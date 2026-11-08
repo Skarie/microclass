@@ -100,7 +100,7 @@ watch(
                 class="mc-badge mc-badge--success bank-item__badge"
                 :title="bankLessonTitle(bank) !== '' ? `关联课时：${bankLessonTitle(bank)}` : '已关联课程'"
               >
-                <Icon name="courses" :size="12" />
+                <Icon name="courses" :size="14" />
                 已关联 · {{ bankCourseName(bank) }}
               </span>
             </span>

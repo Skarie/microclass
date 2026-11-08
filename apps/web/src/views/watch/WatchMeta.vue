@@ -19,7 +19,7 @@ defineProps<{
 
 <template>
   <div v-if="!quizUnlocked" class="notice mc-card">
-    <Icon name="shield" :size="15" class="watch__lock" />
+    <Icon name="shield" :size="16" class="watch__lock" />
     <span> 本地视频需看完 <strong>80%</strong> 才能解锁课后练习，当前已观看 {{ watchedPercent }}%。 </span>
   </div>
 
@@ -46,6 +46,7 @@ defineProps<{
       :aria-valuenow="watchedPercent"
       aria-valuemin="0"
       aria-valuemax="100"
+      :aria-label="`本课时观看进度 ${watchedPercent}%`"
     >
       <div class="mc-progress__bar" :style="{ transform: `scaleX(${watchedPercent / 100})` }" />
     </div>

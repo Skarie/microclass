@@ -94,11 +94,11 @@ const isEmpty = computed(() => learning.value.length + finished.value.length + f
               </RouterLink>
               <div class="course-card__meta">
                 <span class="course-card__stat">
-                  <Icon name="video" :size="13" />
+                  <Icon name="video" :size="14" />
                   {{ course.total ?? 0 }} 课时
                 </span>
                 <span class="course-card__stat">
-                  <Icon name="check-circle" :size="13" />
+                  <Icon name="check-circle" :size="14" />
                   已完成 {{ course.finished ?? 0 }}
                 </span>
                 <Tag v-if="(course.quiz ?? 0) > 0" tone="success" size="sm" icon="pen-line">

@@ -16,7 +16,7 @@ defineProps<{ title: string; description: string }>();
   >
     <template #actions>
       <RouterLink class="mc-btn mc-btn--sm" :to="{ name: 'hall' }">
-        <Icon name="hall" :size="15" />
+        <Icon name="hall" :size="16" />
         返回课程大厅
       </RouterLink>
     </template>

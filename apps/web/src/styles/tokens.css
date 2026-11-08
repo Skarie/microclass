@@ -31,15 +31,6 @@
   --mc-accent-fg: #c2410c;
   /* 暖点缀 */
   --mc-amber: #a16207;
-  --mc-amber-soft: #fdf6e3;
-  --mc-amber-border: #ecd9a8;
-  --mc-amber-fg: #854d0e;
-  /* 冷点缀（哑光青） */
-  --mc-cyan: #0891b2;
-  --mc-cyan-soft: #e4f6fa;
-  --mc-cyan-border: #b3e2ee;
-  --mc-cyan-fg: #0e7490;
-  --mc-cyan-strong: #155e75;
 
   /* ================= 四组语义域（全站固定，不随机） =================
      学习内容 = primary / 数据统计 = indigo / 提醒待办 = terra / 系统管理 = neutral。
@@ -57,11 +48,6 @@
   --mc-terra-fg: #9a3412;
   --mc-terra-strong: #7c2d12;
   --mc-neutral-strong: #31312d;
-
-  /* 砖红（徽记/点睛） */
-  --mc-seal: #7c3aed;
-  --mc-seal-soft: #f3edfe;
-  --mc-seal-fg: #6d28d9;
 
   /* ================= 语义色（同样降饱和，避免"荧光"） ================= */
   --mc-success: #15803d;
@@ -182,14 +168,22 @@
   --mc-glass-border: rgb(255 255 255 / 60%);
   --mc-glass-blur: saturate(105%) blur(3px);
 
-  /* 设计封面三色盘：深主绿 / 炭灰 / 赭石。按分类名 hash 固定，全站只有 3 种，不随主题变。 */
-  --mc-cover-green: #0b513f;
-  --mc-cover-charcoal: #33333a;
-  --mc-cover-ochre: #6f4026;
-  --mc-cover-fg: #ffffff;
-  --mc-cover-name: rgb(255 255 255 / 76%);
-  --mc-cover-line: rgb(255 255 255 / 30%);
-  --mc-cover-line-strong: rgb(255 255 255 / 34%);
+  /* ================= 设计封面（编辑式） =================
+     封面是「图像」，不靠大字与色块：极浅纸底 + 墨色小字 + 一条几乎看不见的细线。
+     三色盘按分类名 hash 固定（同分类同色），暗色主题只把纸底与墨色整体降一档，
+     不换构图 —— 同一门课在首页、大厅、我的课程里必须是同一张脸。 */
+  --mc-cover-mist: #e9f1ee;
+  --mc-cover-stone: #ecedf1;
+  --mc-cover-sand: #f2ece4;
+  --mc-cover-ink: #1e2a26;
+  /* 次级文字：墨色 68%。设计稿写的 60% 在 12px 下只有 3.9:1，过不了 AA。 */
+  --mc-cover-ink-muted: color-mix(in srgb, var(--mc-cover-ink) 68%, transparent);
+  /* 细线装饰 14%：看得见轮廓，但不会变成第二种图形语言 */
+  --mc-cover-rule: color-mix(in srgb, var(--mc-cover-ink) 14%, transparent);
+  --mc-cover-row-bg: var(--mc-bg-sunken);
+  --mc-cover-row-fg: var(--mc-text-secondary);
+  /* 分类小标签的字距：全大写/小字距拉开，像书封上的丛书名 */
+  --mc-tracking-label: 0.06em;
   /* ================= 动效（短、不弹） ================= */
   --mc-transition: 150ms cubic-bezier(0.32, 0.72, 0, 1);
 
@@ -286,15 +280,6 @@ html[data-theme='dark'] {
   --mc-accent-fg: #fdba74;
 
   --mc-amber: #c2a263;
-  --mc-amber-soft: #2a2418;
-  --mc-amber-border: #4a4028;
-  --mc-amber-fg: #d8bc85;
-
-  --mc-cyan: #6fa8bb;
-  --mc-cyan-soft: #14232a;
-  --mc-cyan-border: #274250;
-  --mc-cyan-fg: #9cc7d6;
-  --mc-cyan-strong: #a5e8f5;
 
   --mc-indigo: #5b63d6;
   --mc-indigo-hover: #6e76e8;
@@ -309,10 +294,6 @@ html[data-theme='dark'] {
   --mc-terra-fg: #fdba74;
   --mc-terra-strong: #f6c08a;
   --mc-neutral-strong: #e9e9e7;
-
-  --mc-seal: #cc7a72;
-  --mc-seal-soft: #2b1c1a;
-  --mc-seal-fg: #e0a49d;
 
   --mc-success: #4ade80;
   --mc-success-soft: #10281a;
@@ -343,6 +324,15 @@ html[data-theme='dark'] {
   --mc-hero-bg: #0e3b2e;
   --mc-hero-fg: #ffffff;
   --mc-hero-muted: #d8eee5;
+
+  /* 设计封面：暗色下是低饱和的“哑光纸”，比卡片底更深一档，靠色相区分 */
+  --mc-cover-mist: #17211e;
+  --mc-cover-stone: #1b1c20;
+  --mc-cover-sand: #221c17;
+  --mc-cover-ink: #f2f5f3;
+  /* 暗色下 68% 白只剩 5.4:1，够 AA；但 12px 小字要留余量，提到 72% */
+  --mc-cover-ink-muted: color-mix(in srgb, var(--mc-cover-ink) 72%, transparent);
+  --mc-cover-rule: color-mix(in srgb, var(--mc-cover-ink) 16%, transparent);
 
   --mc-shadow-xs: 0 1px 1px rgb(0 0 0 / 40%);
   --mc-shadow-sm: 0 1px 2px rgb(0 0 0 / 45%);

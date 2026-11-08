@@ -15,8 +15,8 @@ defineProps<{ overview: AnalyticsOverview; trendSeries: number[]; accuracySeries
   <div class="ana__kpis">
     <StatCard
       label="活跃学员"
-      :value="overview.kpi.activeStudents"
-      :unit="`/ ${overview.kpi.students} 人`"
+      :value="`${overview.kpi.activeStudents} / ${overview.kpi.students}`"
+      unit="人"
       icon="users"
       tone="primary"
       hint="最近范围内有作答的学员"

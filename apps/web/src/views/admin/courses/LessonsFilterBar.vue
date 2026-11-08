@@ -34,7 +34,7 @@ const emit = defineEmits<{ (e: 'upload'): void; (e: 'create'): void }>();
       刷新
     </button>
     <button class="mc-btn mc-btn--sm" type="button" @click="emit('upload')">
-      <Icon name="upload" :size="15" /> 上传视频
+      <Icon name="upload" :size="16" /> 上传视频
     </button>
     <button class="mc-btn mc-btn--sm" type="button" @click="emit('create')">新建课时</button>
   </div>

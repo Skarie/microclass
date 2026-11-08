@@ -40,7 +40,7 @@ const emit = defineEmits<{
           title="打开三步组卷页面"
           @click="emit('compose', exam)"
         >
-          <Icon name="exam" :size="15" />
+          <Icon name="exam" :size="16" />
           进入组卷页面
         </button>
         <button class="mc-btn mc-btn--sm" type="button" :disabled="!exam" @click="emit('print')">

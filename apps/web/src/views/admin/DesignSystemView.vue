@@ -106,7 +106,7 @@ const colorTokens = [
     >
       <template #actions>
         <button class="mc-btn mc-btn--sm" type="button" @click="progress = progress >= 100 ? 0 : progress + 12">
-          <Icon name="refresh" :size="15" />
+          <Icon name="refresh" :size="16" />
           改一个进度值
         </button>
       </template>
@@ -161,8 +161,8 @@ const colorTokens = [
       <div class="mc-card__header"><span class="mc-card__title">按钮优先级 Button</span></div>
       <div class="mc-card__body ds__col">
         <div class="ds__row">
-          <button class="mc-btn mc-btn--primary" type="button"><Icon name="plus" :size="15" />主操作</button>
-          <button class="mc-btn mc-btn--soft" type="button"><Icon name="upload" :size="15" />次操作（软色）</button>
+          <button class="mc-btn mc-btn--primary" type="button"><Icon name="plus" :size="16" />主操作</button>
+          <button class="mc-btn mc-btn--soft" type="button"><Icon name="upload" :size="16" />次操作（软色）</button>
           <button class="mc-btn" type="button">普通按钮</button>
           <button class="mc-btn mc-btn--ghost" type="button">弱化（ghost）</button>
           <button class="mc-btn mc-btn--danger" type="button">危险（描边）</button>
@@ -229,8 +229,8 @@ const colorTokens = [
           <label class="mc-checkbox"><input type="checkbox" checked /> 只看未完成</label>
         </template>
         <template #right>
-          <button class="mc-btn mc-btn--sm mc-btn--ghost" type="button"><Icon name="reset" :size="15" />重置</button>
-          <button class="mc-btn mc-btn--sm" type="button"><Icon name="search" :size="15" />查询</button>
+          <button class="mc-btn mc-btn--sm mc-btn--ghost" type="button"><Icon name="reset" :size="16" />重置</button>
+          <button class="mc-btn mc-btn--sm" type="button"><Icon name="search" :size="16" />查询</button>
         </template>
       </Toolbar>
       <div class="mc-card__body ds__col">

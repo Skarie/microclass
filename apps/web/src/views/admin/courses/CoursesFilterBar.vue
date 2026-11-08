@@ -48,7 +48,7 @@ defineProps<{ list: ReturnType<typeof useCourseList> }>();
         :aria-pressed="list.view === 'list'"
         @click="list.setView('list')"
       >
-        <Icon name="list" :size="15" />
+        <Icon name="list" :size="16" />
         列表
       </button>
     </div>

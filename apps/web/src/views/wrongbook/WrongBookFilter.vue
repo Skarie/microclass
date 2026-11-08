@@ -67,7 +67,7 @@ function onKeyword(event: Event): void {
       </label>
 
       <button class="mc-btn mc-btn--sm wbf__refresh" type="button" :disabled="loading" @click="emit('refresh')">
-        <Icon name="refresh" :size="15" />
+        <Icon name="refresh" :size="16" />
         {{ loading ? '刷新中…' : '刷新列表' }}
       </button>
     </div>

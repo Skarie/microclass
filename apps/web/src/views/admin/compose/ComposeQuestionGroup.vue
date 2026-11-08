@@ -13,7 +13,7 @@ const emit = defineEmits<{ view: [question: PaperQuestion]; replace: [id: number
 <template>
   <div class="stp__group">
     <div class="stp__grouphead">
-      <Icon name="list" :size="15" />
+      <Icon name="list" :size="16" />
       <span class="stp__groupname">{{ group.name }}</span>
       <span class="mc-muted">{{ group.questions.length }} 题 · {{ fmtScore(group.score) }} 分</span>
     </div>

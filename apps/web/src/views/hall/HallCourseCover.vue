@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
- * 平铺卡片封面：设计封面（或真图）+ 中性分类角标 + 状态徽标。
- * 角标不抢构图：统一中性底，状态只在 6px 圆点上用语义色。
+ * 平铺卡片封面：设计封面（或真图）+ 右上状态徽标。
+ * 分类已经印在封面里（左上小标签），这里不再叠一个角标 —— 同一信息出现两次只会显脏；
+ * 状态只在 6px 圆点上用语义色，文字本身始终可读。
  */
 import { computed } from 'vue';
 import CourseCoverArt from '@/components/CourseCoverArt.vue';
@@ -20,7 +21,6 @@ const statusTone = computed(() =>
 <template>
   <div class="cover">
     <CourseCoverArt class="cover__art" :course="course" />
-    <CourseCoverTag v-if="course.category_name" :label="course.category_name" corner="left" />
     <CourseCoverTag :label="STATUS_LABEL[status]" corner="right" :tone="statusTone" dot />
   </div>
 </template>

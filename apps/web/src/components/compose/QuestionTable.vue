@@ -98,7 +98,7 @@ const matchedBeyondPage = computed(() => Math.max(0, (props.total ?? 0) - props.
         type="button"
         @click="emit('selectAllMatched')"
       >
-        <Icon name="check-circle" :size="15" />
+        <Icon name="check-circle" :size="16" />
         全选筛选结果 {{ total }} 题
         <span v-if="matchedBeyondPage > 0" class="mc-muted">（本页之外 {{ matchedBeyondPage }} 题）</span>
       </button>
@@ -116,7 +116,7 @@ const matchedBeyondPage = computed(() => Math.max(0, (props.total ?? 0) - props.
         常见原因：这门课还没绑定题库（新导入的题常常只归到题库、没归到课程）， 或章节/知识点选得太窄。
       </p>
       <button class="mc-btn mc-btn--soft mc-btn--sm" type="button" @click="emit('switchScope')">
-        <Icon name="grid" :size="15" />
+        <Icon name="grid" :size="16" />
         改成「全库所有题」再挑
       </button>
     </div>

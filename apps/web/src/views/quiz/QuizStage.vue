@@ -122,7 +122,8 @@ useQuizHotkeys({
   align-items: start;
   justify-content: center;
   width: 100%;
-  max-width: 1120px;
+  /* 800 + 16 + 284 = 1100：正好等于题头宽度，两者左右边线对齐 */
+  max-width: 1100px;
   margin: 0 auto;
 }
 

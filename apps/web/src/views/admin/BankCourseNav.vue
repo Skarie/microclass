@@ -34,7 +34,7 @@ function pick(filter: CourseFilter): void {
     <ul v-else class="course-list">
       <li class="course-row" :class="{ 'course-row--active': catalogState.selectedCourse === 'all' }">
         <button class="course-row__main" type="button" @click="pick('all')">
-          <Icon name="bank" :size="15" class="course-row__icon" />
+          <Icon name="bank" :size="16" class="course-row__icon" />
           <span class="course-row__text">
             <span class="course-row__name mc-truncate">全部题库</span>
             <span class="course-row__meta mc-muted">{{ catalogState.courseBankTotal }} 个题库</span>
@@ -44,7 +44,7 @@ function pick(filter: CourseFilter): void {
 
       <li class="course-row" :class="{ 'course-row--active': catalogState.selectedCourse === 'unbound' }">
         <button class="course-row__main" type="button" @click="pick('unbound')">
-          <Icon name="folder" :size="15" class="course-row__icon course-row__icon--muted" />
+          <Icon name="folder" :size="16" class="course-row__icon course-row__icon--muted" />
           <span class="course-row__text">
             <span class="course-row__name mc-truncate">未关联课程</span>
             <span class="course-row__meta mc-muted">
@@ -61,7 +61,7 @@ function pick(filter: CourseFilter): void {
         :class="{ 'course-row--active': catalogState.selectedCourse === course.courseId }"
       >
         <button class="course-row__main" type="button" @click="pick(course.courseId)">
-          <Icon name="courses" :size="15" class="course-row__icon" />
+          <Icon name="courses" :size="16" class="course-row__icon" />
           <span class="course-row__text">
             <span class="course-row__name mc-truncate" :title="course.name">{{ course.name }}</span>
             <span class="course-row__meta mc-muted"> {{ course.bankCount }} 库 / {{ course.questionCount }} 题 </span>
@@ -76,7 +76,7 @@ function pick(filter: CourseFilter): void {
       :disabled="catalogState.rebinding"
       @click="catalogState.rebind"
     >
-      <Icon name="refresh" :size="15" />
+      <Icon name="refresh" :size="16" />
       {{ catalogState.rebinding ? '匹配中…' : '自动匹配课程归属' }}
     </button>
   </div>

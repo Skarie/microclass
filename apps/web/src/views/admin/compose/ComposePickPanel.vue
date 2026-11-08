@@ -16,7 +16,7 @@ const emit = defineEmits<{ pick: [] }>();
       弹窗里支持：按章节 / 知识点筛、题型与难度筛选、关键词、易错题优先、全选筛选结果；右侧能看到已选与合计分值。
     </p>
     <button class="mc-btn mc-btn--soft" type="button" @click="emit('pick')">
-      <Icon name="plus" :size="15" />
+      <Icon name="plus" :size="16" />
       打开题库挑题
     </button>
   </div>

@@ -35,7 +35,9 @@ const strokeVar = computed(() => {
     case 'danger':
       return 'var(--mc-danger)';
     case 'info':
-      return 'var(--mc-chart-2)';
+      /* info 用冷色：原来映射到 --mc-chart-2（橙），和 warning 的琥珀挨在一起
+         分不出「提示」还是「告警」——KPI 行里两个橙环就是这么来的 */
+      return 'var(--mc-info)';
     default:
       return 'var(--mc-primary)';
   }

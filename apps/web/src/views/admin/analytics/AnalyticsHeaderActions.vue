@@ -11,15 +11,15 @@ const emit = defineEmits<{ refresh: []; export: ['review.md' | 'wrong-questions.
 
 <template>
   <button class="mc-btn mc-btn--sm" type="button" :disabled="loading" @click="emit('refresh')">
-    <Icon name="refresh" :size="15" />
+    <Icon name="refresh" :size="16" />
     刷新
   </button>
   <button class="mc-btn mc-btn--sm" type="button" @click="emit('export', 'review.md')">
-    <Icon name="download" :size="15" />
+    <Icon name="download" :size="16" />
     讲评清单
   </button>
   <button class="mc-btn mc-btn--sm" type="button" @click="emit('export', 'wrong-questions.csv')">
-    <Icon name="download" :size="15" />
+    <Icon name="download" :size="16" />
     高频错题 CSV
   </button>
 </template>

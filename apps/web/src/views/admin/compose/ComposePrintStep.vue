@@ -21,7 +21,7 @@ const emit = defineEmits<{ back: [] }>();
       </span>
       <span class="mc-spacer" />
       <button class="mc-btn mc-btn--sm" type="button" @click="emit('back')">
-        <Icon name="arrow-left" :size="15" />
+        <Icon name="arrow-left" :size="16" />
         返回改卷子
       </button>
     </div>
@@ -71,11 +71,11 @@ const emit = defineEmits<{ back: [] }>();
           密封线（装订线）
         </label>
         <button class="mc-btn mc-btn--primary" type="button" @click="print.openPrint">
-          <Icon name="print" :size="15" />
+          <Icon name="print" :size="16" />
           打印 / 导出 PDF
         </button>
         <button class="mc-btn mc-btn--sm" type="button" @click="print.openPaperWord">
-          <Icon name="download" :size="15" />
+          <Icon name="download" :size="16" />
           导出 Word
         </button>
         <p class="mc-hint">浏览器打印对话框里选「另存为 PDF」即可导出文件；纸张与方向按上面设置排版。</p>

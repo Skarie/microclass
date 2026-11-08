@@ -10,8 +10,8 @@
  * 数据与交互在 composables/use-shell-nav.ts、use-shell-menus.ts；
  * 各区块的行内样式随组件搬迁（scoped CSS 不作用于子组件内部）。
  */
-import { onMounted, ref } from 'vue';
-import { RouterView } from 'vue-router';
+import { computed, onMounted, ref } from 'vue';
+import { RouterView, useRoute } from 'vue-router';
 import { api } from '@/api/client';
 import type { Summary } from '@/api/types';
 import ShellTopbar from './shell/ShellTopbar.vue';
@@ -22,6 +22,10 @@ const summary = ref<Summary | null>(null);
 const mobileNavOpen = ref(false);
 /* 抽屉里的"教学管理"默认收起：移动端 9 项太长，先给一级导航让位 */
 const manageOpen = ref(false);
+
+/* 做题 / 看课 / 考试是"专注态"：页脚会挤在题卡和底部操作条中间，收掉 */
+const route = useRoute();
+const focusMode = computed(() => ['quiz', 'watch', 'exam-take'].includes(String(route.name ?? '')));
 
 onMounted(async () => {
   try {
@@ -57,7 +61,7 @@ onMounted(async () => {
       </RouterView>
     </main>
 
-    <ShellFooter />
+    <ShellFooter v-if="!focusMode" />
   </div>
 </template>
 

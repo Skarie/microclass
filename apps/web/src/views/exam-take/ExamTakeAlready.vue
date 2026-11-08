@@ -12,7 +12,7 @@ defineProps<{ examId: number; title: string }>();
     <ExamTakeHeader :title="title" description="本场考试你已经交卷，不能重复作答。可以进入成绩页复盘每一道题。" />
 
     <div class="notice mc-card">
-      <Icon name="info" :size="15" /> 每场考试只能作答一次，成绩已记录。请前往成绩页查看得分与解析。
+      <Icon name="info" :size="16" /> 每场考试只能作答一次，成绩已记录。请前往成绩页查看得分与解析。
     </div>
 
     <div class="mc-row mc-row--wrap">

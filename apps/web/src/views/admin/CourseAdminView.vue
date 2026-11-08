@@ -78,15 +78,15 @@ watch(tab, (next) => {
       <template #actions>
         <button class="mc-btn mc-btn--sm" type="button" :disabled="list.loading" @click="refreshAll()">
           <span v-if="list.loading" class="mc-btn__spinner" aria-hidden="true" />
-          <Icon v-else name="refresh" :size="15" />
+          <Icon v-else name="refresh" :size="16" />
           {{ list.loading ? '刷新中…' : '刷新' }}
         </button>
         <button class="mc-btn mc-btn--sm" type="button" @click="categoryAdmin.openCategories()">
-          <Icon name="list" :size="15" />
+          <Icon name="list" :size="16" />
           分类管理
         </button>
         <button class="mc-btn mc-btn--primary mc-btn--sm" type="button" @click="crud.openCreate()">
-          <Icon name="plus" :size="15" />
+          <Icon name="plus" :size="16" />
           新建课程
         </button>
       </template>

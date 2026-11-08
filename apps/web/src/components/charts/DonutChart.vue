@@ -88,7 +88,7 @@ function percent(value: number): string {
     <ul class="donut__legend">
       <li v-for="s in segments" :key="s.label" class="donut__item">
         <span class="donut__dot" :style="{ background: toneVar(s.tone) }" aria-hidden="true" />
-        <Icon v-if="s.icon" :name="s.icon" :size="15" class="donut__icon" />
+        <Icon v-if="s.icon" :name="s.icon" :size="16" class="donut__icon" />
         <span class="donut__name">{{ s.label }}</span>
         <span class="donut__num">{{ s.value }}</span>
         <span class="donut__pct">{{ percent(s.value) }}</span>

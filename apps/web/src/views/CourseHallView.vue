@@ -70,7 +70,7 @@ onBeforeUnmount(() => {
       <template #actions>
         <button class="mc-btn mc-btn--sm" type="button" :disabled="catalog.loading" @click="catalog.refresh()">
           <span v-if="catalog.loading" class="mc-btn__spinner" aria-hidden="true" />
-          <Icon v-else name="refresh" :size="15" />
+          <Icon v-else name="refresh" :size="16" />
           {{ catalog.loading ? '刷新中…' : '刷新' }}
         </button>
       </template>

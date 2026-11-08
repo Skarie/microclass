@@ -54,7 +54,7 @@ function changeLesson(id: number | ''): void {
     >
       <template #actions>
         <button class="mc-btn mc-btn--sm" type="button" @click="stats.refresh">
-          <Icon name="refresh" :size="15" />
+          <Icon name="refresh" :size="16" />
           刷新
         </button>
         <button
@@ -63,7 +63,7 @@ function changeLesson(id: number | ''): void {
           :disabled="stats.tab === 'lesson' ? stats.lessonId === '' : stats.courseId === ''"
           @click="stats.exportCsv"
         >
-          <Icon name="download" :size="15" />
+          <Icon name="download" :size="16" />
           导出 CSV
         </button>
       </template>

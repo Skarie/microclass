@@ -146,11 +146,11 @@ function resultBadgeText(item: GradedItem): string {
     >
       <template #actions>
         <RouterLink class="mc-btn mc-btn--sm" :to="{ name: 'wrong-book' }">
-          <Icon name="wrong" :size="15" />
+          <Icon name="wrong" :size="16" />
           查看错题本
         </RouterLink>
         <RouterLink class="mc-btn mc-btn--sm" :to="{ name: 'me' }">
-          <Icon name="user" :size="15" />
+          <Icon name="user" :size="16" />
           我的成绩单
         </RouterLink>
       </template>

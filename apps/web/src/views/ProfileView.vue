@@ -168,11 +168,11 @@ async function logout(): Promise<void> {
     >
       <template #actions>
         <button class="mc-btn mc-btn--sm" type="button" :disabled="refreshing" @click="refreshAll">
-          <Icon name="refresh" :size="15" />
+          <Icon name="refresh" :size="16" />
           {{ refreshing ? '刷新中…' : '刷新数据' }}
         </button>
         <RouterLink class="mc-btn mc-btn--sm" :to="{ name: 'wrong-book' }">
-          <Icon name="wrong" :size="15" />
+          <Icon name="wrong" :size="16" />
           错题本
         </RouterLink>
         <button class="mc-btn mc-btn--sm mc-btn--ghost" type="button" :disabled="loggingOut" @click="logout">

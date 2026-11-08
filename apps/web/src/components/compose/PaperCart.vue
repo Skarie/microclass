@@ -88,7 +88,7 @@ const byType = computed(() => {
     <div class="cart__foot">
       <button class="mc-btn mc-btn--primary mc-btn--sm" type="button" :disabled="busy" @click="emit('next')">
         去排卷与导出
-        <Icon name="arrow-right" :size="15" />
+        <Icon name="arrow-right" :size="16" />
       </button>
     </div>
   </aside>

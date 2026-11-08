@@ -46,14 +46,16 @@
   white-space: nowrap;
 }
 
+/* 等级用「文字用」色（-fg）：--mc-success 直接压在 success-soft 上只有 4.4:1，
+   12px 小字过不了 AA（axe 实测报错）。 */
 .diff-text--easy {
   background: var(--mc-success-soft, var(--mc-surface-2));
-  color: var(--mc-success, var(--mc-text-secondary));
+  color: var(--mc-success-fg, var(--mc-text-secondary));
 }
 
 .diff-text--hard {
   background: var(--mc-warning-soft, var(--mc-surface-2));
-  color: var(--mc-warning, var(--mc-text-secondary));
+  color: var(--mc-warning-fg, var(--mc-text-secondary));
 }
 
 .diff-text--none {
@@ -172,18 +174,19 @@
   white-space: nowrap;
 }
 
-/* 题目表列宽：题干吃满剩余宽度，其余列紧凑 */
+/* 题目表列宽：题干吃满剩余宽度，其余列紧凑。
+   答案列原 148px 只放一个「B」，白占掉题干 60px —— 题干因此常被挤成两行。 */
 .col-no {
   width: 44px;
 }
 
 .col-type {
-  width: 92px;
+  width: 84px;
   white-space: nowrap;
 }
 
 .col-answer {
-  width: 148px;
+  width: 96px;
   font-size: var(--mc-text-base);
   font-weight: var(--mc-font-semibold);
   white-space: pre-wrap;

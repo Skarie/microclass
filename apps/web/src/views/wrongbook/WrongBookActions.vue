@@ -27,7 +27,7 @@ function formatTime(ms: number): string {
 
     <div class="mc-row mc-row--wrap wba__actions">
       <button class="mc-btn mc-btn--sm" type="button" :aria-expanded="revealed" @click="emit('reveal')">
-        <Icon name="eye" :size="15" />
+        <Icon name="eye" :size="16" />
         {{ revealed ? '收起解析' : '查看答案与解析' }}
       </button>
       <button class="mc-btn mc-btn--sm" type="button" :disabled="busy" @click="emit('master')">

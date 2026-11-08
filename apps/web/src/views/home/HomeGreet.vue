@@ -17,7 +17,7 @@ const auth = useAuthStore();
   <header class="home__greet">
     <div>
       <p class="home__eyebrow">
-        <Icon name="sparkles" :size="15" />
+        <Icon name="sparkles" :size="16" />
         微课堂 · 数据看板
       </p>
       <h1 class="home__title">你好，{{ auth.user?.display_name || auth.user?.username || '同学' }}</h1>
@@ -29,7 +29,7 @@ const auth = useAuthStore();
       </p>
     </div>
     <RouterLink class="mc-btn mc-btn--primary" :to="{ name: 'hall' }">
-      <Icon name="hall" :size="15" />
+      <Icon name="hall" :size="16" />
       去课程大厅
     </RouterLink>
   </header>

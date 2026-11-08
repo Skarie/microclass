@@ -69,7 +69,7 @@ onMounted(() => void list.load());
     </PageHeader>
 
     <p v-if="list.staleHint" class="stale" :class="{ 'stale--strong': list.data?.total === 0 }">
-      <Icon name="alert" :size="15" /> {{ list.staleHint }}
+      <Icon name="alert" :size="16" /> {{ list.staleHint }}
     </p>
 
     <ConflictTabs :list="list" />

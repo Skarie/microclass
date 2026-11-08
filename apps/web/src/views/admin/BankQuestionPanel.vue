@@ -103,7 +103,7 @@ const bankLinkBadge = computed(() =>
           :disabled="!catalogState.selectedBank"
           @click="catalogState.selectedBank && practiceState.openBankLink(catalogState.selectedBank, selectedCourseId)"
         >
-          <Icon name="courses" :size="15" />
+          <Icon name="courses" :size="16" />
           关联课时
         </button>
         <button
@@ -112,7 +112,7 @@ const bankLinkBadge = computed(() =>
           :disabled="importsState.importing || !catalogState.selectedBank"
           @click="importsState.pickImportFile"
         >
-          <Icon name="upload" :size="15" />
+          <Icon name="upload" :size="16" />
           {{ importsState.importing ? '导入中…' : '导入题目' }}
         </button>
         <button
@@ -121,7 +121,7 @@ const bankLinkBadge = computed(() =>
           :disabled="!catalogState.selectedBank"
           @click="questionsState.openCreateQuestion"
         >
-          <Icon name="plus" :size="15" />
+          <Icon name="plus" :size="16" />
           新建题目
         </button>
       </div>

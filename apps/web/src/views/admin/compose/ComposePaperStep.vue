@@ -32,7 +32,7 @@ const viewQuestion = ref<PaperQuestion | null>(null);
       </span>
       <span class="mc-spacer" />
       <button class="mc-btn mc-btn--soft mc-btn--sm" type="button" @click="emit('pick')">
-        <Icon name="plus" :size="15" />
+        <Icon name="plus" :size="16" />
         再加题
       </button>
     </div>
@@ -70,11 +70,11 @@ const viewQuestion = ref<PaperQuestion | null>(null);
           type="button"
           @click="structure.sections.push({ name: '', type: '', score: 0, description: '' })"
         >
-          <Icon name="plus" :size="15" />
+          <Icon name="plus" :size="16" />
           添加大题
         </button>
         <button class="mc-btn mc-btn--soft mc-btn--sm" type="button" @click="structure.fillSectionsByType">
-          <Icon name="sparkles" :size="15" />
+          <Icon name="sparkles" :size="16" />
           按题型自动生成大题
         </button>
         <button class="mc-btn mc-btn--sm" type="button" :disabled="compose.busy" @click="structure.saveStructure">
@@ -83,7 +83,7 @@ const viewQuestion = ref<PaperQuestion | null>(null);
         <span class="mc-spacer" />
         <button class="mc-btn mc-btn--primary" type="button" @click="emit('next')">
           下一步：打印预览
-          <Icon name="arrow-right" :size="15" />
+          <Icon name="arrow-right" :size="16" />
         </button>
       </div>
 

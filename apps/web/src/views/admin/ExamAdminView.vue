@@ -74,7 +74,7 @@ onMounted(async () => {
     >
       <template #actions>
         <button class="mc-btn mc-btn--sm" type="button" :disabled="list.examsLoading" @click="list.loadExams">
-          <Icon name="refresh" :size="15" />
+          <Icon name="refresh" :size="16" />
           刷新
         </button>
         <button
@@ -83,7 +83,7 @@ onMounted(async () => {
           :disabled="list.courseId === ''"
           @click="form.openCreateExam"
         >
-          <Icon name="plus" :size="15" />
+          <Icon name="plus" :size="16" />
           新建考试
         </button>
       </template>

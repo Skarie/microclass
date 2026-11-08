@@ -134,7 +134,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick));
       @click="toggle"
     >
       <slot name="trigger">
-        <Icon v-if="icon" :name="icon" :size="15" />
+        <Icon v-if="icon" :name="icon" :size="16" />
         <span v-if="label">{{ label }}</span>
         <Icon v-if="showCaret" name="chevron-down" :size="14" class="dd__caret" />
       </slot>
@@ -152,7 +152,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick));
         :title="item.hint"
         @click="choose(item)"
       >
-        <Icon v-if="item.icon" :name="item.icon" :size="15" class="dd__item-icon" />
+        <Icon v-if="item.icon" :name="item.icon" :size="16" class="dd__item-icon" />
         <span class="dd__item-label">{{ item.label }}</span>
         <span v-if="item.hint" class="dd__item-hint">{{ item.hint }}</span>
       </button>

@@ -36,13 +36,13 @@ const emit = defineEmits<{
       </div>
       <div class="stp__row">
         <button class="mc-btn mc-btn--sm" type="button" @click="emit('back')">
-          <Icon name="arrow-left" :size="15" />
+          <Icon name="arrow-left" :size="16" />
           返回选范围
         </button>
         <span class="mc-spacer" />
         <button class="mc-btn mc-btn--sm" type="button" :disabled="compose.paper.length === 0" @click="emit('next')">
           下一步：看卷子（{{ compose.paper.length }} 题）
-          <Icon name="arrow-right" :size="15" />
+          <Icon name="arrow-right" :size="16" />
         </button>
       </div>
     </div>

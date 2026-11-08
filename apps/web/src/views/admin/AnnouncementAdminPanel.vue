@@ -58,11 +58,11 @@ onMounted(() => void load());
       <span class="mc-spacer" />
       <span class="ann-admin__actions">
         <button class="mc-btn mc-btn--sm" type="button" :disabled="loading" @click="load">
-          <Icon name="refresh" :size="15" />
+          <Icon name="refresh" :size="16" />
           刷新
         </button>
         <button class="mc-btn mc-btn--sm mc-btn--primary" type="button" @click="openCreate">
-          <Icon name="plus" :size="15" />
+          <Icon name="plus" :size="16" />
           新建公告
         </button>
       </span>

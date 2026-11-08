@@ -255,12 +255,12 @@ watch(
       <span class="mc-spacer" />
       <span class="mc-muted">共 {{ pool?.total ?? 0 }} 题匹配</span>
       <button class="mc-btn mc-btn--sm" type="button" @click="emit('back')">
-        <Icon name="arrow-left" :size="15" />
+        <Icon name="arrow-left" :size="16" />
         返回组卷方式
       </button>
       <button class="mc-btn mc-btn--primary mc-btn--sm" type="button" @click="emit('next')">
         去排卷（{{ paper.length }} 题）
-        <Icon name="arrow-right" :size="15" />
+        <Icon name="arrow-right" :size="16" />
       </button>
     </div>
 
@@ -362,7 +362,7 @@ watch(
           </label>
 
           <button class="mc-btn mc-btn--sm" type="button" @click="refresh">
-            <Icon name="refresh" :size="15" />
+            <Icon name="refresh" :size="16" />
             刷新
           </button>
         </div>
@@ -380,7 +380,7 @@ watch(
             :disabled="busy || checked.length === 0"
             @click="addChecked"
           >
-            <Icon name="plus" :size="15" />
+            <Icon name="plus" :size="16" />
             加入试卷（{{ checked.length }}）
           </button>
         </div>

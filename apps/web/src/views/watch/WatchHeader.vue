@@ -21,10 +21,10 @@ const emit = defineEmits<{ (e: 'mark-finished'): void }>();
           返回课程
         </RouterLink>
         <template v-if="lesson.group_name">
-          <Icon name="chevron-right" :size="13" class="watch__crumb-sep" />
+          <Icon name="chevron-right" :size="14" class="watch__crumb-sep" />
           <span class="watch__crumb">{{ lesson.group_name }}</span>
         </template>
-        <Icon name="chevron-right" :size="13" class="watch__crumb-sep" />
+        <Icon name="chevron-right" :size="14" class="watch__crumb-sep" />
         <span class="watch__crumb watch__crumb--current">{{ lesson.title }}</span>
       </nav>
       <div class="mc-row mc-row--wrap watch__title-row">
@@ -41,7 +41,7 @@ const emit = defineEmits<{ (e: 'mark-finished'): void }>();
         type="button"
         @click="emit('mark-finished')"
       >
-        <Icon name="check" :size="15" />
+        <Icon name="check" :size="16" />
         标记为已学完
       </button>
       <RouterLink
@@ -49,7 +49,7 @@ const emit = defineEmits<{ (e: 'mark-finished'): void }>();
         :class="{ 'watch__quiz-locked': !quizUnlocked }"
         :to="{ name: 'quiz', params: { id: lesson.id } }"
       >
-        <Icon name="pen-line" :size="15" />
+        <Icon name="pen-line" :size="16" />
         课后练习{{ lesson.progress?.quiz_done === 1 ? `（最好 ${lesson.progress.quiz_best}%）` : '' }}
       </RouterLink>
     </div>
@@ -123,6 +123,20 @@ a.watch__crumb:hover {
 
 .watch__header-actions {
   flex: none;
+}
+
+/* 窄屏：动作按钮先让位到下一行。否则两枚 44px 的按钮把标题挤成一列 5 个字，
+   标题与简介会竖排成"指/标/口/径"——最扎眼的移动端事故。 */
+@media (max-width: 760px) {
+  .watch__header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--mc-space-3);
+  }
+
+  .watch__header-actions {
+    justify-content: flex-start;
+  }
 }
 
 .watch__quiz-locked {

@@ -46,7 +46,7 @@ defineProps<{
       <p v-if="loading" class="mc-skeleton todo__loading" />
 
       <div v-else-if="todos.length === 0" class="todo__clear">
-        <Icon name="check-circle" :size="26" />
+        <Icon name="check-circle" :size="24" />
         <div>
           <div class="todo__clear-title">当前没有待处理的数据问题</div>
           <p class="mc-muted">冲突题已核对完、难度已标注、解析都有文字、课时都归好类。</p>

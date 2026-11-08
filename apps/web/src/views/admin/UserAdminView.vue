@@ -41,11 +41,11 @@ onMounted(() => {
     >
       <template #actions>
         <button class="mc-btn mc-btn--sm" type="button" :disabled="list.loading" @click="list.load">
-          <Icon name="refresh" :size="15" />
+          <Icon name="refresh" :size="16" />
           刷新
         </button>
         <button class="mc-btn mc-btn--primary mc-btn--sm" type="button" @click="admin.openCreate">
-          <Icon name="plus" :size="15" />
+          <Icon name="plus" :size="16" />
           新建账号
         </button>
       </template>

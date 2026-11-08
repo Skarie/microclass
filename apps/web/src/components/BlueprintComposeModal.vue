@@ -215,11 +215,11 @@ watch(
 
       <div class="bp__toolbar">
         <button class="mc-btn mc-btn--sm" type="button" @click="addRow">
-          <Icon name="plus" :size="15" />
+          <Icon name="plus" :size="16" />
           加一行
         </button>
         <button class="mc-btn mc-btn--sm" type="button" @click="fillFromPaper">
-          <Icon name="copy" :size="15" />
+          <Icon name="copy" :size="16" />
           按当前试卷填充
         </button>
         <button class="mc-btn mc-btn--ghost mc-btn--sm" type="button" @click="rows = []">清空</button>
@@ -273,7 +273,7 @@ watch(
             aria-label="删除此行"
             @click="removeRow(i)"
           >
-            <Icon name="close" :size="15" />
+            <Icon name="close" :size="16" />
           </button>
         </div>
       </div>
@@ -282,7 +282,7 @@ watch(
       </datalist>
 
       <div v-if="shortCells.length > 0" class="bp__warn">
-        <Icon name="alert" :size="15" />
+        <Icon name="alert" :size="16" />
         <span>
           有 {{ shortCells.length }} 格的题池不够（如「{{ shortCells[0]?.point || '不限知识点' }} /
           {{ TYPE_LABEL[shortCells[0]!.type] }} / {{ LEVEL_LABEL[shortCells[0]!.level] }}」需要
@@ -331,7 +331,7 @@ watch(
         :disabled="busy || submitting || loading"
         @click="submit"
       >
-        <Icon name="sparkles" :size="15" />
+        <Icon name="sparkles" :size="16" />
         {{ submitting ? '配题中…' : '按细目表组卷' }}
       </button>
     </template>

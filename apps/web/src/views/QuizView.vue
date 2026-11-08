@@ -43,7 +43,7 @@ const session = useQuizSession();
     />
 
     <div v-if="!session.unlocked" class="notice mc-card">
-      <Icon name="shield" :size="15" /> 该课时尚未解锁练习（本地视频需看完 80%）。请先完整观看视频后再来作答。
+      <Icon name="shield" :size="16" /> 该课时尚未解锁练习（本地视频需看完 80%）。请先完整观看视频后再来作答。
     </div>
 
     <EmptyState

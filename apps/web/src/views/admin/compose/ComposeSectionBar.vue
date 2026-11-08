@@ -10,7 +10,7 @@ const emit = defineEmits<{ apply: [score: number]; remove: [] }>();
 
 <template>
   <div class="stp__sectionbar">
-    <Icon name="list" :size="15" />
+    <Icon name="list" :size="16" />
     <input
       v-model="section.name"
       class="mc-input stp__sectionname"

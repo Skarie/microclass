@@ -38,7 +38,7 @@ function pick(index: number): void {
       @click="emit('select', t.key)"
       @keydown="onKeydown($event, i, pick)"
     >
-      <Icon :name="t.icon" :size="15" />
+      <Icon :name="t.icon" :size="16" />
       {{ t.label }}
     </button>
   </div>

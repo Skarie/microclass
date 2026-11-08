@@ -240,3 +240,42 @@
     min-height: var(--mc-touch-target-mobile);
   }
 }
+
+/* 详情页面包屑：链接与周围文字同色时，axe 会判「只靠颜色区分链接」。
+   给一条细下划线（不是主色下划线，避免面包屑抢视线）。 */
+.detail__crumbs {
+  display: flex;
+  align-items: center;
+  gap: var(--mc-space-1);
+  font-size: var(--mc-text-xs);
+  color: var(--mc-text-muted);
+}
+
+.detail__crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mc-space-1);
+  color: var(--mc-text-muted);
+}
+
+a.detail__crumb {
+  text-decoration: underline;
+  text-decoration-color: var(--mc-border-strong);
+  text-underline-offset: 3px;
+}
+
+a.detail__crumb:hover {
+  color: var(--mc-primary-fg);
+}
+
+.detail__crumb--current {
+  max-width: 48ch;
+  overflow: hidden;
+  color: var(--mc-text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail__crumb-sep {
+  color: var(--mc-border-strong);
+}

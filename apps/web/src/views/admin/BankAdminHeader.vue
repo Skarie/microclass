@@ -40,7 +40,7 @@ const actionsState = reactive(actionsApi);
         :disabled="actionsState.healthLoading"
         @click="actionsState.toggleHealth"
       >
-        <Icon name="shield" :size="15" />
+        <Icon name="shield" :size="16" />
         {{ actionsState.healthOpen ? '收起体检' : '题库体检' }}
       </button>
       <button
@@ -49,7 +49,7 @@ const actionsState = reactive(actionsApi);
         :disabled="catalogState.banksLoading"
         @click="catalogState.loadBanks()"
       >
-        <Icon name="refresh" :size="15" />
+        <Icon name="refresh" :size="16" />
         刷新
       </button>
       <button
@@ -57,7 +57,7 @@ const actionsState = reactive(actionsApi);
         type="button"
         @click="actionsState.openCreateBank(catalogState.currentFolderId)"
       >
-        <Icon name="plus" :size="15" />
+        <Icon name="plus" :size="16" />
         新建题库
       </button>
     </template>

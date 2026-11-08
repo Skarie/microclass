@@ -14,7 +14,7 @@ const emit = defineEmits<{ open: [] }>();
       <em>按当前试卷逐题配"同题型、同难度、同考点"的另一套</em>
     </div>
     <button class="mc-btn mc-btn--soft" type="button" :disabled="paperCount === 0" @click="emit('open')">
-      <Icon name="copy" :size="15" />
+      <Icon name="copy" :size="16" />
       {{ paperCount === 0 ? '试卷为空，先加题' : '生成平行卷' }}
     </button>
   </div>

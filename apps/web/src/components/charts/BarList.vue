@@ -53,7 +53,7 @@ const widthOf = (item: BarItem): number => {
       @click="clickable && emit('select', item.key)"
     >
       <span class="bars__label">
-        <Icon v-if="item.icon" :name="item.icon" :size="15" class="bars__icon" />
+        <Icon v-if="item.icon" :name="item.icon" :size="16" class="bars__icon" />
         <RichText v-if="item.richText" inline class="bars__text" :text="item.label" :title="item.label" />
         <span v-else class="bars__text" :title="item.label">{{ item.label }}</span>
       </span>

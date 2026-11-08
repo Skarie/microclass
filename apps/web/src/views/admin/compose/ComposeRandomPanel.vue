@@ -60,7 +60,7 @@ defineProps<{ random: ExamRandom; busy: boolean }>();
       </label>
     </div>
     <button class="mc-btn mc-btn--primary" type="button" :disabled="busy" @click="random.runRandomCompose">
-      <Icon name="sparkles" :size="15" />
+      <Icon name="sparkles" :size="16" />
       按范围随机生成试卷
     </button>
   </div>

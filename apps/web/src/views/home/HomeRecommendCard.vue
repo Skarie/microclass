@@ -6,7 +6,6 @@
 import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import CourseCoverArt from '@/components/CourseCoverArt.vue';
-import CourseCoverTag from '@/components/CourseCoverTag.vue';
 import Icon from '@/components/Icon.vue';
 import Tag from '@/components/Tag.vue';
 import { REASON_LABEL, REASON_TONE, type Recommendation } from '@/utils/course-recommend';
@@ -19,7 +18,6 @@ const course = computed(() => props.recommendation.course);
   <li class="rec-card mc-card">
     <div class="rec-card__cover">
       <CourseCoverArt :course="course" />
-      <CourseCoverTag v-if="course.category_name" :label="course.category_name" corner="left" />
       <span class="rec-card__reason">
         <Tag :tone="REASON_TONE[recommendation.reason]" size="sm">{{ REASON_LABEL[recommendation.reason] }}</Tag>
       </span>

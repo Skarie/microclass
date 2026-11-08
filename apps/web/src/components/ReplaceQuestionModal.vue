@@ -175,7 +175,7 @@ function pct(v: number | undefined): string {
         :disabled="busy || picking !== null || !data"
         @click="randomReplace"
       >
-        <Icon name="refresh" :size="15" />
+        <Icon name="refresh" :size="16" />
         随机换一题
       </button>
     </template>

@@ -43,7 +43,7 @@ function onMenu(folder: BankFolder, key: string): void {
   <div class="folder-nav">
     <div class="folder-nav__head">
       <button class="mc-btn mc-btn--soft mc-btn--sm" type="button" @click="catalogState.openCreateFolder(null)">
-        <Icon name="plus" :size="15" />
+        <Icon name="plus" :size="16" />
         新建文件夹
       </button>
       <span class="mc-muted folder-nav__tip">选中文件夹后看右侧题库</span>
@@ -63,7 +63,7 @@ function onMenu(folder: BankFolder, key: string): void {
     <ul v-else class="folder-list">
       <li class="folder-row" :class="{ 'folder-row--active': catalogState.selectedFolder === 'all' }">
         <button class="folder-row__main" type="button" @click="pick('all')">
-          <Icon name="bank" :size="15" class="folder-row__icon" />
+          <Icon name="bank" :size="16" class="folder-row__icon" />
           <span class="folder-row__text">
             <span class="folder-row__name mc-truncate">全部题库</span>
             <span class="folder-row__meta mc-muted">
@@ -75,7 +75,7 @@ function onMenu(folder: BankFolder, key: string): void {
 
       <li class="folder-row" :class="{ 'folder-row--active': catalogState.selectedFolder === 'none' }">
         <button class="folder-row__main" type="button" @click="pick('none')">
-          <Icon name="folder" :size="15" class="folder-row__icon folder-row__icon--muted" />
+          <Icon name="folder" :size="16" class="folder-row__icon folder-row__icon--muted" />
           <span class="folder-row__text">
             <span class="folder-row__name mc-truncate">未分类</span>
             <span class="folder-row__meta mc-muted">
@@ -105,7 +105,7 @@ function onMenu(folder: BankFolder, key: string): void {
         <span v-else class="folder-row__toggle folder-row__toggle--empty" aria-hidden="true" />
 
         <button class="folder-row__main" type="button" :title="row.path" @click="pick(row.id)">
-          <Icon name="folder" :size="15" class="folder-row__icon" />
+          <Icon name="folder" :size="16" class="folder-row__icon" />
           <span class="folder-row__text">
             <span class="folder-row__name mc-truncate">{{ row.name }}</span>
             <span class="folder-row__meta mc-muted">{{ folderCountLabel(row) }}</span>

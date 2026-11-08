@@ -53,7 +53,7 @@ const filterCount = computed(
           :aria-expanded="filtersOpen"
           @click="filtersOpen = !filtersOpen"
         >
-          <Icon name="filter" :size="15" />
+          <Icon name="filter" :size="16" />
           筛选<template v-if="filterCount > 0">（{{ filterCount }}）</template>
         </button>
       </template>

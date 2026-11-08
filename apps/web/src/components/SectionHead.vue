@@ -23,14 +23,14 @@ defineEmits<{ action: [] }>();
 <template>
   <header class="sh">
     <h2 class="sh__title">
-      <Icon v-if="icon" :name="icon" :size="15" class="sh__icon" />
+      <Icon v-if="icon" :name="icon" :size="16" class="sh__icon" />
       {{ title }}
     </h2>
     <span v-if="$slots.meta" class="sh__meta"><slot name="meta" /></span>
     <span class="mc-spacer" />
     <RouterLink v-if="actionText && actionTo" class="sh__action" :to="actionTo">
       {{ actionText }}
-      <Icon name="chevron-right" :size="13" />
+      <Icon name="chevron-right" :size="14" />
     </RouterLink>
     <button v-else-if="actionText" class="sh__action" type="button" @click="$emit('action')">
       {{ actionText }}

@@ -24,7 +24,6 @@ const actionLabel = computed(() => (props.progress >= 100 ? '复习' : props.pro
   <li class="rail-card mc-card">
     <div class="rail-card__cover">
       <CourseCoverArt :course="course" />
-      <CourseCoverTag v-if="course.category_name" :label="course.category_name" corner="left" />
       <CourseCoverTag :label="STATUS_LABEL[status]" corner="right" :tone="statusTone" dot />
     </div>
 
@@ -34,7 +33,6 @@ const actionLabel = computed(() => (props.progress >= 100 ? '复习' : props.pro
       </RouterLink>
       <div class="rail-card__meta">
         <span class="mc-num">{{ course.finished ?? 0 }}/{{ course.total ?? 0 }} 课时</span>
-        <span class="mc-num">{{ progress }}%</span>
       </div>
       <ProgressBar
         :value="progress"

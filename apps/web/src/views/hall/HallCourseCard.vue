@@ -30,12 +30,11 @@ const actionLabel = computed(() => (done.value ? '复习' : props.progress > 0 ?
 
       <p v-if="course.description" class="course-card__desc">{{ course.description }}</p>
 
+      <!-- 进度只说一遍：已完成的课时数 + 下面那条进度条。再印一个百分比就是同一件事第三遍 -->
       <div class="course-card__meta">
         <span class="mc-num">{{ course.total ?? 0 }} 课时</span>
         <span aria-hidden="true">·</span>
-        <span class="mc-num">已完成 {{ course.finished ?? 0 }}</span>
-        <span aria-hidden="true">·</span>
-        <span class="mc-num">{{ progress }}%</span>
+        <span class="mc-num">已完成 {{ course.finished ?? 0 }}/{{ course.total ?? 0 }}</span>
       </div>
 
       <ProgressBar

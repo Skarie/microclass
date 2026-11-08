@@ -36,7 +36,7 @@ defineProps<{ course: Course | null; progress: number; loading?: boolean }>();
         <div class="hero__actions">
           <RouterLink class="hero__cta" :to="{ name: 'course', params: { id: course.id } }">
             继续学习
-            <Icon name="arrow-right" :size="15" />
+            <Icon name="arrow-right" :size="16" />
           </RouterLink>
           <RouterLink class="hero__ghost" :to="{ name: 'hall' }">浏览课程大厅</RouterLink>
         </div>
@@ -48,7 +48,7 @@ defineProps<{ course: Course | null; progress: number; loading?: boolean }>();
         <div class="hero__actions">
           <RouterLink class="hero__cta" :to="{ name: 'hall' }">
             去课程大厅
-            <Icon name="arrow-right" :size="15" />
+            <Icon name="arrow-right" :size="16" />
           </RouterLink>
           <RouterLink class="hero__ghost" :to="{ name: 'my-courses' }">查看我的课程</RouterLink>
         </div>

@@ -86,11 +86,11 @@ onMounted(() => {
     >
       <template #actions>
         <RouterLink class="mc-btn mc-btn--sm" :to="{ name: 'admin-design' }">
-          <Icon name="grid" :size="15" />
+          <Icon name="grid" :size="16" />
           设计系统
         </RouterLink>
         <button class="mc-btn mc-btn--sm" type="button" :disabled="loading" @click="loadSettings">
-          <Icon name="refresh" :size="15" />
+          <Icon name="refresh" :size="16" />
           重新读取
         </button>
       </template>

@@ -90,7 +90,8 @@ const percentValue = computed(() =>
   top: var(--mc-topbar-height);
   z-index: var(--mc-z-sticky);
   width: 100%;
-  max-width: 1120px;
+  /* 与 .quiz__body 同一宽度：题头左右边线必须和下面的题卡、答题卡对齐 */
+  max-width: 1100px;
   border-radius: var(--mc-radius-xs);
   margin: 0 auto;
   padding: var(--mc-space-2) var(--mc-space-4);

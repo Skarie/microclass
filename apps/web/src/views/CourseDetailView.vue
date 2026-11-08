@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useToastStore } from '@/stores/toast';
 import ProgressBar from '@/components/ProgressBar.vue';
 import Icon from '@/components/Icon.vue';
+import CourseCoverArt from '@/components/CourseCoverArt.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import type { Course, Exam, Lesson } from '@/api/types';
 
@@ -118,14 +119,14 @@ async function toggleFav(): Promise<void> {
         <Icon name="hall" :size="14" />
         课程大厅
       </RouterLink>
-      <Icon name="chevron-right" :size="13" class="detail__crumb-sep" />
+      <Icon name="chevron-right" :size="14" class="detail__crumb-sep" />
       <span class="detail__crumb detail__crumb--current">{{ data.course.name }}</span>
     </nav>
 
     <header class="detail__hero mc-card">
-      <div class="detail__cover">
-        <img v-if="data.course.cover" :src="`/api/v1/course-cover/${data.course.id}`" :alt="data.course.name" />
-        <span v-else class="detail__cover-fallback" aria-hidden="true"><Icon name="graduation" :size="34" /></span>
+      <!-- 只有真封面才占这一格：没有封面时不留一块空白纸，标题就是主视觉 -->
+      <div v-if="data.course.cover" class="detail__cover">
+        <CourseCoverArt :course="data.course" />
       </div>
 
       <div class="detail__info">
@@ -143,6 +144,7 @@ async function toggleFav(): Promise<void> {
             :aria-valuenow="stats.percent"
             aria-valuemin="0"
             aria-valuemax="100"
+            :aria-label="`${data.course.name} 学习进度 ${stats.percent}%`"
           >
             <div
               class="mc-progress__bar"
@@ -150,7 +152,7 @@ async function toggleFav(): Promise<void> {
               :style="{ transform: `scaleX(${stats.percent / 100})` }"
             />
           </div>
-          <span class="mc-muted detail__stats-text">
+          <span class="mc-muted detail__stats-text mc-num">
             共 {{ stats.total }} 课时 · 已学完 {{ stats.finished }} · 已练习 {{ stats.quizzed }} · 进度
             {{ stats.percent }}%
           </span>
@@ -165,7 +167,7 @@ async function toggleFav(): Promise<void> {
             {{ stats.finished > 0 ? '继续学习' : '开始学习' }}
           </RouterLink>
           <button class="mc-btn" type="button" @click="toggleFav">
-            <Icon name="star" :size="15" :filled="Boolean(data.course.fav)" />
+            <Icon name="star" :size="16" :filled="Boolean(data.course.fav)" />
             {{ data.course.fav ? '已收藏' : '收藏' }}
           </button>
           <RouterLink
@@ -285,23 +287,9 @@ async function toggleFav(): Promise<void> {
 .detail__cover {
   flex: none;
   width: 220px;
-  aspect-ratio: 16 / 9;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--mc-radius);
-  background: var(--mc-bg-sunken);
+  height: 148px;
   overflow: hidden;
-  font-size: var(--mc-text-2xl);
-  font-weight: var(--mc-font-bold);
-  color: var(--mc-primary-fg);
-  opacity: 0.9;
-}
-
-.detail__cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  border-radius: var(--mc-radius);
 }
 
 .detail__info {
@@ -355,10 +343,6 @@ async function toggleFav(): Promise<void> {
   border-bottom: none;
 }
 
-.exam-item__info {
-  gap: var(--mc-space-1);
-}
-
 .exam-item__action {
   display: flex;
   align-items: center;
@@ -385,7 +369,7 @@ async function toggleFav(): Promise<void> {
 
 .lesson__main {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: var(--mc-space-4);
   flex: 1;
   min-width: 0;
@@ -393,10 +377,11 @@ async function toggleFav(): Promise<void> {
 }
 
 .lesson__index {
+  flex: none;
   font-family: var(--mc-font-mono);
   font-size: var(--mc-text-sm);
+  line-height: var(--mc-leading);
   color: var(--mc-text-muted);
-  flex: none;
 }
 
 .lesson__text {
@@ -419,7 +404,6 @@ async function toggleFav(): Promise<void> {
 .lesson__bar {
   height: 4px;
   max-width: 320px;
-  margin-top: 4px;
 }
 
 .lesson__actions {
@@ -441,6 +425,18 @@ async function toggleFav(): Promise<void> {
   .lesson {
     flex-direction: column;
     align-items: stretch;
+  }
+}
+
+@media (max-width: 640px) {
+  .exam-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--mc-space-2);
+  }
+
+  .exam-item__action {
+    align-self: flex-end;
   }
 }
 </style>

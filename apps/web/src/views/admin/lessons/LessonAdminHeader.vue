@@ -41,11 +41,11 @@ const emit = defineEmits<{
   >
     <template #actions>
       <RouterLink class="mc-btn mc-btn--sm" :to="{ name: 'admin-courses' }">
-        <Icon name="arrow-left" :size="15" />
+        <Icon name="arrow-left" :size="16" />
         课程管理
       </RouterLink>
       <button class="mc-btn mc-btn--sm" type="button" :disabled="loading" @click="emit('refresh')">
-        <Icon name="refresh" :size="15" />
+        <Icon name="refresh" :size="16" />
         刷新
       </button>
     </template>
@@ -75,7 +75,7 @@ const emit = defineEmits<{
         {{ probing ? probeProgress || '抽取中…' : '抽取时长/封面' }}
       </button>
       <button class="mc-btn mc-btn--sm" type="button" @click="emit('upload')">
-        <Icon name="upload" :size="15" /> 上传视频
+        <Icon name="upload" :size="16" /> 上传视频
       </button>
       <button class="mc-btn mc-btn--sm" type="button" @click="emit('create')">新建课时</button>
       <button class="mc-btn mc-btn--primary mc-btn--sm" type="button" :disabled="scanning" @click="emit('scan')">

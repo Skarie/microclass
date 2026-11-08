@@ -38,7 +38,7 @@ withDefaults(
       <span v-if="$slots.visual" class="stat__visual"><slot name="visual" /></span>
       <span v-if="hint || trend" class="stat__foot">
         <span v-if="trend" class="stat__trend" :class="trend.value >= 0 ? 'stat__trend--up' : 'stat__trend--down'">
-          <Icon :name="trend.value >= 0 ? 'trending-up' : 'trending-down'" :size="13" />
+          <Icon :name="trend.value >= 0 ? 'trending-up' : 'trending-down'" :size="14" />
           {{ trend.value >= 0 ? '+' : '' }}{{ trend.value }}%
         </span>
         <span v-if="hint" class="stat__hint">{{ hint }}</span>
@@ -178,6 +178,8 @@ withDefaults(
   display: flex;
   align-items: center;
   gap: var(--mc-space-2);
+  /* 有环图和无环图的卡片底边要落在同一条线上：给可视区一个高度下限 */
+  min-height: var(--mc-space-10);
   margin-top: var(--mc-space-1);
 }
 
