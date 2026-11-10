@@ -1,17 +1,19 @@
 <script setup lang="ts">
 /**
- * 题库页视图切换：题目 / 题组。
+ * 题库页视图切换：题目 / 题组 / 标签。
  *
- * 两个视图共用左侧文件夹树与「题库」概念，但右边展示的是两种东西：
+ * 三个视图共用左侧文件夹树与「题库」概念，但右边展示的是三种东西：
  *   题目 —— 某个题库里的题（表格 + 筛选 + 批量操作）；
- *   题组 —— 跨题库的「母题 + 变式」关联（列表 + 详情）。
- * 做成顶部的分段按钮而不是左侧第三个分区，是因为它切换的是整页主区，不是筛选。
+ *   题组 —— 跨题库的「母题 + 变式」关联（P0，列表 + 详情）；
+ *   标签 —— 跨题库的教研标记（P1，易错 / 高考真题 / 自编 等，列表 + 维护）。
+ * 做成顶部分段按钮而不是左侧分区，是因为它切换的是整页主区，不是筛选。
  */
-const model = defineModel<'questions' | 'groups'>({ required: true });
+const model = defineModel<'questions' | 'groups' | 'tags'>({ required: true });
 
 const TABS = [
   { key: 'questions', label: '题目' },
   { key: 'groups', label: '题组' },
+  { key: 'tags', label: '标签' },
 ] as const;
 </script>
 

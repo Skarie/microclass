@@ -142,6 +142,12 @@ export interface BankQuestionListQuery {
   mediaOnlyAnalysis?: string;
   /** 只看某个题组里的题（迁移 0029） */
   groupId?: string;
+  /** 标签筛选（迁移 0030）：`tagIds=1,2` 或重复参数；tagMode=any(默认)/all */
+  tagIds?: string | string[];
+  tagMode?: string;
+  /** 知识点多选：`points=a&points=b`；pointMode=any(默认)/all */
+  points?: string | string[];
+  pointMode?: string;
   page?: string;
   pageSize?: string;
 }
@@ -155,6 +161,12 @@ export interface BankQuestionListRequest {
   section?: string;
   mediaOnlyAnalysis?: true;
   groupId?: number;
+  /** 标签筛选：命中任意 / 同时包含 */
+  tagIds?: number[];
+  tagMode?: 'any' | 'all';
+  /** 知识点多选（与标签同一套 any/all 语义） */
+  points?: string[];
+  pointMode?: 'any' | 'all';
   page?: number;
   pageSize?: number;
 }
@@ -173,6 +185,8 @@ export function parseBankQuestionListQuery(q: BankQuestionListQuery): BankQuesti
     ...(q.section !== undefined ? { section: q.section } : {}),
     ...(q.mediaOnlyAnalysis === '1' ? { mediaOnlyAnalysis: true } : {}),
     ...parseGroupId(q.groupId),
+    ...parseTagFilter(q.tagIds, q.tagMode),
+    ...parsePointFilter(q.points, q.pointMode),
     ...(q.page ? { page: Number.parseInt(q.page, 10) } : {}),
     ...(q.pageSize ? { pageSize: Number.parseInt(q.pageSize, 10) } : {}),
   };
@@ -184,6 +198,57 @@ function parseGroupId(raw: string | undefined): { groupId?: number } {
   const groupId = Number.parseInt(raw, 10);
   if (Number.isNaN(groupId) || groupId <= 0) throw AppError.badRequest('groupId 参数非法');
   return { groupId };
+}
+
+/** 查询串里的数字列表：支持 `a,b` 与重复参数两种写法；非法值 400（不静默忽略） */
+function numberList(raw: string | string[] | undefined, label: string): number[] {
+  const parts = Array.isArray(raw) ? raw : typeof raw === 'string' ? raw.split(',') : [];
+  const out: number[] = [];
+  for (const part of parts) {
+    const text = part.trim();
+    if (text === '') continue;
+    const value = Number.parseInt(text, 10);
+    if (Number.isNaN(value) || value <= 0) throw AppError.badRequest(`${label} 参数非法`);
+    if (!out.includes(value)) out.push(value);
+  }
+  return out;
+}
+
+/** 查询串里的文本列表（知识点名）：支持逗号与重复参数 */
+function textList(raw: string | string[] | undefined): string[] {
+  const parts = Array.isArray(raw) ? raw : typeof raw === 'string' ? raw.split(',') : [];
+  const out: string[] = [];
+  for (const part of parts) {
+    const text = part.trim();
+    if (text !== '' && !out.includes(text)) out.push(text);
+  }
+  return out;
+}
+
+/** 标签筛选：tagIds + tagMode（any 默认 / all 同时包含） */
+function parseTagFilter(
+  rawIds: string | string[] | undefined,
+  rawMode: string | undefined,
+): { tagIds?: number[]; tagMode?: 'any' | 'all' } {
+  const tagIds = numberList(rawIds, 'tagIds');
+  if (tagIds.length === 0) return {};
+  if (rawMode !== undefined && rawMode !== '' && rawMode !== 'any' && rawMode !== 'all') {
+    throw AppError.badRequest('tagMode 只能是 any 或 all');
+  }
+  return { tagIds, tagMode: rawMode === 'all' ? 'all' : 'any' };
+}
+
+/** 知识点多选：与标签共用 any/all 语义 */
+function parsePointFilter(
+  rawPoints: string | string[] | undefined,
+  rawMode: string | undefined,
+): { points?: string[]; pointMode?: 'any' | 'all' } {
+  const points = textList(rawPoints);
+  if (points.length === 0) return {};
+  if (rawMode !== undefined && rawMode !== '' && rawMode !== 'any' && rawMode !== 'all') {
+    throw AppError.badRequest('pointMode 只能是 any 或 all');
+  }
+  return { points, pointMode: rawMode === 'all' ? 'all' : 'any' };
 }
 
 /** `GET /questions/search` 的原始查询串 */

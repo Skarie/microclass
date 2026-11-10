@@ -55,6 +55,15 @@ export class QuestionRepository {
     return query.countByBank(this.db, bankId, filter);
   }
 
+  /** 跨题库列表（高级检索：按标签 / 知识点 / 关键词找题） */
+  listAll(filter: QuestionFilter | undefined, page: QuestionPage): Question[] {
+    return query.listAll(this.db, filter, page);
+  }
+
+  countAll(filter?: QuestionFilter): number {
+    return query.countAll(this.db, filter);
+  }
+
   findById(id: number): Question | undefined {
     return query.findById(this.db, id);
   }

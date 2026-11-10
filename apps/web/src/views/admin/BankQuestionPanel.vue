@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import DropdownMenu from '@/components/DropdownMenu.vue';
 import EmptyState from '@/components/EmptyState.vue';
@@ -7,6 +7,10 @@ import Icon from '@/components/Icon.vue';
 import QuestionFilters from './QuestionFilters.vue';
 import QuestionTable from './QuestionTable.vue';
 import QuestionPager from './QuestionPager.vue';
+import QuestionTagBatchDialog from './QuestionTagBatchDialog.vue';
+import { api } from '@/api/client';
+import { errorMessage } from '@/composables/useAsync';
+import { useToastStore } from '@/stores/toast';
 import { bankCourseName, bankLessonTitle } from './bankTypes';
 import type { useBankCatalog } from '@/composables/use-bank-catalog';
 import type { useQuestionList } from '@/composables/use-question-list';
@@ -50,6 +54,36 @@ const selectedLessonTitle = computed(() =>
 const bankLinkBadge = computed(() =>
   catalogState.selectedBank ? practiceState.bankBadge(catalogState.selectedBank.id) : null,
 );
+
+/**
+ * 批量打标（迁移 0030）：勾选题目后从批量条打开，「加标签 / 去标签」两种模式。
+ * 提交后重查列表（标签可能影响当前筛选结果，重查最稳）。
+ */
+const toast = useToastStore();
+const tagDialogOpen = ref(false);
+const tagDialogMode = ref<'add' | 'remove'>('add');
+const tagSaving = ref(false);
+
+function openTagDialog(mode: 'add' | 'remove'): void {
+  tagDialogMode.value = mode;
+  tagDialogOpen.value = true;
+}
+
+async function submitTags(tagIds: number[], mode: 'add' | 'remove'): Promise<void> {
+  const ids = [...questionsState.selectedIds];
+  if (ids.length === 0) return;
+  tagSaving.value = true;
+  try {
+    const res = await api.post<{ affected: number }>('/questions/tags', { questionIds: ids, tagIds, mode });
+    toast.success(mode === 'add' ? `已给 ${res.affected} 道题加标签` : `已给 ${res.affected} 道题去标签`);
+    tagDialogOpen.value = false;
+    await questionApi.loadQuestions();
+  } catch (e) {
+    toast.error(errorMessage(e));
+  } finally {
+    tagSaving.value = false;
+  }
+}
 </script>
 
 <template>
@@ -146,6 +180,22 @@ const bankLinkBadge = computed(() =>
           class="mc-btn mc-btn--sm mc-btn--soft"
           type="button"
           :disabled="questionsState.bulkBusy"
+          @click="openTagDialog('add')"
+        >
+          加标签
+        </button>
+        <button
+          class="mc-btn mc-btn--sm mc-btn--soft"
+          type="button"
+          :disabled="questionsState.bulkBusy"
+          @click="openTagDialog('remove')"
+        >
+          去标签
+        </button>
+        <button
+          class="mc-btn mc-btn--sm mc-btn--soft"
+          type="button"
+          :disabled="questionsState.bulkBusy"
           @click="questionsState.openSectionsDialog"
         >
           设置章节/小节
@@ -193,6 +243,16 @@ const bankLinkBadge = computed(() =>
         <QuestionPager :questions="questionApi" />
       </template>
     </div>
+
+    <!-- 批量打标签：勾选题目后从上面的批量条打开 -->
+    <QuestionTagBatchDialog
+      :open="tagDialogOpen"
+      :count="questionsState.selectedCount"
+      :saving="tagSaving"
+      :initial-mode="tagDialogMode"
+      @close="tagDialogOpen = false"
+      @submit="submitTags"
+    />
   </section>
 </template>
 

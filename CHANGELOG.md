@@ -4,17 +4,24 @@
 
 ## [Unreleased]
 
-### 题组 / 变式关联（P0，2026-11-11）
+### 2.3.0：题组与变式 + 自由标签与高级检索（2026-11-11）
 
-**目标**：把「同一考点的一道母题 + 若干变式」关联起来 —— 组卷时能整组挑题，题库里能按题组筛选与维护。
+**版本**：2.2.1 → 2.3.0（P0「题组 / 变式关联」+ P1「自由标签与高级检索」，均为净室自主实现，未引入第三方代码）
 
-- 数据：新增迁移 `0029_question_groups.sql`：`question_groups`（标题 / 备注 / 创建人）、`question_group_items`（role = `stem` 母题 / `variant` 变式，组内 sort），外键 `ON DELETE CASCADE`，一道题可同属多个组
+**P0 题组与变式关联**
+
+- 数据：迁移 `0029_question_groups.sql`：`question_groups`（标题 / 备注 / 创建人）、`question_group_items`（role = `stem` 母题 / `variant` 变式，组内 sort），外键 `ON DELETE CASCADE`，一道题可同属多个组
 - 接口：`/api/v1/question-groups` 增删改查 + `POST /:id/items` 批量加入（已存在则更新角色）+ `DELETE /:id/items/:questionId` + `GET /api/v1/questions/:id/groups`；题库题目列表与组卷题池支持 `groupId` 筛选；一个组最多 50 题、标题 1~100 字、备注 ≤2000 字
-- 界面：题库页顶部「题目 / 题组」视图切换；题组列表（母题数 / 变式数 / 总题数）+ 详情（母题在前、变式按 sort，可移出）；题目编辑弹窗新增「所属题组」（下拉 + 母题/变式 + 移出）；筛选条新增「题组」下拉；组卷挑题左栏按题组筛、中栏「整组加入（母题在前）」
-- 权限与审计：读接口登录即可，写接口教师 / 管理员，写操作落审计（`question_group.*`）
-- 质量：单测 +20 条（CRUD / 批量去重 / 角色更新 / 级联删除 / 权限 / 校验边界 / 50 题上限）；E2E 40/40；prettier / eslint / typecheck / vitest / build / 文件行数守卫全绿
+- 界面：题库页「题目 / 题组」视图切换；题组列表（母题数 / 变式数 / 总题数）+ 详情（母题在前、变式按 sort，可移出）；题目编辑弹窗「所属题组」（下拉 + 母题/变式 + 移出）；筛选条「题组」下拉；组卷挑题左栏按题组筛、中栏「整组加入（母题在前）」
 
-**版本**：2.2.0 → 2.2.1
+**P1 自由标签与高级检索**
+
+- 数据：迁移 `0030_tags.sql`：`tags`（名字唯一，大小写不敏感）、`question_tags`（题目 ↔ 标签多对多，外键级联）；同迁移给 `question_groups` 补 `updated_at` 并在改标题/加题/移题时刷新（列表排序与接口 `updatedAt` 改用它）
+- 接口：`/api/v1/tags` 增删改查（重名 409、名称归一、带题目数聚合）、`GET/POST /api/v1/questions/:id/tags`（覆盖式设置）、`POST /api/v1/questions/tags`（批量 add / remove / replace）、`GET /api/v1/questions`（跨题库列表）；题目列表与组卷题池新增 `tagIds` + `tagMode=any|all`，知识点多选新增 `points` + `pointMode=any|all`
+- 界面：题库页第三个视图「标签」（列表 + 新建/重命名/删除）；筛选条标签多选 + 任意/全部 + 「筛选出 X / Y」；知识点多选 + 任意/全部；题目表格批量条「加标签 / 去标签」（弹窗内可新建标签）；题目编辑弹窗标签 chips；组卷挑题左栏标签筛选
+- 权限与审计：读接口登录即可，写接口教师 / 管理员；审计 `tag.create/update/delete`、`question.tags.set/batch`、`question_group.*`
+
+**质量**：单测 +38 条（P0 20 + P1 18）；E2E 40/40；prettier / eslint / typecheck / vitest / build / 文件行数守卫全绿。
 
 ### 信息架构：首页拆为数据看板，课程大厅去掉冗余（2026-10-17）
 

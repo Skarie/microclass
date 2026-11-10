@@ -14,10 +14,12 @@ import { errorMessage } from '@/composables/useAsync';
 import { askConfirm } from '@/composables/use-confirm';
 import { useToastStore } from '@/stores/toast';
 import Icon from '@/components/Icon.vue';
+import FilterMultiSelect from '@/components/FilterMultiSelect.vue';
 import RangeTree from '@/components/compose/RangeTree.vue';
 import PaperCart from '@/components/compose/PaperCart.vue';
 import PickerList from '@/components/compose/PickerList.vue';
 import { usePickerGroups } from '@/composables/use-picker-groups';
+import { usePickerTags } from '@/composables/use-picker-tags';
 import type { ComposeQuestionRow, FacetBook, FacetPoint } from '@/components/compose/types';
 
 const TYPE_LABEL: Record<string, string> = {
@@ -84,6 +86,18 @@ const { groups, groupId, group, loadGroups, onGroupChange, clearGroup, addWholeG
   refresh,
   onAdded: (count) => emit('added', count),
 });
+/** 标签筛选（迁移 0030）：与题库筛选条共用 tagIds/tagMode 语义 + 通用多选控件 */
+const {
+  tagValues,
+  tagMode,
+  tagOptions,
+  loadTags,
+  onTagValues,
+  onTagMode,
+  query: tagQuery,
+} = usePickerTags({
+  refresh,
+});
 
 const typeLabel = (type: string): string => TYPE_LABEL[type] ?? type;
 
@@ -105,6 +119,7 @@ function filterPayload(): Record<string, string | string[] | number> {
     ...(filters.levels.length > 0 ? { levels: filters.levels } : {}),
     ...(filters.keyword ? { keyword: filters.keyword } : {}),
     ...(groupId.value !== null ? { groupId: groupId.value } : {}),
+    ...tagQuery(),
   };
 }
 
@@ -261,6 +276,7 @@ watch(
   () => props.examId,
   () => {
     void loadGroups();
+    void loadTags();
     void refresh();
   },
   { immediate: true },
@@ -311,6 +327,17 @@ watch(
               母题 {{ group.roleCounts.stem }} · 变式 {{ group.roleCounts.variant }}；中栏可整组加入。
             </span>
           </label>
+
+          <!-- 标签（迁移 0030）：多选 + 任意/全部，与题库筛选条同一套语义 -->
+          <FilterMultiSelect
+            label="标签"
+            :options="tagOptions"
+            :model-value="tagValues"
+            :mode="tagMode"
+            placeholder="添加标签筛选…"
+            @update:model-value="onTagValues"
+            @update:mode="onTagMode"
+          />
 
           <p v-if="(facets?.total ?? 0) === 0 && scope === 'course'" class="pk__hint mc-muted">
             本课程没有绑定题库的题目，改成「全库所有题」就能按章节挑。
@@ -444,106 +471,4 @@ watch(
   </div>
 </template>
 
-<style scoped>
-.pk {
-  display: flex;
-  flex-direction: column;
-  gap: var(--mc-space-2);
-}
-
-.pk__bar {
-  display: flex;
-  align-items: center;
-  gap: var(--mc-space-2);
-  flex-wrap: wrap;
-  padding: var(--mc-space-2) var(--mc-space-3);
-  border: 1px solid var(--mc-border);
-  border-radius: var(--mc-radius);
-  background: var(--mc-bg-elevated);
-}
-
-/* 三区：左筛选（可滚动） / 中列表（主区） / 右试题篮（270px） */
-.pk__body {
-  display: grid;
-  grid-template-columns: minmax(240px, 290px) minmax(0, 1fr) minmax(240px, 282px);
-  gap: var(--mc-space-3);
-  align-items: start;
-}
-
-@media (max-width: 1500px) {
-  .pk__body {
-    grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
-  }
-
-  .pk__body > :last-child {
-    grid-column: 1 / -1;
-  }
-}
-
-.pk__side {
-  position: sticky;
-  top: var(--mc-space-2);
-  max-height: calc(100vh - 190px);
-  overflow-y: auto;
-}
-
-.pk__side .mc-card__body {
-  gap: var(--mc-space-2);
-}
-
-.pk__field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.pk__group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.pk__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.pk__chip {
-  padding: 4px 8px;
-  border: 1px solid var(--mc-border);
-  border-radius: var(--mc-radius-pill);
-  background: var(--mc-bg-elevated);
-  cursor: pointer;
-  font-size: var(--mc-text-xs);
-  color: var(--mc-text-secondary);
-}
-
-.pk__chip.is-on {
-  border-color: var(--mc-primary);
-  background: var(--mc-primary-soft);
-  color: var(--mc-primary-fg);
-  font-weight: var(--mc-font-medium);
-}
-
-.pk__hint {
-  margin: 0;
-  font-size: var(--mc-text-xs);
-}
-
-/* 窄屏（含手机 390）：三区改单列，避免横向溢出；按钮保持 44 触控高度 */
-@media (max-width: 1180px) {
-  .pk__body {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .pk__side {
-    position: static;
-    max-height: none;
-  }
-
-  .pk__bar .mc-btn {
-    min-height: var(--mc-touch-target-mobile);
-  }
-}
-</style>
+<style scoped src="./question-picker-panel.css"></style>

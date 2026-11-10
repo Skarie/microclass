@@ -91,6 +91,36 @@ export function buildQuestionFilter(filter?: QuestionFilter): { sql: string; par
     clauses.push('id IN (SELECT question_id FROM question_group_items WHERE group_id = ?)');
     params.push(filter.groupId);
   }
+  /**
+   * 标签筛选（迁移 0030）：
+   *   any → 命中任意一个标签（`IN`）；
+   *   all → 同时包含全部选中标签：子查询按题目分组，用 `COUNT(DISTINCT tag_id) = N` 卡数量。
+   * 两种模式的行集都只回 question_id，主查询这边是一次 `id IN (...)`，走 question_tags 主键/索引。
+   */
+  const tagIds = filter?.tagIds ?? [];
+  if (tagIds.length > 0) {
+    const marks = tagIds.map(() => '?').join(',');
+    if (filter?.tagMode === 'all') {
+      clauses.push(
+        `id IN (SELECT question_id FROM question_tags WHERE tag_id IN (${marks})
+                 GROUP BY question_id HAVING COUNT(DISTINCT tag_id) = ?)`,
+      );
+      params.push(...tagIds, tagIds.length);
+    } else {
+      clauses.push(`id IN (SELECT question_id FROM question_tags WHERE tag_id IN (${marks}))`);
+      params.push(...tagIds);
+    }
+  }
+  /**
+   * 知识点多选：point 是文本列（一题一个知识点串），所以用「包含」匹配：
+   *   any → 命中任意一个（OR），all → 同时包含全部（AND）。
+   */
+  const points = filter?.points ?? [];
+  if (points.length > 0) {
+    const joiner = filter?.pointMode === 'all' ? ' AND ' : ' OR ';
+    clauses.push(`(${points.map(() => 'point LIKE ?').join(joiner)})`);
+    params.push(...points.map((point) => `%${point}%`));
+  }
   return { sql: clauses.length > 0 ? ` AND ${clauses.join(' AND ')}` : '', params };
 }
 
@@ -130,6 +160,26 @@ export function countByBank(db: Db, bankId: number, filter?: QuestionFilter): nu
 
 export function findById(db: Db, id: number): Question | undefined {
   return db.get<Question>('SELECT * FROM questions WHERE id = ?', [id]);
+}
+
+/**
+ * 跨题库题目列表（迁移 0030「高级检索」）：用于「按标签 / 知识点 / 关键词找题」，
+ * 条件与题库内列表完全同一套（`buildQuestionFilter`），只是不限 bank_id。
+ * 没有条件时会扫全表，因此调用方必须带分页（路由层默认 20/页，上限 200）。
+ */
+export function listAll(db: Db, filter: QuestionFilter | undefined, page: QuestionPage): Question[] {
+  const { sql, params } = buildQuestionFilter(filter);
+  return db.all<Question>(`SELECT * FROM questions WHERE 1 = 1${sql} ORDER BY id LIMIT ? OFFSET ?`, [
+    ...params,
+    page.limit,
+    page.offset,
+  ]);
+}
+
+/** 跨题库题目总数（与 listAll 条件完全一致） */
+export function countAll(db: Db, filter?: QuestionFilter): number {
+  const { sql, params } = buildQuestionFilter(filter);
+  return db.get<{ c: number }>(`SELECT COUNT(*) AS c FROM questions WHERE 1 = 1${sql}`, params)?.c ?? 0;
 }
 
 export function findByIds(db: Db, ids: number[]): Question[] {

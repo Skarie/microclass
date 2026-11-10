@@ -122,6 +122,12 @@ export const TEACHER_ROUTES = new Set([
   'DELETE /api/v1/question-groups/:id',
   'POST /api/v1/question-groups/:id/items',
   'DELETE /api/v1/question-groups/:id/items/:questionId',
+  // 自由标签（迁移 0030）：读接口登录即可，写接口教师 / 管理员
+  'POST /api/v1/tags',
+  'PUT /api/v1/tags/:id',
+  'DELETE /api/v1/tags/:id',
+  'POST /api/v1/questions/:id/tags',
+  'POST /api/v1/questions/tags',
   'POST /api/v1/exams',
   'PUT /api/v1/exams/:id',
   'DELETE /api/v1/exams/:id',

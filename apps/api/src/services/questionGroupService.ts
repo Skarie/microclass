@@ -35,10 +35,7 @@ export interface GroupListItem {
   note: string;
   roleCounts: { stem: number; variant: number };
   total: number;
-  /**
-   * 最后变更时间。表里目前只记录创建时间（改题组不改时间），
-   * 字段名保留 updatedAt：以后加时间列时接口不用改。
-   */
+  /** 最后变更时间（迁移 0030）：改标题/备注、加题、移题都会刷新 */
   updatedAt: string;
 }
 
@@ -89,7 +86,7 @@ function toListItem(row: QuestionGroupListRow): GroupListItem {
     note: row.note,
     roleCounts: { stem: row.stemCount, variant: row.variantCount },
     total: row.total,
-    updatedAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -121,7 +118,7 @@ export class QuestionGroupService {
       note: row.note,
       roleCounts: { stem, variant: questions.length - stem },
       total: questions.length,
-      updatedAt: row.created_at,
+      updatedAt: row.updated_at,
       questions,
     };
   }
@@ -174,6 +171,8 @@ export class QuestionGroupService {
       this.groups.upsertItem(id, questionId, role, sort);
       if (!current.has(questionId)) sort += 1;
     }
+    // 组内成员变了：刷新 updated_at（列表按它倒序）
+    this.groups.touch(id);
     const updated = ids.length - fresh.length;
     this.writeAudit(actor, 'question_group.items.add', id, { count: ids.length, role, added: fresh.length });
     return { added: fresh.length, updated, total: this.groups.countItems(id) };
@@ -184,6 +183,7 @@ export class QuestionGroupService {
     if (!Number.isInteger(questionId) || questionId <= 0) throw AppError.badRequest('题目 id 非法');
     const changes = this.groups.removeItem(id, questionId);
     if (changes === 0) throw AppError.notFound('这道题不在该题组里');
+    this.groups.touch(id);
     this.writeAudit(actor, 'question_group.items.remove', id, { questionId });
   }
 

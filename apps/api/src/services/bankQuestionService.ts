@@ -44,6 +44,8 @@ export class BankQuestionService {
       ...(filter?.section !== undefined ? { section: filter.section } : {}),
       ...(filter?.mediaOnlyAnalysis === true ? { mediaOnlyAnalysis: true } : {}),
       ...(filter?.groupId !== undefined ? { groupId: filter.groupId } : {}),
+      ...(filter?.tagIds && filter.tagIds.length > 0 ? { tagIds: filter.tagIds, tagMode: filter.tagMode } : {}),
+      ...(filter?.points && filter.points.length > 0 ? { points: filter.points, pointMode: filter.pointMode } : {}),
     };
     const rows = this.questions.listByBank(bankId, where, {
       limit: pageSize,
@@ -51,6 +53,30 @@ export class BankQuestionService {
     });
     const total = this.questions.countByBank(bankId, where);
     return { total, page, pageSize, questions: rows.map((q) => toViewer(q, true)) };
+  }
+
+  /** 跨题库列表（高级检索：按标签 / 知识点 / 关键词找题，不限题库） */
+  listQuestionsGlobal(filter?: QuestionFilter & { page?: number; pageSize?: number }): {
+    total: number;
+    page: number;
+    pageSize: number;
+    questions: QuestionForViewer[];
+  } {
+    const page = Math.max(1, filter?.page ?? 1);
+    const pageSize = Math.min(200, Math.max(1, filter?.pageSize ?? 20));
+    const where: QuestionFilter = {
+      ...(filter?.type ? { type: filter.type } : {}),
+      ...(filter?.keyword ? { keyword: filter.keyword } : {}),
+      ...(filter?.difficulty ? { difficulty: filter.difficulty } : {}),
+      ...(filter?.chapter !== undefined ? { chapter: filter.chapter } : {}),
+      ...(filter?.section !== undefined ? { section: filter.section } : {}),
+      ...(filter?.mediaOnlyAnalysis === true ? { mediaOnlyAnalysis: true } : {}),
+      ...(filter?.groupId !== undefined ? { groupId: filter.groupId } : {}),
+      ...(filter?.tagIds && filter.tagIds.length > 0 ? { tagIds: filter.tagIds, tagMode: filter.tagMode } : {}),
+      ...(filter?.points && filter.points.length > 0 ? { points: filter.points, pointMode: filter.pointMode } : {}),
+    };
+    const rows = this.questions.listAll(where, { limit: pageSize, offset: (page - 1) * pageSize });
+    return { total: this.questions.countAll(where), page, pageSize, questions: rows.map((q) => toViewer(q, true)) };
   }
 
   findQuestion(id: number) {

@@ -25,6 +25,15 @@ export async function registerBankQuestionRoutes(app: FastifyInstance, deps: Dep
     return deps.bankService.searchQuestions(parseQuestionSearchQuery(req.query as QuestionSearchQuery));
   });
 
+  /**
+   * 跨题库题目列表（迁移 0030「高级检索」）：按标签（any/all）、知识点（any/all）、关键词等找题。
+   * 参数与题库内列表同一套（`parseBankQuestionListQuery`），只是不限题库；分页默认 20/页、上限 200。
+   */
+  app.get('/questions', async (req, reply) => {
+    requireUser(req, reply);
+    return deps.bankService.listQuestionsGlobal(parseBankQuestionListQuery(req.query as BankQuestionListQuery));
+  });
+
   /** 题库内题目列表（支持题型/难度筛选、关键词搜索、分页） */
   app.get('/banks/:id/questions', async (req, reply) => {
     requireUser(req, reply);

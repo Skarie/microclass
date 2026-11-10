@@ -155,6 +155,7 @@ async function removeFrom(groupId: number): Promise<void> {
           加入题组
         </button>
       </div>
+      <p v-else-if="groups.length === 0" class="mc-hint">还没有题组，去「题组」视图新建一个再回来。</p>
       <p v-else class="mc-hint">所有题组都包含这道题了；需要新题组请到「题组」视图新建。</p>
     </template>
   </section>

@@ -1,0 +1,93 @@
+/* 题型/难度 chip 组：一眼看到全部可选值，少一次点击 */
+.chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--mc-space-1);
+}
+
+.chip {
+  min-height: 32px;
+  padding: 8px 12px;
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius-pill);
+  background: transparent;
+  color: var(--mc-text-secondary);
+  font-size: var(--mc-text-sm);
+  line-height: var(--mc-leading-snug);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.chip:hover {
+  border-color: var(--mc-primary-border);
+  color: var(--mc-primary-fg);
+}
+
+.chip--active {
+  border-color: var(--mc-primary);
+  background: var(--mc-primary-soft);
+  color: var(--mc-primary-fg);
+  font-weight: var(--mc-font-medium);
+}
+
+.filters {
+  gap: var(--mc-space-2);
+  padding-bottom: var(--mc-space-2);
+  border-bottom: 1px solid var(--mc-border);
+}
+
+.filters__keyword {
+  flex: 1 1 240px;
+  width: 260px;
+}
+
+/* 章节 / 小节下拉：与关键词同一条筛选行，长章节名截断但保留悬停提示 */
+.filters__select {
+  flex: 0 1 160px;
+  min-width: 120px;
+  max-width: 200px;
+}
+
+/* 「筛选出 X / Y」：只在有标签筛选时出现 */
+.filters__count {
+  font-size: var(--mc-text-sm);
+  color: var(--mc-primary-fg);
+  font-weight: var(--mc-font-medium);
+  white-space: nowrap;
+}
+
+.filters__more {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  gap: 8px;
+  font-size: var(--mc-text-sm);
+  color: var(--mc-text-muted);
+  cursor: pointer;
+}
+
+/* 整行 label 都是点击区：复选框本身只有 13px，手指点不准 */
+.filters__check {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  gap: var(--mc-space-1);
+  font-size: 0.9em;
+  color: var(--mc-text-muted);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .filters__keyword,
+  .filters__select {
+    flex: 1 1 100%;
+    width: auto;
+    max-width: none;
+  }
+
+  .chip,
+  .filters__more {
+    min-height: var(--mc-touch-target-mobile);
+  }
+}

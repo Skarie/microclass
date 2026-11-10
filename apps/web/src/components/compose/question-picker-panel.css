@@ -1,0 +1,101 @@
+.pk {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mc-space-2);
+}
+
+.pk__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--mc-space-2);
+  flex-wrap: wrap;
+  padding: var(--mc-space-2) var(--mc-space-3);
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius);
+  background: var(--mc-bg-elevated);
+}
+
+/* 三区：左筛选（可滚动） / 中列表（主区） / 右试题篮（270px） */
+.pk__body {
+  display: grid;
+  grid-template-columns: minmax(240px, 290px) minmax(0, 1fr) minmax(240px, 282px);
+  gap: var(--mc-space-3);
+  align-items: start;
+}
+
+@media (max-width: 1500px) {
+  .pk__body {
+    grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+  }
+
+  .pk__body > :last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+.pk__side {
+  position: sticky;
+  top: var(--mc-space-2);
+  max-height: calc(100vh - 190px);
+  overflow-y: auto;
+}
+
+.pk__side .mc-card__body {
+  gap: var(--mc-space-2);
+}
+
+.pk__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pk__group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pk__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.pk__chip {
+  padding: 4px 8px;
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius-pill);
+  background: var(--mc-bg-elevated);
+  cursor: pointer;
+  font-size: var(--mc-text-xs);
+  color: var(--mc-text-secondary);
+}
+
+.pk__chip.is-on {
+  border-color: var(--mc-primary);
+  background: var(--mc-primary-soft);
+  color: var(--mc-primary-fg);
+  font-weight: var(--mc-font-medium);
+}
+
+.pk__hint {
+  margin: 0;
+  font-size: var(--mc-text-xs);
+}
+
+/* 窄屏（含手机 390）：三区改单列，避免横向溢出；按钮保持 44 触控高度 */
+@media (max-width: 1180px) {
+  .pk__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pk__side {
+    position: static;
+    max-height: none;
+  }
+
+  .pk__bar .mc-btn {
+    min-height: var(--mc-touch-target-mobile);
+  }
+}

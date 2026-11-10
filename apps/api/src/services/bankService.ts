@@ -190,6 +190,8 @@ export class BankService {
   readonly dedupeBank = (...args: Parameters<BankHealthService['dedupeBank']>) => this.bankHealth.dedupeBank(...args);
   readonly listQuestions = (...args: Parameters<BankQuestionService['listQuestions']>) =>
     this.bankQuestions.listQuestions(...args);
+  readonly listQuestionsGlobal = (...args: Parameters<BankQuestionService['listQuestionsGlobal']>) =>
+    this.bankQuestions.listQuestionsGlobal(...args);
   readonly findQuestion = (...args: Parameters<BankQuestionService['findQuestion']>) =>
     this.bankQuestions.findQuestion(...args);
   readonly createQuestion = (...args: Parameters<BankQuestionService['createQuestion']>) =>

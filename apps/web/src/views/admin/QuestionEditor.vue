@@ -8,6 +8,7 @@
 import AppModal from '@/components/AppModal.vue';
 import DifficultyBadge from '@/components/DifficultyBadge.vue';
 import QuestionGroupMembership from './QuestionGroupMembership.vue';
+import QuestionTagsEditor from './QuestionTagsEditor.vue';
 import { TYPE_LABEL, TYPE_OPTIONS } from './questionTypes';
 import { computed } from 'vue';
 import type { QuestionType, QuestionView } from '@/api/types';
@@ -222,6 +223,9 @@ function removeOption(index: number): void {
           :samples="currentQuestion?.difficulty_n"
         />
       </p>
+
+      <!-- 标签（迁移 0030）：教研标记多选 chips，直接增删 -->
+      <QuestionTagsEditor :question-id="editingId" :open="open" />
 
       <!-- 所属题组（迁移 0029）：母题 / 变式关联，改题时顺手就能加组或移出 -->
       <QuestionGroupMembership :question-id="editingId" :open="open" />

@@ -42,6 +42,9 @@ export interface PickOptions {
    * 组是「母题 + 变式」的关联关系，不在 questions 上，所以走子查询而不是加列。
    */
   groupId?: number;
+  /** 标签范围（迁移 0030）：命中任意 / 同时包含全部 */
+  tagIds?: number[];
+  tagMode?: 'any' | 'all';
   /** 排除已在试卷里的题 */
   exclude?: number[];
   /**
@@ -147,6 +150,24 @@ export function buildPickWhere(options: PickOptions): { where: string; params: u
     // 子查询走 question_group_items 主键（group_id 在最左列），只回题目 id
     clauses.push('q.id IN (SELECT question_id FROM question_group_items WHERE group_id = ?)');
     params.push(options.groupId);
+  }
+  /**
+   * 标签筛选（迁移 0030）：与题库题目列表同一套语义 ——
+   * any → IN；all → 子查询按题目分组 HAVING COUNT(DISTINCT tag_id) = N。
+   */
+  const tagIds = options.tagIds ?? [];
+  if (tagIds.length > 0) {
+    const marks = tagIds.map(() => '?').join(',');
+    if (options.tagMode === 'all') {
+      clauses.push(
+        `q.id IN (SELECT question_id FROM question_tags WHERE tag_id IN (${marks})
+                  GROUP BY question_id HAVING COUNT(DISTINCT tag_id) = ?)`,
+      );
+      params.push(...tagIds, tagIds.length);
+    } else {
+      clauses.push(`q.id IN (SELECT question_id FROM question_tags WHERE tag_id IN (${marks}))`);
+      params.push(...tagIds);
+    }
   }
   const exclude = options.exclude ?? [];
   if (exclude.length > 0) {

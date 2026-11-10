@@ -17,6 +17,8 @@ export interface QuestionGroupRow {
   title: string;
   note: string;
   created_at: string;
+  /** 最后变更时间（迁移 0030）：改组信息 / 加题 / 移题都会刷新 */
+  updated_at: string;
   created_by: number | null;
 }
 
@@ -53,14 +55,14 @@ export class QuestionGroupRepository {
     const where = search === '' ? '' : ' WHERE g.title LIKE ? OR g.note LIKE ?';
     const params = search === '' ? [] : [like, like];
     const rows = this.db.all<QuestionGroupRow & { stemCount: number; variantCount: number; total: number }>(
-      `SELECT g.id, g.title, g.note, g.created_at, g.created_by,
+      `SELECT g.id, g.title, g.note, g.created_at, g.updated_at, g.created_by,
               COALESCE(SUM(CASE WHEN i.role = 'stem' THEN 1 ELSE 0 END), 0) AS stemCount,
               COALESCE(SUM(CASE WHEN i.role = 'variant' THEN 1 ELSE 0 END), 0) AS variantCount,
               COUNT(i.question_id) AS total
          FROM question_groups g
          LEFT JOIN question_group_items i ON i.group_id = g.id${where}
         GROUP BY g.id
-        ORDER BY g.created_at DESC, g.id DESC`,
+        ORDER BY g.updated_at DESC, g.id DESC`,
       params,
     );
     return rows.map((row) => ({
@@ -73,18 +75,29 @@ export class QuestionGroupRepository {
 
   findById(id: number): QuestionGroupRow | undefined {
     return this.db.get<QuestionGroupRow>(
-      'SELECT id, title, note, created_at, created_by FROM question_groups WHERE id = ?',
+      'SELECT id, title, note, created_at, updated_at, created_by FROM question_groups WHERE id = ?',
       [id],
     );
   }
 
   create(title: string, note: string, createdBy: number | null): number {
-    return this.db.run('INSERT INTO question_groups (title, note, created_by) VALUES (?,?,?)', [title, note, createdBy])
-      .lastInsertRowid;
+    return this.db.run(
+      "INSERT INTO question_groups (title, note, created_by, updated_at) VALUES (?,?,?,datetime('now'))",
+      [title, note, createdBy],
+    ).lastInsertRowid;
   }
 
   update(id: number, title: string, note: string): void {
-    this.db.run('UPDATE question_groups SET title = ?, note = ? WHERE id = ?', [title, note, id]);
+    this.db.run("UPDATE question_groups SET title = ?, note = ?, updated_at = datetime('now') WHERE id = ?", [
+      title,
+      note,
+      id,
+    ]);
+  }
+
+  /** 组内成员变了（加题 / 移题 / 换角色）：刷新最后变更时间，列表排序才有意义 */
+  touch(id: number): void {
+    this.db.run("UPDATE question_groups SET updated_at = datetime('now') WHERE id = ?", [id]);
   }
 
   /** 删除题组：items 由外键 ON DELETE CASCADE 带走 */

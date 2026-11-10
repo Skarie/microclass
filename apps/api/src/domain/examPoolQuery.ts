@@ -24,6 +24,9 @@ export interface PoolFilters {
   hasImage?: boolean;
   /** 只看某个题组里的题（迁移 0029，组卷「整组挑题」用） */
   groupId?: number;
+  /** 标签筛选（迁移 0030）：any 默认 / all 同时包含 */
+  tagIds?: number[];
+  tagMode?: 'any' | 'all';
   orderBy?: PoolOrderBy;
 }
 
@@ -60,6 +63,11 @@ function firstString(source: Record<string, unknown>, key: string): string | und
 export function poolFiltersFrom(source: Record<string, unknown>): PoolFilters {
   const courseId = queryNumber(source, 'courseId');
   const groupId = queryNumber(source, 'groupId');
+  // 标签筛选：重复参数 / 逗号分隔都支持；非数字忽略（题池是「筛选」不是「校验」，宽松即可）
+  const tagIds = listParam(source, 'tagIds')
+    .map((value) => Number.parseInt(value, 10))
+    .filter((value) => Number.isInteger(value) && value > 0);
+  const tagModeRaw = firstString(source, 'tagMode');
   const types = listParam(source, 'types').filter((t) => TYPE_SET.has(t));
   const singleType = firstString(source, 'type');
   const levels = listParam(source, 'levels').filter((l): l is ExamLevel => LEVEL_SET.has(l));
@@ -68,6 +76,7 @@ export function poolFiltersFrom(source: Record<string, unknown>): PoolFilters {
   return {
     ...(courseId === undefined ? {} : { courseId }),
     ...(groupId === undefined ? {} : { groupId }),
+    ...(tagIds.length > 0 ? { tagIds, tagMode: tagModeRaw === 'all' ? 'all' : 'any' } : {}),
     ...(singleType ? { type: singleType } : {}),
     ...(listParam(source, 'books').length > 0 ? { books: listParam(source, 'books') } : {}),
     ...(listParam(source, 'chapters').length > 0 ? { chapters: listParam(source, 'chapters') } : {}),

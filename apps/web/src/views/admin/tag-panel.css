@@ -1,0 +1,87 @@
+/* 标签管理视图：单列列表（标签名 + 备注 + 题目数 + 行操作） */
+.tp__head {
+  display: flex;
+  align-items: center;
+  gap: var(--mc-space-2);
+}
+
+.tp__search {
+  max-width: 320px;
+}
+
+.tp__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mc-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tp__row {
+  display: flex;
+  align-items: center;
+  gap: var(--mc-space-3);
+  padding: var(--mc-space-2) var(--mc-space-3);
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius);
+  background: var(--mc-bg-elevated);
+}
+
+.tp__main {
+  display: flex;
+  align-items: baseline;
+  gap: var(--mc-space-2);
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.tp__name {
+  font-size: var(--mc-text-sm);
+  font-weight: var(--mc-font-medium);
+  color: var(--mc-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tp__note {
+  font-size: var(--mc-text-xs);
+  color: var(--mc-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tp__count {
+  flex: none;
+}
+
+.tp__skeleton {
+  gap: var(--mc-space-2);
+}
+
+.tp__skeleton-row {
+  height: 48px;
+  border-radius: var(--mc-radius);
+}
+
+.tp__hint {
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .tp__search {
+    max-width: none;
+  }
+
+  .tp__row {
+    flex-wrap: wrap;
+    min-height: var(--mc-touch-target-mobile);
+  }
+
+  .tp__main {
+    flex: 1 1 100%;
+  }
+}

@@ -7,6 +7,7 @@ import BankListPanel from './BankListPanel.vue';
 import BankQuestionPanel from './BankQuestionPanel.vue';
 import BankPageDialogs from './BankPageDialogs.vue';
 import QuestionGroupsPanel from './QuestionGroupsPanel.vue';
+import TagsPanel from './TagsPanel.vue';
 import { useBankCatalog, type BankCatalogDeps } from '@/composables/use-bank-catalog';
 import { useQuestionList } from '@/composables/use-question-list';
 import { useBankImport } from '@/composables/use-bank-import';
@@ -25,8 +26,8 @@ const catalogDeps: BankCatalogDeps = {
   clearQuestions: () => {},
 };
 const catalogApi = useBankCatalog(catalogDeps);
-/** 视图切换：题目（题库内的题）/ 题组（跨题库的母题 + 变式关联） */
-const bankView = ref<'questions' | 'groups'>('questions');
+/** 视图切换：题目（题库内的题）/ 题组（母题 + 变式）/ 标签（教研标记） */
+const bankView = ref<'questions' | 'groups' | 'tags'>('questions');
 /** 两个隐藏的文件输入框：模板 ref 必须由本组件持有，再把 ref 注入相关组合式函数 */
 const fileInput = ref<HTMLInputElement | null>(null);
 const qImageInput = ref<HTMLInputElement | null>(null);
@@ -116,7 +117,10 @@ onMounted(() => {
     </div>
 
     <!-- 题组视图：跨题库的「母题 + 变式」关联，和题目视图共用顶部的题库体检 -->
-    <QuestionGroupsPanel v-else />
+    <QuestionGroupsPanel v-else-if="bankView === 'groups'" />
+
+    <!-- 标签视图：跨题库的教研标记（P1），维护标签本身；打标在题目表格的批量条与编辑弹窗里 -->
+    <TagsPanel v-else />
 
     <input
       ref="fileInput"

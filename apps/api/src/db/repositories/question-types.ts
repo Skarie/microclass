@@ -58,6 +58,12 @@ export interface QuestionFilter {
   mediaOnlyAnalysis?: boolean;
   /** 只看某个题组里的题（迁移 0029；组内成员关系在 question_group_items） */
   groupId?: number;
+  /** 标签筛选（迁移 0030）：命中任意一个 / 同时包含全部，由 tagMode 决定 */
+  tagIds?: number[];
+  tagMode?: 'any' | 'all';
+  /** 知识点多选：与标签同一套 any/all 语义（point 列是文本，按包含匹配） */
+  points?: string[];
+  pointMode?: 'any' | 'all';
 }
 
 /** 分页窗口：列表 SQL 只有传了 page 才追加 LIMIT/OFFSET（与拆分前一致） */

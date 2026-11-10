@@ -1,13 +1,18 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import DropdownMenu from '@/components/DropdownMenu.vue';
+import FilterMultiSelect from '@/components/FilterMultiSelect.vue';
 import { FACET_ALL, FACET_NONE } from '@/utils/question-sections';
 import { TYPE_LABEL, TYPE_OPTIONS } from './questionTypes';
 import type { useQuestionList } from '@/composables/use-question-list';
 
 /**
  * 右栏筛选条（从 BankAdminView 抽出）：
- * 题型 chip、难度 chip、题干关键词（输入即搜）、重置、显示偏好、更多筛选。
+ * 题型 chip、难度 chip、题干关键词（输入即搜）、章节/小节、**标签多选（任意/全部）**、
+ * **知识点多选（任意/全部）**、重置、显示偏好、更多筛选。
+ *
+ * 标签与知识点共用 `<FilterMultiSelect>`：下拉加一项 → chip 可删 → 选中两个以上时出现
+ * 「任意一个 / 同时包含」切换，对应后端的 tagMode / pointMode。
  * 关键词输入框的 DOM ref 回填给组合式函数，父页面的 “/” 快捷键仍能聚焦。
  */
 const props = defineProps<{
@@ -20,6 +25,8 @@ const keywordInput = ref<HTMLInputElement | null>(null);
 
 onMounted(() => {
   questionApi.keywordInput.value = keywordInput.value;
+  // 标签候选：进页面拉一次（接口自带 1s 复用，写操作会清缓存）
+  questionApi.loadTagFilterOptions();
 });
 onBeforeUnmount(() => {
   questionApi.keywordInput.value = null;
@@ -112,6 +119,34 @@ onBeforeUnmount(() => {
         {{ group.title }}（{{ group.total }} 题）
       </option>
     </select>
+
+    <!-- 标签（迁移 0030）：多选 + 任意/全部；选中后列表只留命中标签的题 -->
+    <FilterMultiSelect
+      label="标签"
+      :options="questionsState.tagFilterOptions"
+      :model-value="questionsState.tagFilterValues"
+      :mode="questionsState.tagMode"
+      placeholder="添加标签筛选…"
+      @update:model-value="questionsState.setTagFilterValues"
+      @update:mode="questionsState.setTagMode"
+    />
+
+    <!-- 知识点多选：与标签同一套 any/all 语义（候选从已加载题目里汇总） -->
+    <FilterMultiSelect
+      label="知识点"
+      :options="questionsState.pointFilterOptions"
+      :model-value="questionsState.pointFilterValues"
+      :mode="questionsState.pointMode"
+      placeholder="添加知识点…"
+      @update:model-value="questionsState.setPointFilterValues"
+      @update:mode="questionsState.setPointMode"
+    />
+
+    <!-- 有标签筛选时给出「筛选出 X / Y」：Y 是整本题库的题量，避免误以为题库变小了 -->
+    <span v-if="questionsState.hasTagFilter" class="filters__count">
+      筛选出 {{ questionsState.total }} / {{ questionsState.bankQuestionTotal }} 题
+    </span>
+
     <button class="mc-btn mc-btn--sm mc-btn--ghost" type="button" @click="questionsState.resetFilters">重置</button>
     <DropdownMenu
       :items="questionsState.viewMenuItems"
@@ -140,76 +175,4 @@ onBeforeUnmount(() => {
   </div>
 </template>
 
-<style scoped>
-/* 题型/难度 chip 组：一眼看到全部可选值，少一次点击 */
-.chips {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: var(--mc-space-1);
-}
-
-.chip {
-  min-height: 32px;
-  padding: 8px 12px;
-  border: 1px solid var(--mc-border);
-  border-radius: var(--mc-radius-pill);
-  background: transparent;
-  color: var(--mc-text-secondary);
-  font-size: var(--mc-text-sm);
-  line-height: var(--mc-leading-snug);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.chip:hover {
-  border-color: var(--mc-primary-border);
-  color: var(--mc-primary-fg);
-}
-
-.chip--active {
-  border-color: var(--mc-primary);
-  background: var(--mc-primary-soft);
-  color: var(--mc-primary-fg);
-  font-weight: var(--mc-font-medium);
-}
-
-.filters {
-  gap: var(--mc-space-2);
-  padding-bottom: var(--mc-space-2);
-  border-bottom: 1px solid var(--mc-border);
-}
-
-.filters__keyword {
-  flex: 1 1 240px;
-  width: 260px;
-}
-
-/* 章节 / 小节下拉：与关键词同一条筛选行，长章节名截断但保留悬停提示 */
-.filters__select {
-  flex: 0 1 160px;
-  min-width: 120px;
-  max-width: 200px;
-}
-
-.filters__more {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
-  gap: 8px;
-  font-size: var(--mc-text-sm);
-  color: var(--mc-text-muted);
-  cursor: pointer;
-}
-
-/* 整行 label 都是点击区：复选框本身只有 13px，手指点不准 */
-.filters__check {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
-  gap: var(--mc-space-1);
-  font-size: 0.9em;
-  color: var(--mc-text-muted);
-  white-space: nowrap;
-  cursor: pointer;
-}
-</style>
+<style scoped src="./question-filters.css"></style>

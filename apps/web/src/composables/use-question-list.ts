@@ -14,6 +14,8 @@ import { useQuestionSelection } from '@/composables/use-question-selection';
 import { useQuestionEditor } from '@/composables/use-question-editor';
 import { useQuestionHotkeys } from '@/composables/use-question-hotkeys';
 import { useQuestionSections } from '@/composables/use-question-sections';
+import { useQuestionTags } from '@/composables/use-question-tags';
+import { useQuestionPoints } from '@/composables/use-question-points';
 import type { Bank, QuestionType, QuestionView } from '@/api/types';
 
 interface QuestionPageResponse {
@@ -52,6 +54,14 @@ export function useQuestionList(deps: QuestionListDeps) {
 
   /** 章节 / 小节筛选与候选：筛选变化后走同一条 search（页码回 1） */
   const sections = useQuestionSections(search);
+
+  /** 标签筛选（迁移 0030）：多选 + 任意/全部；候选来自 /tags */
+  const tagFilterApi = useQuestionTags(search);
+  /** 知识点多选：与标签同一套 any/all 语义；候选从已加载的题目里汇总 */
+  const pointFilterApi = useQuestionPoints(search);
+
+  /** 当前题库的总题量（「筛选出 X / Y」里的 Y）：题库行上的预计算列 */
+  const bankQuestionTotal = computed(() => deps.selectedBank.value?.question_count ?? 0);
 
   /** 关键词**输入即搜**（400ms 防抖）：老师输完习惯直接看结果，不再需要点搜索 */
   let keywordTimer: ReturnType<typeof setTimeout> | undefined;
@@ -108,6 +118,8 @@ export function useQuestionList(deps: QuestionListDeps) {
       if (groupFilter.value !== null) params.set('groupId', String(groupFilter.value));
       if (sections.chapterFilter.value !== null) params.set('chapter', sections.chapterFilter.value);
       if (sections.sectionFilter.value !== null) params.set('section', sections.sectionFilter.value);
+      tagFilterApi.applyTo(params);
+      pointFilterApi.applyTo(params);
       params.set('page', String(page.value));
       params.set('pageSize', String(pageSize.value));
       const res = await api.get<QuestionPageResponse>(`/banks/${bankId}/questions?${params.toString()}`);
@@ -115,6 +127,7 @@ export function useQuestionList(deps: QuestionListDeps) {
       total.value = res.total;
       page.value = res.page;
       sections.mergeQuestions(res.questions);
+      pointFilterApi.mergeQuestions(res.questions);
     } catch (e) {
       toast.error(errorMessage(e));
       questions.value = [];
@@ -141,7 +154,14 @@ export function useQuestionList(deps: QuestionListDeps) {
     groupFilter.value = null;
     showMoreFilters.value = false;
     sections.resetSectionFilters();
+    tagFilterApi.resetTagFilter();
+    pointFilterApi.resetPoints();
     search();
+  }
+
+  /** 标签筛选变化：选项只加载一次，随后按筛选重查（页码回 1） */
+  function loadTagFilterOptions(): void {
+    void tagFilterApi.loadTagOptions();
   }
 
   /** 题组下拉候选：题组是跨题库的，和题库选择无关，加载一次即可（写操作会清 GET 缓存） */
@@ -222,6 +242,23 @@ export function useQuestionList(deps: QuestionListDeps) {
     total,
     pageSize,
     totalPages,
+    /** 题库总题量（「筛选出 X / Y」的 Y） */
+    bankQuestionTotal,
+    // 标签筛选（迁移 0030）
+    tagFilter: tagFilterApi.tagFilter,
+    tagMode: tagFilterApi.tagMode,
+    tagFilterValues: tagFilterApi.tagFilterValues,
+    tagFilterOptions: tagFilterApi.tagFilterOptions,
+    hasTagFilter: tagFilterApi.hasTagFilter,
+    setTagFilterValues: tagFilterApi.setTagFilterValues,
+    setTagMode: tagFilterApi.setTagMode,
+    loadTagFilterOptions,
+    // 知识点多选（与标签同一套 any/all 语义）
+    pointFilterValues: pointFilterApi.pointFilterValues,
+    pointFilterOptions: pointFilterApi.pointFilterOptions,
+    pointMode: pointFilterApi.pointMode,
+    setPointFilterValues: pointFilterApi.setPointFilterValues,
+    setPointMode: pointFilterApi.setPointMode,
     loadQuestions,
     clearQuestions,
     search,
