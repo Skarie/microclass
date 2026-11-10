@@ -43,6 +43,7 @@ export class BankQuestionService {
       ...(filter?.chapter !== undefined ? { chapter: filter.chapter } : {}),
       ...(filter?.section !== undefined ? { section: filter.section } : {}),
       ...(filter?.mediaOnlyAnalysis === true ? { mediaOnlyAnalysis: true } : {}),
+      ...(filter?.groupId !== undefined ? { groupId: filter.groupId } : {}),
     };
     const rows = this.questions.listByBank(bankId, where, {
       limit: pageSize,

@@ -37,6 +37,11 @@ export interface PickOptions {
   levels?: ('easy' | 'medium' | 'hard')[];
   keyword?: string;
   hasImage?: boolean;
+  /**
+   * 题组范围（迁移 0029）：只在某个题组内挑题。
+   * 组是「母题 + 变式」的关联关系，不在 questions 上，所以走子查询而不是加列。
+   */
+  groupId?: number;
   /** 排除已在试卷里的题 */
   exclude?: number[];
   /**
@@ -138,6 +143,11 @@ export function buildPickWhere(options: PickOptions): { where: string; params: u
   }
   if (options.hasImage === true) clauses.push('q.has_image = 1');
   if (options.hasImage === false) clauses.push('q.has_image = 0');
+  if (options.groupId !== undefined) {
+    // 子查询走 question_group_items 主键（group_id 在最左列），只回题目 id
+    clauses.push('q.id IN (SELECT question_id FROM question_group_items WHERE group_id = ?)');
+    params.push(options.groupId);
+  }
   const exclude = options.exclude ?? [];
   if (exclude.length > 0) {
     clauses.push(`q.id NOT IN (${exclude.map(() => '?').join(',')})`);

@@ -140,6 +140,8 @@ export interface BankQuestionListQuery {
   chapter?: string;
   section?: string;
   mediaOnlyAnalysis?: string;
+  /** 只看某个题组里的题（迁移 0029） */
+  groupId?: string;
   page?: string;
   pageSize?: string;
 }
@@ -152,6 +154,7 @@ export interface BankQuestionListRequest {
   chapter?: string;
   section?: string;
   mediaOnlyAnalysis?: true;
+  groupId?: number;
   page?: number;
   pageSize?: number;
 }
@@ -169,9 +172,18 @@ export function parseBankQuestionListQuery(q: BankQuestionListQuery): BankQuesti
     ...(q.chapter !== undefined ? { chapter: q.chapter } : {}),
     ...(q.section !== undefined ? { section: q.section } : {}),
     ...(q.mediaOnlyAnalysis === '1' ? { mediaOnlyAnalysis: true } : {}),
+    ...parseGroupId(q.groupId),
     ...(q.page ? { page: Number.parseInt(q.page, 10) } : {}),
     ...(q.pageSize ? { pageSize: Number.parseInt(q.pageSize, 10) } : {}),
   };
+}
+
+/** 题组筛选：数字 = 该组；空串/缺省 = 不筛；非法值 400（与 folderId 等同口径） */
+function parseGroupId(raw: string | undefined): { groupId?: number } {
+  if (raw === undefined || raw === '') return {};
+  const groupId = Number.parseInt(raw, 10);
+  if (Number.isNaN(groupId) || groupId <= 0) throw AppError.badRequest('groupId 参数非法');
+  return { groupId };
 }
 
 /** `GET /questions/search` 的原始查询串 */

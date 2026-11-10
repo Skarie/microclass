@@ -116,6 +116,12 @@ export const TEACHER_ROUTES = new Set([
   'PUT /api/v1/questions/:id',
   'DELETE /api/v1/questions/:id',
   'POST /api/v1/questions/:id/image',
+  // 题组 / 变式关联（迁移 0029）：教师与管理员可写，读接口登录即可
+  'POST /api/v1/question-groups',
+  'PUT /api/v1/question-groups/:id',
+  'DELETE /api/v1/question-groups/:id',
+  'POST /api/v1/question-groups/:id/items',
+  'DELETE /api/v1/question-groups/:id/items/:questionId',
   'POST /api/v1/exams',
   'PUT /api/v1/exams/:id',
   'DELETE /api/v1/exams/:id',

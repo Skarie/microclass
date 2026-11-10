@@ -99,6 +99,19 @@ onBeforeUnmount(() => {
       <option v-for="section in questionsState.sectionOptions" :key="section" :value="section">{{ section }}</option>
       <option :value="FACET_NONE">未分节</option>
     </select>
+    <!-- 题组筛选（迁移 0029）：一个题组 = 同一考点的一道母题 + 若干变式，选中后只看组内题目 -->
+    <select
+      class="mc-select filters__select"
+      :value="questionsState.groupFilter ?? ''"
+      aria-label="按题组筛选"
+      @focus="questionsState.loadGroupOptions"
+      @change="questionsState.onGroupSelect"
+    >
+      <option value="">全部题组</option>
+      <option v-for="group in questionsState.groupOptions" :key="group.id" :value="String(group.id)">
+        {{ group.title }}（{{ group.total }} 题）
+      </option>
+    </select>
     <button class="mc-btn mc-btn--sm mc-btn--ghost" type="button" @click="questionsState.resetFilters">重置</button>
     <DropdownMenu
       :items="questionsState.viewMenuItems"

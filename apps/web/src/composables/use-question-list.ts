@@ -39,6 +39,10 @@ export function useQuestionList(deps: QuestionListDeps) {
   const keyword = ref('');
   /** 只看「解析只有图片」的题（图片里是解析文字：搜不到、改不了，得先把它们找出来） */
   const mediaOnlyFilter = ref(false);
+  /** 题组筛选（迁移 0029）：null = 全部；数字 = 只看该题组里、且属于当前题库的题 */
+  const groupFilter = ref<number | null>(null);
+  /** 题组下拉候选：懒加载（下拉聚焦 / 页面挂载时各拉一次，接口自带 1s 复用） */
+  const groupOptions = ref<{ id: number; title: string; total: number }[]>([]);
   /** 「更多筛选」展开开关：低频筛选项默认收起，避免一屏塞三行筛选 */
   const showMoreFilters = ref(false);
   const page = ref(1);
@@ -101,6 +105,7 @@ export function useQuestionList(deps: QuestionListDeps) {
       if (difficultyFilter.value) params.set('difficulty', difficultyFilter.value);
       if (keyword.value.trim()) params.set('keyword', keyword.value.trim());
       if (mediaOnlyFilter.value) params.set('mediaOnlyAnalysis', '1');
+      if (groupFilter.value !== null) params.set('groupId', String(groupFilter.value));
       if (sections.chapterFilter.value !== null) params.set('chapter', sections.chapterFilter.value);
       if (sections.sectionFilter.value !== null) params.set('section', sections.sectionFilter.value);
       params.set('page', String(page.value));
@@ -133,8 +138,27 @@ export function useQuestionList(deps: QuestionListDeps) {
     typeFilter.value = '';
     difficultyFilter.value = '';
     mediaOnlyFilter.value = false;
+    groupFilter.value = null;
     showMoreFilters.value = false;
     sections.resetSectionFilters();
+    search();
+  }
+
+  /** 题组下拉候选：题组是跨题库的，和题库选择无关，加载一次即可（写操作会清 GET 缓存） */
+  async function loadGroupOptions(): Promise<void> {
+    try {
+      const res = await api.get<{ groups: { id: number; title: string; total: number }[] }>('/question-groups');
+      groupOptions.value = res.groups.map((g) => ({ id: g.id, title: g.title, total: g.total }));
+    } catch (e) {
+      // 下拉候选加载失败不影响题目列表；下一次聚焦会重试
+      toast.error(errorMessage(e));
+    }
+  }
+
+  /** 下拉的 change 事件：空串 = 全部，其余按数字筛 */
+  function onGroupSelect(event: Event): void {
+    const raw = (event.target as HTMLSelectElement).value;
+    groupFilter.value = raw === '' ? null : Number(raw);
     search();
   }
 
@@ -189,6 +213,10 @@ export function useQuestionList(deps: QuestionListDeps) {
     difficultyFilter,
     keyword,
     mediaOnlyFilter,
+    groupFilter,
+    groupOptions,
+    loadGroupOptions,
+    onGroupSelect,
     showMoreFilters,
     page,
     total,

@@ -1,0 +1,129 @@
+.gd__head {
+  display: flex;
+  align-items: center;
+  gap: var(--mc-space-3);
+  flex-wrap: wrap;
+}
+
+.gd__headline {
+  display: flex;
+  align-items: baseline;
+  gap: var(--mc-space-2);
+  min-width: 0;
+  flex: 1 1 240px;
+}
+
+.gd__counts {
+  font-size: var(--mc-text-sm);
+  color: var(--mc-text-muted);
+  white-space: nowrap;
+}
+
+.gd__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--mc-space-2);
+}
+
+.gd__note {
+  margin: 0;
+  padding: var(--mc-space-2) var(--mc-space-3);
+  border-radius: var(--mc-radius);
+  background: var(--mc-bg-sunken);
+  color: var(--mc-text-secondary);
+  font-size: var(--mc-text-sm);
+  line-height: var(--mc-leading-relaxed);
+  white-space: pre-wrap;
+}
+
+.gd__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mc-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gd__row {
+  display: grid;
+  grid-template-columns: 32px auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--mc-space-2);
+  padding: var(--mc-space-2) var(--mc-space-3);
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius);
+  background: var(--mc-bg-elevated);
+}
+
+.gd__no {
+  color: var(--mc-text-muted);
+  font-family: var(--mc-font-mono);
+  font-size: var(--mc-text-xs);
+  line-height: var(--mc-leading);
+}
+
+.gd__role {
+  margin-top: var(--mc-space-1);
+}
+
+.gd__role--stem {
+  background: var(--mc-primary-soft);
+  color: var(--mc-primary-fg);
+}
+
+.gd__stem {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--mc-space-2);
+  min-width: 0;
+}
+
+.gd__stemtext {
+  min-width: 0;
+  font-size: var(--mc-text-sm);
+  line-height: var(--mc-leading);
+  color: var(--mc-text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.gd__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mc-space-2);
+}
+
+.gd__skeleton-row {
+  height: 44px;
+  border-radius: var(--mc-radius);
+}
+
+@media (max-width: 900px) {
+  .gd__row {
+    grid-template-columns: 28px auto minmax(0, 1fr);
+    grid-template-areas:
+      'no role remove'
+      'stem stem stem';
+  }
+
+  .gd__no {
+    grid-area: no;
+  }
+
+  .gd__role {
+    grid-area: role;
+  }
+
+  .gd__stem {
+    grid-area: stem;
+  }
+
+  .gd__remove {
+    grid-area: remove;
+    min-height: var(--mc-touch-target-mobile);
+  }
+}

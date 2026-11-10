@@ -56,6 +56,8 @@ export interface QuestionFilter {
   hasImage?: boolean;
   /** 只看「解析只有图片、没有一个字」的题（迁移 0020 预计算列） */
   mediaOnlyAnalysis?: boolean;
+  /** 只看某个题组里的题（迁移 0029；组内成员关系在 question_group_items） */
+  groupId?: number;
 }
 
 /** 分页窗口：列表 SQL 只有传了 page 才追加 LIMIT/OFFSET（与拆分前一致） */

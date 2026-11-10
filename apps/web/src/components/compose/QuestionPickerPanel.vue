@@ -15,8 +15,9 @@ import { askConfirm } from '@/composables/use-confirm';
 import { useToastStore } from '@/stores/toast';
 import Icon from '@/components/Icon.vue';
 import RangeTree from '@/components/compose/RangeTree.vue';
-import QuestionTable from '@/components/compose/QuestionTable.vue';
 import PaperCart from '@/components/compose/PaperCart.vue';
+import PickerList from '@/components/compose/PickerList.vue';
+import { usePickerGroups } from '@/composables/use-picker-groups';
 import type { ComposeQuestionRow, FacetBook, FacetPoint } from '@/components/compose/types';
 
 const TYPE_LABEL: Record<string, string> = {
@@ -76,6 +77,13 @@ const filters = reactive<{
 const pool = ref<{ total: number; questions: ComposeQuestionRow[] } | null>(null);
 const checked = ref<number[]>([]);
 const viewRow = ref<ComposeQuestionRow | null>(null);
+/** 题组（迁移 0029）：按题组筛题池 + 整组加入（请求逻辑在 use-picker-groups） */
+const { groups, groupId, group, loadGroups, onGroupChange, clearGroup, addWholeGroup } = usePickerGroups({
+  examId: () => props.examId,
+  busy,
+  refresh,
+  onAdded: (count) => emit('added', count),
+});
 
 const typeLabel = (type: string): string => TYPE_LABEL[type] ?? type;
 
@@ -87,7 +95,7 @@ const rangeSummary = computed(() => {
   return parts.length === 0 ? '全部范围（本课程所有题）' : parts.join(' + ');
 });
 
-function filterPayload(): Record<string, string | string[]> {
+function filterPayload(): Record<string, string | string[] | number> {
   return {
     ...(scope.value === 'all' ? { scope: 'all' } : {}),
     ...(selected.value.books.length > 0 ? { books: selected.value.books } : {}),
@@ -96,6 +104,7 @@ function filterPayload(): Record<string, string | string[]> {
     ...(filters.types.length > 0 ? { types: filters.types } : {}),
     ...(filters.levels.length > 0 ? { levels: filters.levels } : {}),
     ...(filters.keyword ? { keyword: filters.keyword } : {}),
+    ...(groupId.value !== null ? { groupId: groupId.value } : {}),
   };
 }
 
@@ -238,9 +247,22 @@ function toggleFilter(list: string[], value: string): string[] {
   return list.includes(value) ? list.filter((x) => x !== value) : [...list, value];
 }
 
+function prevPage(): void {
+  filters.page -= 1;
+  void loadPool();
+}
+
+function nextPage(): void {
+  filters.page += 1;
+  void loadPool();
+}
+
 watch(
   () => props.examId,
-  () => void refresh(),
+  () => {
+    void loadGroups();
+    void refresh();
+  },
   { immediate: true },
 );
 </script>
@@ -274,6 +296,20 @@ watch(
               <option value="course">本课程</option>
               <option value="all">全库所有题（跨课程）</option>
             </select>
+          </label>
+
+          <!-- 题组（迁移 0029）：选中后题池只留该组题目，中栏可整组加入 -->
+          <label class="pk__field">
+            <span class="mc-label">题组</span>
+            <select class="mc-select" :value="groupId ?? ''" aria-label="按题组筛题" @change="onGroupChange">
+              <option value="">全部题组</option>
+              <option v-for="item in groups" :key="item.id" :value="String(item.id)">
+                {{ item.title }}（{{ item.total }} 题）
+              </option>
+            </select>
+            <span v-if="group" class="pk__hint mc-muted">
+              母题 {{ group.roleCounts.stem }} · 变式 {{ group.roleCounts.variant }}；中栏可整组加入。
+            </span>
           </label>
 
           <p v-if="(facets?.total ?? 0) === 0 && scope === 'course'" class="pk__hint mc-muted">
@@ -368,69 +404,32 @@ watch(
         </div>
       </aside>
 
-      <!-- 中：题目列表 -->
-      <section class="pk__main mc-card">
-        <div class="mc-card__header pk__listhead">
-          <span class="mc-card__title">题目（{{ pool?.total ?? 0 }}）</span>
-          <span class="mc-spacer" />
-          <span v-if="checked.length > 0" class="pk__count">已勾选 {{ checked.length }} 题</span>
-          <button
-            class="mc-btn mc-btn--primary mc-btn--sm"
-            type="button"
-            :disabled="busy || checked.length === 0"
-            @click="addChecked"
-          >
-            <Icon name="plus" :size="16" />
-            加入试卷（{{ checked.length }}）
-          </button>
-        </div>
-        <div class="mc-card__body mc-col">
-          <QuestionTable
-            v-model:checked="checked"
-            :questions="pool?.questions ?? []"
-            :in-paper="inPaper"
-            :loading="loading"
-            :total="pool?.total ?? 0"
-            :page-size="filters.pageSize"
-            :type-label="typeLabel"
-            @select-all-matched="addAllMatched"
-            @add="addOne"
-            @switch-scope="
-              scope = 'all';
-              refresh();
-            "
-            @view="(row) => (viewRow = row)"
-          />
-
-          <div class="pk__foot">
-            <span class="mc-muted">第 {{ filters.page }} 页 · 每页 {{ filters.pageSize }} 题</span>
-            <button
-              class="mc-btn mc-btn--sm"
-              type="button"
-              :disabled="filters.page <= 1 || loading"
-              @click="
-                filters.page -= 1;
-                loadPool();
-              "
-            >
-              上一页
-            </button>
-            <button
-              class="mc-btn mc-btn--sm"
-              type="button"
-              :disabled="(pool?.questions.length ?? 0) < filters.pageSize || loading"
-              @click="
-                filters.page += 1;
-                loadPool();
-              "
-            >
-              下一页
-            </button>
-            <span class="mc-spacer" />
-            <span class="mc-muted">已选 {{ paper.length }} 题</span>
-          </div>
-        </div>
-      </section>
+      <!-- 中：题目列表（含题组的整组加入；列表区见 PickerList） -->
+      <PickerList
+        :questions="pool?.questions ?? []"
+        :checked="checked"
+        :in-paper="inPaper"
+        :loading="loading"
+        :total="pool?.total ?? 0"
+        :page="filters.page"
+        :page-size="filters.pageSize"
+        :busy="busy"
+        :type-label="typeLabel"
+        :group="group"
+        @update:checked="(value) => (checked = value)"
+        @add-checked="addChecked"
+        @add-all="addAllMatched"
+        @add-one="addOne"
+        @add-group="addWholeGroup"
+        @clear-group="clearGroup"
+        @switch-scope="
+          scope = 'all';
+          refresh();
+        "
+        @view="(row) => (viewRow = row)"
+        @prev-page="prevPage"
+        @next-page="nextPage"
+      />
 
       <!-- 右：已选试题篮 -->
       <PaperCart
@@ -532,28 +531,19 @@ watch(
   font-size: var(--mc-text-xs);
 }
 
-.pk__main {
-  min-width: 0;
-}
+/* 窄屏（含手机 390）：三区改单列，避免横向溢出；按钮保持 44 触控高度 */
+@media (max-width: 1180px) {
+  .pk__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
 
-.pk__listhead {
-  display: flex;
-  align-items: center;
-  gap: var(--mc-space-2);
-}
+  .pk__side {
+    position: static;
+    max-height: none;
+  }
 
-.pk__count {
-  font-size: var(--mc-text-sm);
-  color: var(--mc-primary-fg);
-  font-weight: var(--mc-font-medium);
-}
-
-.pk__foot {
-  display: flex;
-  align-items: center;
-  gap: var(--mc-space-2);
-  flex-wrap: wrap;
-  padding-top: var(--mc-space-2);
-  border-top: 1px solid var(--mc-border);
+  .pk__bar .mc-btn {
+    min-height: var(--mc-touch-target-mobile);
+  }
 }
 </style>

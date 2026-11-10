@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BankAdminHeader from './BankAdminHeader.vue';
+import BankViewSwitch from './BankViewSwitch.vue';
 import BankSidePanel from './BankSidePanel.vue';
 import BankListPanel from './BankListPanel.vue';
 import BankQuestionPanel from './BankQuestionPanel.vue';
 import BankPageDialogs from './BankPageDialogs.vue';
+import QuestionGroupsPanel from './QuestionGroupsPanel.vue';
 import { useBankCatalog, type BankCatalogDeps } from '@/composables/use-bank-catalog';
 import { useQuestionList } from '@/composables/use-question-list';
 import { useBankImport } from '@/composables/use-bank-import';
@@ -23,6 +25,8 @@ const catalogDeps: BankCatalogDeps = {
   clearQuestions: () => {},
 };
 const catalogApi = useBankCatalog(catalogDeps);
+/** 视图切换：题目（题库内的题）/ 题组（跨题库的母题 + 变式关联） */
+const bankView = ref<'questions' | 'groups'>('questions');
 /** 两个隐藏的文件输入框：模板 ref 必须由本组件持有，再把 ref 注入相关组合式函数 */
 const fileInput = ref<HTMLInputElement | null>(null);
 const qImageInput = ref<HTMLInputElement | null>(null);
@@ -86,6 +90,8 @@ onMounted(() => {
   void catalogApi.loadFolders();
   void catalogApi.loadCourseSummary();
   void catalogApi.loadBanks(false);
+  // 题组筛选下拉的候选：与「题组」视图读同一份关联数据
+  void questionApi.loadGroupOptions();
   // 指标卡片要用体检数据（服务端已预热 + 5 分钟缓存，约 20ms；失败不影响页面）
   void actionsApi.loadHealth(true);
 });
@@ -95,7 +101,9 @@ onMounted(() => {
   <section class="page mc-col">
     <BankAdminHeader :catalog="catalogApi" :questions="questionApi" :actions="actionsApi" />
 
-    <div class="layout">
+    <BankViewSwitch v-model="bankView" />
+
+    <div v-if="bankView === 'questions'" class="layout">
       <BankSidePanel :catalog="catalogApi" />
       <BankListPanel :catalog="catalogApi" :questions="questionApi" :actions="actionsApi" :practice="practiceApi" />
       <BankQuestionPanel
@@ -106,6 +114,9 @@ onMounted(() => {
         :practice="practiceApi"
       />
     </div>
+
+    <!-- 题组视图：跨题库的「母题 + 变式」关联，和题目视图共用顶部的题库体检 -->
+    <QuestionGroupsPanel v-else />
 
     <input
       ref="fileInput"

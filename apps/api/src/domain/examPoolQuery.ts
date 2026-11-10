@@ -22,6 +22,8 @@ export interface PoolFilters {
   levels?: ExamLevel[];
   keyword?: string;
   hasImage?: boolean;
+  /** 只看某个题组里的题（迁移 0029，组卷「整组挑题」用） */
+  groupId?: number;
   orderBy?: PoolOrderBy;
 }
 
@@ -57,6 +59,7 @@ function firstString(source: Record<string, unknown>, key: string): string | und
  */
 export function poolFiltersFrom(source: Record<string, unknown>): PoolFilters {
   const courseId = queryNumber(source, 'courseId');
+  const groupId = queryNumber(source, 'groupId');
   const types = listParam(source, 'types').filter((t) => TYPE_SET.has(t));
   const singleType = firstString(source, 'type');
   const levels = listParam(source, 'levels').filter((l): l is ExamLevel => LEVEL_SET.has(l));
@@ -64,6 +67,7 @@ export function poolFiltersFrom(source: Record<string, unknown>): PoolFilters {
   const keyword = firstString(source, 'keyword');
   return {
     ...(courseId === undefined ? {} : { courseId }),
+    ...(groupId === undefined ? {} : { groupId }),
     ...(singleType ? { type: singleType } : {}),
     ...(listParam(source, 'books').length > 0 ? { books: listParam(source, 'books') } : {}),
     ...(listParam(source, 'chapters').length > 0 ? { chapters: listParam(source, 'chapters') } : {}),

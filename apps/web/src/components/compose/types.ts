@@ -39,3 +39,11 @@ export interface ComposeQuestionRow {
   attempts?: number;
   error_rate?: number;
 }
+
+/** 题组（迁移 0029）：组卷左栏下拉与中栏「整组加入」共用的摘要 */
+export interface PickerGroupSummary {
+  id: number;
+  title: string;
+  total: number;
+  roleCounts: { stem: number; variant: number };
+}

@@ -86,6 +86,11 @@ export function buildQuestionFilter(filter?: QuestionFilter): { sql: string; par
     // 走部分索引 idx_questions_analysis_media_only，不再做字符串剥离
     clauses.push('analysis_media_only = 1');
   }
+  if (filter?.groupId !== undefined) {
+    // 题组筛选：子查询走 question_group_items 的主键（group_id 在最左列），只回题目 id
+    clauses.push('id IN (SELECT question_id FROM question_group_items WHERE group_id = ?)');
+    params.push(filter.groupId);
+  }
   return { sql: clauses.length > 0 ? ` AND ${clauses.join(' AND ')}` : '', params };
 }
 
