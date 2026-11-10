@@ -63,7 +63,7 @@ const actionsState = reactive(actionsApi);
     </template>
   </PageHeader>
 
-  <!-- 指标卡片行：先给全局规模感，再进入具体操作（对标学之思/超星的工作台形态） -->
+  <!-- 指标卡片行：先给全局规模感，再进入具体操作（对标主流学习平台的工作台形态） -->
   <BankOverviewHeader
     :binding="catalogState.binding"
     :question-total="actionsState.health ? actionsState.health.stats.total : null"

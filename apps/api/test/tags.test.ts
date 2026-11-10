@@ -551,3 +551,113 @@ describe('题组 updated_at（0030 顺带补齐）', () => {
     expect(indexOfSecond).toBeLessThan(indexOfFirst);
   });
 });
+
+/**
+ * 验收补充的 3 条回归用例：
+ *   ① 题组 + 标签同时筛（两个子查询取交集，不能互相覆盖）
+ *   ② 批量打标超过 2000 题在**校验阶段**就 400（不能先落一半）
+ *   ③ `tagMode=all` 时翻页与 total 一致（子查询分组 + 外层分页不能各算各的）
+ */
+describe('验收回归：题组×标签交集 / 批量上限 / all 模式分页', () => {
+  it('groupId 与 tagIds 同时传时取交集（tagMode=all 与 any 结果不同）', async () => {
+    const tagX = await createTag('交集标签X');
+    const tagY = await createTag('交集标签Y');
+    // 复用前面「any / all 筛选」里造好的题 10/11/12：10/11 进组，12 只在组外
+    await batch([10, 11], [tagX], 'add');
+    await batch([10], [tagY], 'add');
+    await batch([12], [tagX, tagY], 'add');
+
+    const groupRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/question-groups',
+      headers: { cookie: adminCookie },
+      payload: { title: '交集验证组' },
+    });
+    const groupId = json<{ id: number }>(groupRes).id;
+    await app.inject({
+      method: 'POST',
+      url: `/api/v1/question-groups/${groupId}/items`,
+      headers: { cookie: adminCookie },
+      payload: { questionIds: [10, 11], role: 'variant' },
+    });
+
+    // 组内 ∩ 同时含 X、Y → 只有 10（组外的 12 不算）
+    const allIds = await filteredIds(`groupId=${groupId}&tagIds=${tagX},${tagY}&tagMode=all`);
+    expect(allIds).toEqual([10]);
+
+    // 组内 ∩ 任意含 X 或 Y → 10、11
+    const anyIds = await filteredIds(`groupId=${groupId}&tagIds=${tagX},${tagY}&tagMode=any`);
+    expect(anyIds.sort((a, b) => a - b)).toEqual([10, 11]);
+
+    // 只按组筛（不带标签）→ 10、11；只按标签 all 筛（不带组）→ 10、12
+    const groupOnly = await filteredIds(`groupId=${groupId}`);
+    expect(groupOnly.sort((a, b) => a - b)).toEqual([10, 11]);
+    const tagOnly = await filteredIds(`tagIds=${tagX},${tagY}&tagMode=all`);
+    expect(tagOnly.sort((a, b) => a - b)).toEqual([10, 12]);
+  });
+
+  it('批量打标超过 2000 题返回 400，文案写明上限', async () => {
+    const tagId = await createTag('批量上限标签');
+    // 2001 个 id：校验在「查库判断存在」之前就按长度拒绝，不需要真的插 2001 道题
+    const tooMany = Array.from({ length: 2001 }, (_, index) => index + 1);
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/questions/tags',
+      headers: { cookie: adminCookie },
+      payload: { questionIds: tooMany, tagIds: [tagId], mode: 'add' },
+    });
+    expect(res.statusCode).toBe(400);
+    const message = json<{ error: { message: string } }>(res).error.message;
+    expect(message).toContain('2000');
+
+    // 边界：正好 2000 个 id 不会被「上限」拦下（这里因为题目不存在返回 400，但文案不同）
+    const justEnough = Array.from({ length: 2000 }, (_, index) => index + 1);
+    const ok = await app.inject({
+      method: 'POST',
+      url: '/api/v1/questions/tags',
+      headers: { cookie: adminCookie },
+      payload: { questionIds: justEnough, tagIds: [tagId], mode: 'add' },
+    });
+    expect(ok.statusCode).toBe(400);
+    expect(json<{ error: { message: string } }>(ok).error.message).not.toContain('2000 道题');
+  });
+
+  it('tagMode=all 时 page=2&pageSize=2 的翻页与 total 一致', async () => {
+    const tagA = await createTag('分页标签A');
+    const tagB = await createTag('分页标签B');
+    const ids = [30, 31, 32, 33, 34];
+    for (const id of ids) seedQuestion(id, `分页题 ${id}`);
+    await batch(ids, [tagA, tagB], 'add');
+
+    const pageOf = async (page: number): Promise<{ total: number; ids: number[] }> => {
+      const res = await app.inject({
+        method: 'GET',
+        url: `/api/v1/banks/1/questions?tagIds=${tagA},${tagB}&tagMode=all&page=${page}&pageSize=2`,
+        headers: { cookie: adminCookie },
+      });
+      expect(res.statusCode).toBe(200);
+      const body = json<{ total: number; questions: { id: number }[] }>(res);
+      return { total: body.total, ids: body.questions.map((q) => q.id) };
+    };
+
+    const first = await pageOf(1);
+    expect(first.total).toBe(5);
+    expect(first.ids).toEqual([30, 31]);
+
+    const second = await pageOf(2);
+    expect(second.total).toBe(5);
+    expect(second.ids).toEqual([32, 33]);
+
+    const third = await pageOf(3);
+    expect(third.total).toBe(5);
+    expect(third.ids).toEqual([34]);
+
+    // 同一条筛选在跨题库列表上的 total 必须和题库内一致
+    const global = await app.inject({
+      method: 'GET',
+      url: `/api/v1/questions?tagIds=${tagA},${tagB}&tagMode=all&page=2&pageSize=2`,
+      headers: { cookie: adminCookie },
+    });
+    expect(json<{ total: number }>(global).total).toBe(5);
+  });
+});

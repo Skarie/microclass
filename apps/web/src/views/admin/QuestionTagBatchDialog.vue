@@ -277,9 +277,19 @@ function submit(): void {
     max-height: none;
   }
 
+  /* 手机（390）触控目标：加/去标签切换按钮要 ≥44 */
+  .qtb__mode {
+    min-height: var(--mc-touch-target-mobile);
+  }
+
   .qtb__create {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  /* 竖排时 flex-basis 会变成高度：输入框保持控件默认高度，别被拉成 200px 高 */
+  .qtb__newinput {
+    flex: 0 0 auto;
   }
 }
 </style>

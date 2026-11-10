@@ -177,8 +177,9 @@ function remove(tagId: number): void {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  /* 桌面标准触控下限 24×24；移动端由下面 44px 兜底 */
+  width: 24px;
+  height: 24px;
   border: 0;
   border-radius: var(--mc-radius-pill);
   background: transparent;

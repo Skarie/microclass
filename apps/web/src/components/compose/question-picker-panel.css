@@ -99,3 +99,11 @@
     min-height: var(--mc-touch-target-mobile);
   }
 }
+
+/* 手机（390）触控目标：题型/难度 chip 也要 ≥44，桌面保持紧凑 */
+@media (max-width: 900px) {
+  .pk__chip {
+    min-height: var(--mc-touch-target-mobile);
+    padding: 0 var(--mc-space-3);
+  }
+}
