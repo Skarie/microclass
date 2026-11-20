@@ -308,9 +308,34 @@ cd microclass && git pull
 MC_VERSION=<新版本>
 docker build -f ops/docker/Dockerfile --build-arg MC_VERSION=$MC_VERSION -t microclass:$MC_VERSION .
 cd ops/docker && MC_VERSION=$MC_VERSION docker compose -f compose.evo4.yml up -d --force-recreate --no-deps api
-# 版本没变会继续用旧镜像，务必带上 MC_VERSION；compose 默认回退到 2.0.0
+# compose 现在要求 .env 必须有 MC_VERSION（缺了会直接报错，不再静默回退 2.0.0）
 docker compose logs -f --tail 100          # 观察迁移与启动
 ```
+
+> **NAS 图形界面里点「重构 / 重建」之前，务必确认部署目录的 `.env` 有 `MC_VERSION=<目标版本>`
+> 且该版本的镜像已经 `docker build` 出来。** 界面上的「重构」等价于 `docker compose up`，
+> 它只读 `.env`，不会再执行 `docker build`；`.env` 里版本写错（例如残留 `MC_VERSION=2.0.0`）
+> 就会去用旧镜像，表现为「页面主题/版本回退」。版本相关的重建请优先用：
+>
+> ```bash
+> cd /vol1/1000/microclass-deploy
+> cat .image-tag                      # 应有目标版本号
+> grep '^MC_VERSION=' .env            # 应与 .image-tag 一致
+> bash redeploy.sh                    # 会按 .image-tag 重建并校验运行镜像
+> ```
+>
+> 另外：本项目生产编排的 Compose 项目名是 `microclass-prod`（不是 `microclass`）。
+> 宿主机上若有历史部署 `/opt/microclass`（项目名 `microclass`，容器名恰为 **`microclass`**，
+> 镜像 `microclass:0.1`，映射 8091，是旧的 V1/V2 单文件应用），它一旦被启动/重建会抢占 8091
+> 并顶掉本项目网络，请停用并删除该容器：
+>
+> ```bash
+> docker stop microclass          # 停掉旧容器
+> docker rm microclass            # 删除旧容器（它自己的数据在卷 microclass_mcdata 里，删容器不影响该卷）
+> ```
+>
+> **以后只启动 `microclass-api`（由本目录 compose.evo4.yml 管理）；不要 `docker start microclass`、
+> 也不要在 NAS UI 里对名为 `microclass` 的项目点「启动/重构」。** 不要在同一台机器上同时跑两套。
 
 > 迁移在启动时自动执行且**纯加法**（只新增表/列/索引），因此旧版本代码仍能跑在新库上。
 
@@ -415,7 +440,15 @@ docker compose -f compose.evo4.yml logs -f --tail 100
 docker compose -f compose.evo4.yml restart
 docker compose -f compose.evo4.yml down            # 停止（数据卷保留）
 docker compose -f compose.evo4.yml up -d           # 更新镜像后重建
+
+# 重建前先对版本：两者必须一致，否则会起旧镜像（NAS UI 点「重构」同理）
+cat .image-tag && grep '^MC_VERSION=' .env
 ```
+
+> **同一台机器上不要保留第二套映射 8091 的旧部署**（例如 `/opt/microclass`，项目名 `microclass`）。
+> 它「重构」时会重建同名网络 `microclass_default`，让本项目的 `microclass-api` 直接 exit 128
+> （`network ... not found`）并抢走 8091，页面就会变成旧版。本项目项目名已改为
+> `microclass-prod`；旧部署请 `docker stop microclass` 并把 `restart` 调成 `"no"`。
 
 新增媒体目录：在 `compose.evo4.yml` 加一行 `- /宿主机路径:/容器内路径:ro` →
 `sudo docker compose -f compose.evo4.yml up -d`（重建容器，数据卷保留）→
