@@ -26,9 +26,21 @@ export class Db {
     return prepared;
   }
 
-  constructor(file: string) {
+  /**
+   * @param options.readOnly 只读连接（体检 worker 用）：不写 WAL/日志、不改库文件，
+   *   只开 busy_timeout 与内存缓存。写操作会由 SQLite 直接报错，避免 worker 误写。
+   */
+  constructor(file: string, options?: { readOnly?: boolean }) {
     if (file !== ':memory:') {
       fs.mkdirSync(path.dirname(file), { recursive: true });
+    }
+    if (options?.readOnly) {
+      this.handle = new DatabaseSync(file, { readOnly: true });
+      this.handle.exec('PRAGMA busy_timeout = 5000;');
+      this.handle.exec('PRAGMA temp_store = MEMORY;');
+      this.handle.exec('PRAGMA cache_size = -65536;');
+      this.handle.exec('PRAGMA mmap_size = 268435456;');
+      return;
     }
     this.handle = new DatabaseSync(file);
     this.handle.exec('PRAGMA journal_mode = WAL;');

@@ -19,14 +19,20 @@ const KIND_LABEL: Record<string, string> = {
 
 defineProps<{
   open: boolean;
-  health: BankHealth;
+  /** 可能为 null：冷缓存时接口先回 202，此时还没有结果 */
+  health: BankHealth | null;
   loading: boolean;
+  /** 体检在后台计算中（接口 202，迁移 0031）：不是错误 */
+  computing: boolean;
+  /** 加载/计算失败原因 */
+  error: string;
   diffBusy: boolean;
 }>();
 
 const emit = defineEmits<{
   close: [];
   refresh: [];
+  retry: [];
   'show-media-only': [];
   recalc: [];
   calibrate: [];
@@ -40,8 +46,20 @@ function pct(part: number, total: number): string {
 
 <template>
   <AppModal :open="open" :title="`题库体检（${health?.scope.name ?? '全库'}）`" width="920px" @close="emit('close')">
-    <div v-if="loading && !health" class="loading"><div class="mc-skeleton loading__row" /></div>
+    <!-- 202（后台计算中）不是错误：给说明 + 可继续操作；有旧结果时下方照常展示旧数据 -->
+    <div v-if="computing && !health" class="health__state">
+      <p class="mc-muted">体检计算中（后台进行，可继续操作），完成后自动刷新。</p>
+      <button class="mc-btn mc-btn--soft mc-btn--sm" type="button" @click="emit('retry')">立即重试</button>
+    </div>
+    <div v-else-if="error && !health" class="health__state">
+      <p class="mc-error-text">体检数据加载失败：{{ error }}</p>
+      <button class="mc-btn mc-btn--soft mc-btn--sm" type="button" @click="emit('retry')">重试</button>
+    </div>
+    <div v-else-if="loading && !health" class="loading"><div class="mc-skeleton loading__row" /></div>
     <div v-else-if="health" class="mc-col health__body">
+      <p v-if="computing" class="mc-muted health__computing">
+        体检计算中（后台进行，可继续操作）；下面暂为上次结果，完成后自动刷新。
+      </p>
       <div class="mc-grid mc-grid--stats">
         <div class="metric">
           <div class="metric__value">{{ health.stats.total }}</div>
@@ -139,6 +157,28 @@ function pct(part: number, total: number): string {
 </template>
 
 <style scoped>
+.health__state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--mc-space-3);
+  padding: var(--mc-space-8) var(--mc-space-4);
+  text-align: center;
+}
+
+.health__state p {
+  margin: 0;
+}
+
+.health__computing {
+  margin: 0;
+  padding: var(--mc-space-2) var(--mc-space-3);
+  border-radius: var(--mc-radius);
+  background: var(--mc-primary-soft);
+  color: var(--mc-primary-fg);
+  font-size: var(--mc-text-sm);
+}
+
 .metric__link {
   margin-left: 8px;
   color: var(--mc-primary-fg);

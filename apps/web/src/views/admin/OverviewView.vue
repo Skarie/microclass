@@ -12,6 +12,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { api } from '@/api/client';
 import { errorMessage } from '@/composables/useAsync';
+import { useBankHealthPoll } from '@/composables/use-bank-health-poll';
 import { useAuthStore } from '@/stores/auth';
 import { useToastStore } from '@/stores/toast';
 import Icon from '@/components/Icon.vue';
@@ -31,21 +32,6 @@ interface CoursesResponse {
   orphans: { total: number; finished: number; quiz: number };
 }
 
-interface HealthResponse {
-  scope: { bankId: number | null; name: string };
-  stats: {
-    total: number;
-    missingDifficulty: number;
-    emptyAnswer: number;
-    mediaOnlyAnalysis: number;
-    duplicateGroups: number;
-    duplicateQuestions: number;
-    conflictGroups: number;
-    noFingerprint: number;
-  };
-  cachedAt: number;
-}
-
 interface ConflictsResponse {
   counts: { pending: number; resolved: number; ignored: number; total: number };
 }
@@ -62,12 +48,15 @@ interface Todo {
 
 const courses = ref<Course[]>([]);
 const orphans = ref<CoursesResponse['orphans']>({ total: 0, finished: 0, quiz: 0 });
-const health = ref<HealthResponse | null>(null);
+/** 体检：持久缓存 + 后台 worker（迁移 0031）；冷缓存先回 202，组件自动轮询 */
+const healthPoll = useBankHealthPoll({ limit: 5 });
+const health = healthPoll.health;
+const healthComputing = healthPoll.computing;
 const conflicts = ref<ConflictsResponse['counts'] | null>(null);
 const users = ref<User[]>([]);
 const loading = ref(true);
-const healthLoading = ref(false);
-const healthError = ref('');
+const healthLoading = computed(() => healthPoll.loading.value);
+const healthError = healthPoll.error;
 
 const lessonsTotal = ref(0);
 
@@ -104,17 +93,9 @@ async function loadCore(): Promise<void> {
   }
 }
 
-/** 体检数据：走服务端 5 分钟缓存；只有点「重新体检」才显式 refresh=1 */
+/** 体检数据：走服务端持久缓存 + 后台 worker（迁移 0031）；「重新体检」= refresh=1 强制重算 */
 async function loadHealth(refresh = false): Promise<void> {
-  healthLoading.value = true;
-  healthError.value = '';
-  try {
-    health.value = await api.get<HealthResponse>('/banks/health', { limit: 5, ...(refresh ? { refresh: 1 } : {}) });
-  } catch (e) {
-    healthError.value = errorMessage(e);
-  } finally {
-    healthLoading.value = false;
-  }
+  await healthPoll.load(refresh);
 }
 
 function fmtTime(seconds: number): string {
@@ -189,9 +170,11 @@ const questionStat = computed(() =>
 );
 
 const healthHint = computed(() => {
-  if (healthLoading.value && !health.value) return '体检数据加载中…';
-  if (!health.value) return healthError.value ? '体检数据加载失败' : '体检数据待加载';
-  return `题库体检缓存于 ${fmtTime(health.value.cachedAt)}`;
+  if (health.value) return `题库体检缓存于 ${fmtTime(health.value.cachedAt)}`;
+  if (healthComputing.value) return '体检计算中（后台进行）…';
+  if (healthLoading.value) return '体检数据加载中…';
+  if (healthError.value) return '体检数据加载失败';
+  return '体检数据待加载';
 });
 
 onMounted(async () => {
@@ -209,9 +192,14 @@ onMounted(async () => {
       :breadcrumb="[{ label: '首页', to: '/' }, { label: '教学管理' }, { label: '总览' }]"
     >
       <template #actions>
-        <button class="mc-btn mc-btn--sm" type="button" :disabled="healthLoading" @click="loadHealth(true)">
+        <button
+          class="mc-btn mc-btn--sm"
+          type="button"
+          :disabled="healthLoading || healthComputing"
+          @click="loadHealth(true)"
+        >
           <Icon name="shield" :size="16" />
-          {{ healthLoading ? '体检中…' : '重新体检' }}
+          {{ healthComputing ? '体检计算中…' : healthLoading ? '体检中…' : '重新体检' }}
         </button>
         <button class="mc-btn mc-btn--sm" type="button" :disabled="loading" @click="loadCore()">
           <Icon name="refresh" :size="16" />
@@ -219,6 +207,12 @@ onMounted(async () => {
         </button>
       </template>
     </PageHeader>
+
+    <!-- 冷缓存时接口回 202（后台 worker 计算中）：明确告诉老师「可继续操作」，完成后自动刷新 -->
+    <p v-if="healthComputing" class="overview__note">
+      <Icon name="shield" :size="16" />
+      体检计算中（后台进行，可继续操作），完成后本页数字自动刷新；也可以先去处理其他事项。
+    </p>
 
     <div class="overview__kpis">
       <OverviewKpis
@@ -236,7 +230,9 @@ onMounted(async () => {
       :loading="loading"
       :health-error="healthError"
       :health-loading="healthLoading"
+      :health-computing="healthComputing"
       :cached-text="health ? fmtTime(health.cachedAt) : ''"
+      @retry="loadHealth(true)"
     />
 
     <LinksCard :is-admin="auth.isAdmin" />
@@ -253,6 +249,20 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: var(--mc-space-4);
+}
+
+/* 202「体检计算中」提示条：主色软底，不是错误 */
+.overview__note {
+  display: flex;
+  align-items: center;
+  gap: var(--mc-space-2);
+  margin: 0;
+  padding: var(--mc-space-3) var(--mc-space-4);
+  border-radius: var(--mc-radius);
+  background: var(--mc-primary-soft);
+  color: var(--mc-primary-fg);
+  font-size: var(--mc-text-sm);
+  line-height: var(--mc-leading-relaxed);
 }
 
 .overview :deep(.ph) {

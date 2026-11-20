@@ -14,13 +14,41 @@ import { parseBankHealthQuery, type BankHealthQuery } from './bankQuery.js';
 
 export async function registerBankHealthRoutes(app: FastifyInstance, deps: Deps): Promise<void> {
   /**
-   * 题库体检（教师/管理员）：标准化元数据覆盖率 + 质量统计 + 重复题明细；
-   * 结果缓存 5 分钟，`refresh=1` 强制重算。
+   * 题库体检（教师/管理员）：标准化元数据覆盖率 + 质量统计 + 重复题明细。
+   *
+   * 全库（不带 bankId）不再同步扫库（迁移 0031）：命中持久缓存直接 200；
+   * 否则触发后台 worker 并**立即返回 202** `{status:'computing', startedAt, retryAfterMs}`，
+   * 前端每 3s 轮询 `/banks/health/status`。带 bankId 的按库体检体量小，仍同步返回 200。
+   * `refresh=1` 强制重算（返回 202）并写审计 `bank.health.refresh`。
    */
   app.get('/banks/health', async (req, reply) => {
-    requireTeacherOrAdmin(req, reply);
+    const actor = requireTeacherOrAdmin(req, reply);
     const { bankId, limit, refresh } = parseBankHealthQuery(req.query as BankHealthQuery);
-    return deps.bankService.health(bankId, limit, { refresh });
+    if (bankId !== undefined) {
+      return deps.bankService.health(bankId, limit, { refresh });
+    }
+    if (refresh) {
+      deps.audit.write({
+        actorId: actor.id,
+        actorName: actor.username,
+        action: 'bank.health.refresh',
+        targetType: 'bank_health',
+        targetId: 'all',
+        detail: { limit },
+      });
+    }
+    const result = deps.bankHealth.get({ refresh });
+    if (result.status === 'computing') return reply.code(202).send(result);
+    return result;
+  });
+
+  /**
+   * 体检状态（轻量，不扫库）：前端轮询用。
+   * 202 之后每 3s 调一次，ready 时再拉 `/banks/health` 拿全量结果。
+   */
+  app.get('/banks/health/status', async (req, reply) => {
+    requireTeacherOrAdmin(req, reply);
+    return deps.bankHealth.status();
   });
 
   /**

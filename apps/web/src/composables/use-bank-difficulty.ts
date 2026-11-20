@@ -3,13 +3,17 @@
  *
  * 从 use-bank-actions 抽出：体检数据同时供顶部 KPI 和体检弹窗使用，
  * 难度面板与体检弹窗共用「先关体检再开下一层」的规则。
+ *
+ * 体检接口自 2.3.1 起是异步契约（迁移 0031）：冷缓存先回 202，后台 worker 算完再给结果；
+ * 轮询与阶段状态收在 `use-bank-health-poll`，这里只把状态转成组件用的字段。
  */
-import { ref, type ComputedRef } from 'vue';
+import { computed, ref, type ComputedRef } from 'vue';
 import { api } from '@/api/client';
 import { errorMessage } from '@/composables/useAsync';
+import { useBankHealthPoll } from '@/composables/use-bank-health-poll';
 import { useToastStore } from '@/stores/toast';
 import type { Bank } from '@/api/types';
-import type { BankHealth, DifficultyPreview } from '@/views/admin/bankTypes';
+import type { DifficultyPreview } from '@/views/admin/bankTypes';
 
 interface DifficultyApplyResult {
   scored: number;
@@ -30,18 +34,15 @@ export function useBankDifficulty(deps: BankDifficultyDeps) {
 
   /* ---------------- 题库体检（标准化与质量） ---------------- */
   const healthOpen = ref(false);
-  const healthLoading = ref(false);
-  const health = ref<BankHealth | null>(null);
+  const healthPoll = useBankHealthPoll({ limit: 10 });
+  const health = healthPoll.health;
+  const healthLoading = computed(() => healthPoll.loading.value);
+  const healthComputing = healthPoll.computing;
+  const healthError = healthPoll.error;
 
   async function loadHealth(silent = false): Promise<void> {
-    healthLoading.value = true;
-    try {
-      health.value = await api.get<BankHealth>('/banks/health', { limit: 10 });
-    } catch (e) {
-      if (!silent) toast.error(errorMessage(e));
-    } finally {
-      healthLoading.value = false;
-    }
+    await healthPoll.load();
+    if (!silent && healthPoll.error.value) toast.error(healthPoll.error.value);
   }
 
   function toggleHealth(): void {
@@ -121,6 +122,11 @@ export function useBankDifficulty(deps: BankDifficultyDeps) {
     healthOpen,
     healthLoading,
     health,
+    /** 体检正在后台计算（202）：界面显示「体检计算中（后台进行，可继续操作）」 */
+    healthComputing,
+    healthError,
+    /** 失败/手动重试（refresh=1 强制重算） */
+    retryHealth: healthPoll.retry,
     loadHealth,
     toggleHealth,
     diffOpen,

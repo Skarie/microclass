@@ -4,6 +4,28 @@
 
 ## [Unreleased]
 
+### 2.3.1：题库体检改为后台 worker（修复冷缓存全站卡死，2026-11-20）
+
+**问题**：`GET /api/v1/banks/health` 是同步驱动的 SQLite 全表聚合（生产 39.6 万题 / 库 1.2GB、
+NAS 机械盘），冷缓存时把 Node 事件循环占住约 **6.5 分钟**：期间所有接口超时、健康检查 unhealthy，
+而管理端「总览」首页恰好会请求它（缓存键 `bankId|limit`，预热用的 limit 与总览的 limit 不同，等于必中冷缓存）。
+
+**改法**：
+
+- 迁移 `0031_bank_health_cache.sql`：单行表 `bank_health_cache(id CHECK(id=1), computed_at, payload)` 持久缓存（进程重启保留）；
+- 体检聚合搬进 `worker_threads`（自己的只读 SQLite 连接，`apps/api/src/workers/bankHealthWorker.ts`），主线程不再阻塞；
+- 接口语义：缓存未过期（TTL 24h）→ 200 全量结果；否则触发一次 worker 并**立即 202**
+  `{status:'computing', startedAt, retryAfterMs:3000}`；新增轻量 `GET /banks/health/status`（ready/computing/stale）；
+  `?refresh=1` 强制重算（教师/管理员，审计 `bank.health.refresh`）；同一时刻只允许一个 worker；
+- 启动预热：listen 后 30s 检查缓存，过期才在后台触发（不再阻塞启动）；
+- 前端：管理端总览与题库体检弹窗把 202 当正常中间态 —— 显示「体检计算中（后台进行，可继续操作）」，
+  每 3s 轮询 status，完成后自动刷新；失败显示原因 + 重试按钮；
+- 兼容：带 `bankId` 的按库体检体量小，仍同步 200，旧契约不变。
+
+**性能**：冷缓存时 `/banks/health` < 200ms 返回 202，期间 `/healthz` 仍 200（旧实现会整体卡住）；
+worker 算完写缓存，之后请求直接命中（实测预热结果 `ms≈388000` 的那次阻塞不再发生在请求线程）。
+**质量**：单测 +10（202/缓存命中/过期/status/refresh 权限/并发只起一个 worker/结果落库/单行表约束/耗时断言）。
+
 ### 2.3.0：题组与变式 + 自由标签与高级检索（2026-11-11）
 
 **版本**：2.2.1 → 2.3.0（P0「题组 / 变式关联」+ P1「自由标签与高级检索」，均为净室自主实现，未引入第三方代码）

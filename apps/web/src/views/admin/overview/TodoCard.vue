@@ -22,8 +22,12 @@ defineProps<{
   loading: boolean;
   healthError: string;
   healthLoading: boolean;
+  /** 体检在后台计算中（接口 202，迁移 0031）：不是错误 */
+  healthComputing: boolean;
   cachedText: string;
 }>();
+
+const emit = defineEmits<{ retry: [] }>();
 </script>
 
 <template>
@@ -41,7 +45,13 @@ defineProps<{
     </div>
 
     <div class="mc-card__body">
-      <p v-if="healthError" class="mc-error-text">体检数据加载失败：{{ healthError }}</p>
+      <!-- 202 是正常中间态：说明「可继续操作」，完成后自动刷新 -->
+      <p v-if="healthComputing" class="todo__computing">体检计算中（后台进行，可继续操作），完成后这里会自动刷新。</p>
+
+      <div v-if="healthError" class="todo__error">
+        <span class="mc-error-text">体检数据加载失败：{{ healthError }}</span>
+        <button class="mc-btn mc-btn--soft mc-btn--sm" type="button" @click="emit('retry')">重试</button>
+      </div>
 
       <p v-if="loading" class="mc-skeleton todo__loading" />
 
@@ -81,6 +91,24 @@ defineProps<{
 
 .todo__cache {
   text-align: right;
+}
+
+/* 202「体检计算中」：主色软底提示，不是错误 */
+.todo__computing {
+  margin: 0 0 var(--mc-space-2);
+  padding: var(--mc-space-2) var(--mc-space-3);
+  border-radius: var(--mc-radius);
+  background: var(--mc-primary-soft);
+  color: var(--mc-primary-fg);
+  font-size: var(--mc-text-sm);
+}
+
+.todo__error {
+  display: flex;
+  align-items: center;
+  gap: var(--mc-space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--mc-space-2);
 }
 
 @media (max-width: 640px) {

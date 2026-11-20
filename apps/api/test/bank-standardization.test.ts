@@ -6,12 +6,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { buildApp } from '../src/app.js';
+import { buildApp, type BuiltApp } from '../src/app.js';
 import { loadConfig } from '../src/config/env.js';
 import { Db } from '../src/db/client.js';
 import { questionFingerprint } from '../src/domain/question.js';
 
 let app: FastifyInstance;
+let built: BuiltApp;
 let dataDir: string;
 let db: Db;
 let cookie = '';
@@ -34,7 +35,7 @@ beforeAll(async () => {
     MC_ADMIN_PASS: 'admin123',
   });
   db = new Db(':memory:');
-  const built = await buildApp(config, { db });
+  built = await buildApp(config, { db });
   app = built.app;
   await app.ready();
   const login = await app.inject({
@@ -341,14 +342,22 @@ describe('难度配额组卷', () => {
 
 describe('题库体检', () => {
   it('全库体检：元数据覆盖率、难度缺失、重复题与答案冲突', async () => {
+    // 迁移 0031 起：全库体检走「持久缓存 + 后台 worker」，冷缓存先回 202，算完再取
+    const cold = await app.inject({ method: 'GET', url: '/api/v1/banks/health', headers: { cookie } });
+    expect(cold.statusCode).toBe(202);
+    expect(json<{ status: string }>(cold).status).toBe('computing');
+    await built.deps.bankHealth.whenIdle();
+
     const res = await app.inject({ method: 'GET', url: '/api/v1/banks/health', headers: { cookie } });
     expect(res.statusCode).toBe(200);
     const body = json<{
+      status: string;
       stats: { total: number; missingDifficulty: number; duplicateGroups: number; conflictGroups: number };
       metadata: { withSubject: number; withBook: number; withPoint: number; withHash: number };
       duplicates: { n: number; answers: number }[];
       kinds: { kind: string; questions: number }[];
     }>(res);
+    expect(body.status).toBe('ready');
     expect(body.stats.total).toBeGreaterThanOrEqual(5);
     expect(body.stats.missingDifficulty).toBe(3); // 初始三个题库各自的第 1 题都没标难度
     expect(body.stats.duplicateGroups).toBe(1); // 三条同题干

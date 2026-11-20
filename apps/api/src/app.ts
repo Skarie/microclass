@@ -43,6 +43,8 @@ import { MediaRootService } from './services/mediaRootService.js';
 import { StorageService } from './services/storageService.js';
 import { QuestionMediaStore } from './services/questionMediaStore.js';
 import { BankService } from './services/bankService.js';
+import { createBankHealthCoordinator } from './services/bankHealthSetup.js';
+import type { BankHealthCoordinator } from './services/bankHealthCoordinator.js';
 import { QuestionConflictService } from './services/questionConflictService.js';
 import { DifficultyService } from './services/difficultyService.js';
 import { QuizService } from './services/quizService.js';
@@ -80,6 +82,8 @@ export interface Deps {
   knowledgeImportService: KnowledgeImportService;
   knowledgeMedia: KnowledgeMediaStore;
   bankService: BankService;
+  /** 全库体检：持久缓存 + 后台 worker + 202 语义（迁移 0031） */
+  bankHealth: BankHealthCoordinator;
   conflictService: QuestionConflictService;
   difficultyService: DifficultyService;
   quizService: QuizService;
@@ -107,7 +111,7 @@ export interface BuiltApp {
   migrations: MigrateResult;
 }
 
-export function buildDeps(config: AppConfig, db: Db): Deps {
+export function buildDeps(config: AppConfig, db: Db, options?: { inlineHealthRunner?: boolean }): Deps {
   const users = new UserRepository(db);
   const settings = new SettingsRepository(db);
   const audit = new AuditRepository(db);
@@ -159,6 +163,11 @@ export function buildDeps(config: AppConfig, db: Db): Deps {
   const bankService = new BankService(banks, questions, lessons, audit, storage, questionMedia, difficultyService);
   const conflictService = new QuestionConflictService(questionConflicts, questions, audit);
   const quizService = new QuizService(questions, attempts, wrongs, lessons, progress, lessonService);
+  /**
+   * 全库体检：生产用独立 worker 线程（只读连接）算、结果写持久缓存；测试注入内存库时用进程内 runner。
+   * 装配细节见 services/bankHealthSetup（app.ts 受行数守卫约束，只保留一行创建）。
+   */
+  const bankHealth = createBankHealthCoordinator(db, config.dataDir, { inline: options?.inlineHealthRunner });
   const questionStats = new QuestionStatsRepository(db);
   const analyticsService = new AnalyticsService(new AnalyticsRepository(db));
   const examService = new ExamService(exams, courses, audit, questions, questionMedia);
@@ -186,6 +195,7 @@ export function buildDeps(config: AppConfig, db: Db): Deps {
     knowledgeImportService,
     knowledgeMedia,
     bankService,
+    bankHealth,
     conflictService,
     difficultyService,
     quizService,
@@ -207,7 +217,8 @@ export function buildDeps(config: AppConfig, db: Db): Deps {
 export async function buildApp(config: AppConfig, options?: { db?: Db }): Promise<BuiltApp> {
   const db = options?.db ?? openDb(config.dataDir);
   const migrations = runMigrations(db, config.migrationsDir);
-  const deps = buildDeps(config, db);
+  // 测试注入内存库时用进程内体检 runner；真实部署用 worker 线程（不阻塞主线程）
+  const deps = buildDeps(config, db, { inlineHealthRunner: options?.db !== undefined });
 
   /**
    * 周期性 checkpoint WAL：-wal 文件在 checkpoint 后只会复用、不会自动缩小，
@@ -362,7 +373,7 @@ export async function buildApp(config: AppConfig, options?: { db?: Db }): Promis
   });
 
   app.addHook('onReady', async () => {
-    warmBankHealth(app, deps.bankService);
+    warmBankHealth(app, deps.bankHealth);
   });
 
   return { app, deps, migrations };

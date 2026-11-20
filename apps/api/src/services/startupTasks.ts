@@ -5,7 +5,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { AppConfig } from '../config/env.js';
 import type { MediaOptimizeService } from './mediaOptimizeService.js';
-import type { BankService } from './bankService.js';
+import type { BankHealthCoordinator } from './bankHealthCoordinator.js';
 
 /** 遍历所有媒体根做一次 faststart（单目录失败不影响其它） */
 function sweepAll(faststart: MediaOptimizeService, config: AppConfig): void {
@@ -32,19 +32,20 @@ export function startFaststartSweeps(faststart: MediaOptimizeService, config: Ap
 }
 
 /**
- * **启动预热**：容器刚起来时页缓存是空的，而「题库体检」要把全库统计跑一遍
- * （真机实测冷缓存 69 秒，用户看到的就是"卡死"；热缓存只要几百毫秒）。
- * 这里在服务就绪后**后台**算一次并写进内存缓存，让第一次点击体检的人直接命中缓存。
- * 预热失败不影响启动（只在日志里留一条）。
+ * **启动预热**：服务就绪后 30 秒检查体检缓存，过期就在后台 worker 里算一次。
+ *
+ * 为什么不再在这里同步调用体检：全库聚合在生产（39.6 万题 / 库 1.2GB、NAS 机械盘）要 6 分钟级，
+ * 同步跑会把事件循环占住 —— 期间所有接口超时、健康检查变 unhealthy。
+ * 现在只「触发」不「等待」：worker 算完写持久缓存（迁移 0031），第一次请求直接命中。
  */
-export function warmBankHealth(app: FastifyInstance, banks: BankService): void {
-  setTimeout(() => {
+export function warmBankHealth(app: FastifyInstance, coordinator: BankHealthCoordinator): void {
+  const timer = setTimeout(() => {
     try {
-      const t0 = Date.now();
-      banks.health(undefined, 20);
-      app.log.info({ ms: Date.now() - t0 }, '题库体检预热完成');
+      coordinator.ensureFresh();
+      app.log.info('题库体检缓存检查完成（过期则在后台 worker 重算，不阻塞服务）');
     } catch (e) {
-      app.log.warn({ err: e instanceof Error ? e.message : String(e) }, '题库体检预热失败（忽略）');
+      app.log.warn({ err: e instanceof Error ? e.message : String(e) }, '题库体检缓存预热失败（忽略）');
     }
-  }, 1000).unref?.();
+  }, 30 * 1000);
+  timer.unref?.();
 }

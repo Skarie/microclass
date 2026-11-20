@@ -104,6 +104,8 @@ export interface BankHealth {
     sources: { source: string; questions: number }[];
     histogram: { bucket: number; questions: number }[];
   };
+  /** 结果写入缓存的时间（毫秒时间戳） */
+  cachedAt: number;
 }
 
 /** 清理重复题的预览结果 */
@@ -136,4 +138,32 @@ export interface DifficultyPreview {
     easiest: { id: number; stem: string; score: number; reasons: string }[];
     hardest: { id: number; stem: string; score: number; reasons: string }[];
   };
+}
+
+/* ---------------- 全库体检的异步契约（迁移 0031） ---------------- */
+
+/** 体检计算中（接口 202）：后台 worker 在算，前端每 3s 轮询状态 */
+export interface BankHealthComputing {
+  status: 'computing';
+  startedAt: number;
+  retryAfterMs: number;
+}
+
+/** `GET /banks/health/status` 的返回（轻量，不扫库） */
+export interface BankHealthStatusResponse {
+  status: 'ready' | 'computing' | 'stale';
+  /** 缓存时间（毫秒时间戳） */
+  computedAt?: number;
+  /** 本次计算开始时间（computing 时） */
+  startedAt?: number;
+  /** 最近一次计算失败的原因 */
+  error?: string;
+}
+
+/** 前端体检加载阶段：computing 是正常中间态，不是错误 */
+export type BankHealthPhase = 'idle' | 'loading' | 'computing' | 'ready' | 'error';
+
+/** 202 响应判断（不把 202 当错误） */
+export function isHealthComputing(body: unknown): body is BankHealthComputing {
+  return typeof body === 'object' && body !== null && (body as { status?: unknown }).status === 'computing';
 }

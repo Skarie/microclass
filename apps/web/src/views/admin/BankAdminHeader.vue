@@ -70,15 +70,19 @@ const actionsState = reactive(actionsApi);
     :empty-answer="actionsState.health ? actionsState.health.stats.emptyAnswer : null"
     @pick-unbound="catalogState.pickCourse('unbound')"
   />
-  <!-- 题库体检：弹窗展示，避免在页面中间插入整块导致布局跳动 -->
+  <!-- 题库体检：弹窗展示，避免在页面中间插入整块导致布局跳动。
+       冷缓存时接口回 202（后台计算中），此时也要能打开弹窗看进度，所以条件包含 computing/error -->
   <BankHealthPanel
-    v-if="actionsState.health"
+    v-if="actionsState.health || actionsState.healthComputing || actionsState.healthError"
     :open="actionsState.healthOpen"
     :health="actionsState.health"
     :loading="actionsState.healthLoading"
+    :computing="actionsState.healthComputing"
+    :error="actionsState.healthError"
     :diff-busy="actionsState.diffBusy"
     @close="actionsState.healthOpen = false"
     @refresh="actionsState.loadHealth()"
+    @retry="actionsState.retryHealth"
     @show-media-only="questionsState.showMediaOnlyQuestions"
     @recalc="actionsState.openDifficulty"
     @calibrate="actionsState.calibrateDifficulty"

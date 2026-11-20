@@ -16,7 +16,6 @@ import type { QuestionRepository } from '../db/repositories/questionRepository.j
 import type { SettingsRepository } from '../db/repositories/settingsRepository.js';
 import { AppError, type User } from '@microclass/shared';
 import {
-  DEFAULT_CUTS,
   LEVEL_LABEL,
   bucketFromScore,
   calibrateScore,
@@ -26,8 +25,10 @@ import {
   type DifficultyCuts,
 } from '../domain/difficulty.js';
 import { parseOptions } from '../domain/question.js';
+import { DIFFICULTY_CUTS_KEY, parseDifficultyCuts } from '../domain/difficultyCuts.js';
 
-const CUTS_KEY = 'difficulty_cuts';
+/** 难度阈值的 settings key（解析逻辑在 domain/difficultyCuts，worker 侧复用同一份） */
+const CUTS_KEY = DIFFICULTY_CUTS_KEY;
 
 export interface DifficultyPreview {
   scope: { bankId: number | null; name: string };
@@ -76,19 +77,7 @@ export class DifficultyService {
 
   /** 当前阈值：settings 里有就用它，否则用默认（与库里的 difficulty 保持一致） */
   cuts(): DifficultyCuts {
-    const raw = this.settings.get(CUTS_KEY);
-    if (!raw) return DEFAULT_CUTS;
-    try {
-      const parsed = JSON.parse(raw) as Partial<DifficultyCuts>;
-      const five = Array.isArray(parsed.five) && parsed.five.length === 4 ? parsed.five : DEFAULT_CUTS.five;
-      return {
-        easyMax: Number(parsed.easyMax ?? DEFAULT_CUTS.easyMax),
-        mediumMax: Number(parsed.mediumMax ?? DEFAULT_CUTS.mediumMax),
-        five: [five[0] ?? 24, five[1] ?? 36, five[2] ?? 50, five[3] ?? 66],
-      };
-    } catch {
-      return DEFAULT_CUTS;
-    }
+    return parseDifficultyCuts(this.settings.get(CUTS_KEY));
   }
 
   /** 难度现状（体检用）：分布 + 来源统计 */
