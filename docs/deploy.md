@@ -374,6 +374,58 @@ curl -s localhost:8091/api/v1/readyz
 
 > 备份 = `MC_DATA_DIR` 整目录（SQLite + uploads + 会话密钥）。**视频如果走媒体目录挂载，不在这里面**，需要你另行备份那些目录。
 
+### 5.5 同机旧版本清理（先备份卷，再删镜像 / 卷 / 旧目录）
+
+同一台机器跑过旧版（例如 `/opt/microclass` 那套 V1，容器名 `microclass`、镜像 `microclass:0.1`、
+数据卷 `microclass_mcdata`）时，可以按下面顺序清理。**铁律：先备份、再删除；生产用的
+`microclass_data` 卷与 `/vol1/1000/microclass-deploy` 永远不动。**
+
+```bash
+# 0) 盘点：确认 8091 是 microclass-api + 目标镜像，且待删卷没有容器引用
+docker ps -a --format '{{.Names}} | {{.Image}} | {{.Status}} | {{.Ports}}'
+docker images microclass --format '{{.Tag}} | {{.ID}} | {{.Size}} | {{.CreatedSince}}'
+docker volume ls | grep -i microclass
+docker ps -a --filter volume=microclass_mcdata -q          # 应无输出
+docker inspect microclass-api --format '{{.Config.Image}}' # 应为生产版本
+
+# 1) 备份（必须）：旧卷 + 旧目录，落到 /vol1/1000/microclass-backup
+mkdir -p /vol1/1000/microclass-backup
+TS=$(date +%Y%m%d-%H%M%S)
+docker run --rm --user 0:0 -v microclass_mcdata:/data:ro \
+  -v /vol1/1000/microclass-backup:/backup alpine:latest \
+  tar czf "/backup/microclass_mcdata-$TS.tar.gz" -C /data .
+tar czf "/vol1/1000/microclass-backup/opt-microclass-$TS.tar.gz" -C /opt microclass
+ls -lh /vol1/1000/microclass-backup/ && sha256sum /vol1/1000/microclass-backup/*.tar.gz
+
+# 2) 删旧镜像（只删确认废弃的标签；保留当前生产与上一版用于回滚）
+docker rmi microclass:0.1 microclass:2.2.0 microclass:2.0.0-prev-0912
+docker image prune -f                                      # 只清 dangling，不加 -a
+
+# 3) 删旧容器 / 卷 / 网络 / 旧目录（备份成功且确认无引用之后）
+docker rm -f microclass
+docker volume rm microclass_mcdata microclass_v2_preview
+docker network rm microclass_default
+rm -rf /opt/microclass
+
+# 4) 验证：只剩生产容器与保留镜像，接口正常
+docker ps -a --filter name=microclass --format '{{.Names}} | {{.Image}} | {{.Status}}'
+docker images microclass
+curl -s http://127.0.0.1:8091/api/v1/version && curl -s http://127.0.0.1:8091/api/v1/readyz
+```
+
+清理前还要确认旧目录没有被系统服务引用；有引用就**停止清理、先解绑**，不要强删：
+
+```bash
+systemctl list-units --all | grep -i microclass
+ls /etc/systemd/system | grep -i microclass
+ls /vol1/@appcenter /vol1/@appdata 2>/dev/null | grep -i microclass
+```
+
+> **保留清单（不要删）**：数据卷 `microclass_data`、部署目录 `/vol1/1000/microclass-deploy`、
+> 镜像 `microclass:<当前版本>` 与 `microclass:<上一版本>`（回滚用）、网络 `microclass-prod_default`、
+> 题库导入包目录 `/vol1/1000/microclass-bank-import`、V1 归档 `/vol1/1000/microclass-releases`（取证/回滚用）。
+> 备份默认留在 `/vol1/1000/microclass-backup/`，确认不再需要后再手工删。
+
 ---
 
 ## 6. 部署后自检清单
