@@ -4,7 +4,7 @@
  * 从 `bankRepository` 抽出：题库列表要 LEFT JOIN lessons / courses / 递归的
  * `bank_folders` 路径，SQL 比较长；放在独立模块后仓储文件保持在 300 行以内。
  */
-import type { Db } from '../client.js';
+import type { AsyncDb } from '../async.js';
 import { likeCI } from '../sql.js';
 import type { BankKind, BankRow } from './bankRepository.js';
 
@@ -108,7 +108,7 @@ function bankWhere(options?: BankListFilter): { where: string; params: unknown[]
  * 真机有 1.2 万个题库、接口一次只取前 300 条，若按 id 升序，老师刚建的题库
  * 必然落在 300 条之外 —— 建完就"消失"（已踩过）。倒序后新建的立即可见。
  */
-export function listBanks(db: Db, options?: BankListFilter): BankWithStats[] {
+export async function listBanks(db: AsyncDb, options?: BankListFilter): Promise<BankWithStats[]> {
   const { where, params } = bankWhere(options);
   const limit = Math.min(1000, Math.max(1, options?.limit ?? 1000));
   const offset = Math.max(0, options?.offset ?? 0);
@@ -120,12 +120,13 @@ export function listBanks(db: Db, options?: BankListFilter): BankWithStats[] {
 }
 
 /** 当前筛选条件下的题库总数（分页用） */
-export function countBanks(db: Db, options?: BankListFilter): number {
+export async function countBanks(db: AsyncDb, options?: BankListFilter): Promise<number> {
   const { where, params } = bankWhere(options);
-  return db.get<{ c: number }>(`SELECT COUNT(*) AS c FROM banks b${where}`, params)?.c ?? 0;
+  const row = await db.get<{ c: number }>(`SELECT COUNT(*) AS c FROM banks b${where}`, params);
+  return row?.c ?? 0;
 }
 
 /** 单条题库（详情用）：一次查齐派生字段，避免拉 1000 条再 filter */
-export function findBankWithStats(db: Db, id: number): BankWithStats | undefined {
+export async function findBankWithStats(db: AsyncDb, id: number): Promise<BankWithStats | undefined> {
   return db.get<BankWithStats>(`${FOLDER_PATH_CTE} ${BANK_SELECT} WHERE b.id = ?`, [id]);
 }

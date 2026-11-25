@@ -17,7 +17,7 @@ export async function registerBankCrudRoutes(app: FastifyInstance, deps: Deps): 
   app.get('/banks', async (req, reply) => {
     requireUser(req, reply);
     const filter = parseBankListQuery(req.query as BankListQuery);
-    return { banks: deps.bankService.list(filter), total: deps.bankService.countBanks(filter) };
+    return { banks: await deps.bankService.list(filter), total: await deps.bankService.countBanks(filter) };
   });
 
   app.post('/banks', { schema: { body: bankBodySchema } }, async (req, reply) => {
@@ -28,7 +28,7 @@ export async function registerBankCrudRoutes(app: FastifyInstance, deps: Deps): 
   /** 题库详情：题库本身 + 题目列表（学员只看得到不挂答案的视图） */
   app.get('/banks/:id', async (req, reply) => {
     requireUser(req, reply);
-    return deps.bankService.detail(bankIdOf(req));
+    return await deps.bankService.detail(bankIdOf(req));
   });
 
   app.put('/banks/:id', { schema: { body: bankBodySchema } }, async (req, reply) => {

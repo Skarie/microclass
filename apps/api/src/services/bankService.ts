@@ -61,17 +61,17 @@ export class BankService {
     this.bankExports = new BankExportService(banks, questions, media, this.bankImages);
   }
 
-  list(options?: BankListFilter): BankWithStats[] {
+  async list(options?: BankListFilter): Promise<BankWithStats[]> {
     return this.banks.list(options);
   }
 
   /** 当前筛选条件下的题库总数（配合分页） */
-  countBanks(options?: BankListFilter): number {
+  async countBanks(options?: BankListFilter): Promise<number> {
     return this.banks.count(options);
   }
 
-  detail(id: number): { bank: BankWithStats; questions: QuestionForViewer[] } {
-    const bank = this.banks.findWithStats(id);
+  async detail(id: number): Promise<{ bank: BankWithStats; questions: QuestionForViewer[] }> {
+    const bank = await this.banks.findWithStats(id);
     if (!bank) throw AppError.notFound('题库不存在');
     const rows = this.questions.listByBank(id);
     return {

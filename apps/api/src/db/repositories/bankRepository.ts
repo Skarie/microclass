@@ -84,18 +84,18 @@ export class BankRepository {
   }
 
   /** 题库列表（SQL 与派生字段见 `bankListQueries`） */
-  list(options?: BankListFilter): BankWithStats[] {
-    return listBanks(this.db, options);
+  async list(options?: BankListFilter): Promise<BankWithStats[]> {
+    return listBanks(this.adb(), options);
   }
 
   /** 当前筛选条件下的题库总数（分页用） */
-  count(options?: BankListFilter): number {
-    return countBanks(this.db, options);
+  async count(options?: BankListFilter): Promise<number> {
+    return countBanks(this.adb(), options);
   }
 
   /** 单条题库（详情用，含文件夹路径 / 课程名 / 课时名） */
-  findWithStats(id: number): BankWithStats | undefined {
-    return findBankWithStats(this.db, id);
+  async findWithStats(id: number): Promise<BankWithStats | undefined> {
+    return findBankWithStats(this.adb(), id);
   }
 
   /* ---------------- 课程 → 章节 → 小节 → 题库 目录（筛选与组卷挑题用） ---------------- */
