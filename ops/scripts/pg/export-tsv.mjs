@@ -42,7 +42,10 @@ const manifest = { source: dbPath, tables: {} };
 const startedAll = Date.now();
 
 for (const table of tables) {
-  const cols = db.prepare(`PRAGMA table_info("${table}")`).all().map((c) => c.name);
+  const cols = db
+    .prepare(`PRAGMA table_info("${table}")`)
+    .all()
+    .map((c) => c.name);
   const file = path.join(outDir, `${table}.tsv`);
   const ws = createWriteStream(file);
   const started = Date.now();
@@ -54,9 +57,7 @@ for (const table of tables) {
   const hasRowid = cols.includes('id');
   for (;;) {
     const page = hasRowid
-      ? db
-          .prepare(`SELECT * FROM "${table}" WHERE id > ? ORDER BY id LIMIT ${pageSize}`)
-          .all(lastRowid)
+      ? db.prepare(`SELECT * FROM "${table}" WHERE id > ? ORDER BY id LIMIT ${pageSize}`).all(lastRowid)
       : db.prepare(`SELECT * FROM "${table}" LIMIT ${pageSize} OFFSET ${rows}`).all();
     if (page.length === 0) break;
     const buf = [];
@@ -73,12 +74,12 @@ for (const table of tables) {
   await new Promise((r) => ws.end(r));
 
   manifest.tables[table] = { columns: cols, rows, file };
-  console.log(
-    `${table.padEnd(24)} ${String(rows).padStart(8)} 行  ${((Date.now() - started) / 1000).toFixed(1)}s`,
-  );
+  console.log(`${table.padEnd(24)} ${String(rows).padStart(8)} 行  ${((Date.now() - started) / 1000).toFixed(1)}s`);
 }
 
 writeFileSync(path.join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
-console.log(`\n合计 ${Object.values(manifest.tables).reduce((a, t) => a + t.rows, 0)} 行，用时 ${((Date.now() - startedAll) / 1000).toFixed(1)}s`);
+console.log(
+  `\n合计 ${Object.values(manifest.tables).reduce((a, t) => a + t.rows, 0)} 行，用时 ${((Date.now() - startedAll) / 1000).toFixed(1)}s`,
+);
 console.log(`产物目录: ${outDir}`);
 db.close();
