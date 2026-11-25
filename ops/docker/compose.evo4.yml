@@ -135,8 +135,10 @@ services:
           node -e "fetch('http://127.0.0.1:8091/api/v1/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
       interval: 30s
       timeout: 5s
-      retries: 3
-      start_period: 20s
+      # 部署/重启瞬间会有一段冷页加载 + IO 竞争窗口（2026-11-26 实测约 2 分钟），
+      # 给足 start_period 与重试次数，避免看门狗把正常启动误判成故障而重启。
+      retries: 5
+      start_period: 60s
     logging:
       driver: json-file
       options:
