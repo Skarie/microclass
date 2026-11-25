@@ -213,6 +213,8 @@ ssh <user>@<NAS-IP> 'cd /tmp && tar -xzf microclass-fpk-src.tar.gz && cd microcl
 appcenter-cli install-fpk /tmp/microclass/microclass.fpk
 ```
 
+> 生产环境（固定发布目录、初始密码、应用权限、Docker → FPK 数据迁移）的完整步骤见 3.5。
+
 ### 3.3 包内布局与运行时约定
 
 ```
@@ -239,6 +241,242 @@ cat /vol1/@appdata/microclass/info.log            # 启动日志
 /vol1/@appcenter/microclass/cmd/main status        # exit 0 运行中 / 3 未运行
 curl -s localhost:8092/api/v1/healthz              # 存活探针
 ```
+
+### 3.5 fnOS 应用（FPK）安装、权限与数据迁移
+
+> 本节按**已完成的一次真实部署**写成：应用中心安装 native 包，监听 **8092**，数据在
+> `/vol1/@appdata/microclass/data`。它与 Docker 生产（**8091**、数据卷 `microclass_data`）互不读写，
+> 可同机并存；但**同一份数据只能有一个进程写**（见 3.5.4）。
+
+#### 3.5.1 安装与升级
+
+前提：`nodejs_v22` 已安装（包的 `install_dep_apps` 会带上；缺失时先在应用中心装）：
+
+```bash
+ls -l /vol1/@appcenter/nodejs_v22/bin/node
+```
+
+安装与升级是**同一条命令**，换新包路径再执行一次即为升级（`cmd/upgrade_init` 会先备份数据目录到
+`/vol1/@appdata/microclass/backup/`，保留最近 5 份）：
+
+```bash
+# 首次安装
+sudo appcenter-cli install-fpk /vol1/1000/microclass-releases/microclass-2.3.1.fpk
+
+# 升级：换成新包路径，再执行同一条命令
+sudo appcenter-cli install-fpk /vol1/1000/microclass-releases/microclass-<新版本>.fpk
+```
+
+查看状态：
+
+```bash
+appcenter-cli list | grep -i microclass             # 已安装应用
+sudo /vol1/@appcenter/microclass/cmd/main status    # exit 0=运行中，3=未运行
+curl -fsS http://127.0.0.1:8092/api/v1/version      # 版本号应与安装包一致
+curl -fsS http://127.0.0.1:8092/api/v1/healthz      # {"status":"ok",...}
+```
+
+浏览器入口 `http://<NAS-IP>:8092/`。运行时路径与 Docker 的对应关系：
+
+| 项       | FPK（native 应用）                                              | Docker（生产，参考）                                                    |
+| -------- | --------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| 端口     | **8092**                                                        | 8091（另有 8093 历史入口）                                              |
+| 数据目录 | `/vol1/@appdata/microclass/data`（SQLite + uploads + 会话密钥） | 卷 `microclass_data`，宿主 `/vol1/docker/volumes/microclass_data/_data` |
+| 程序目录 | `/vol1/@appcenter/microclass`（升级整体替换，**不要放数据**）   | `/vol1/1000/microclass-deploy`                                          |
+| 日志     | `/vol1/@appdata/microclass/info.log`                            | `docker compose logs`                                                   |
+| 启停     | `cmd/main` 的 `start` / `stop` / `status`                       | `docker compose ... up -d` / `stop` / `restart`                         |
+
+> 两套**完全隔离**：端口、数据目录、进程都不同。FPK 的安装/升级/卸载不动 `microclass_data` 卷，
+> Docker 的重建也不动 `/vol1/@appdata/microclass`。需要同一份数据时只能迁移（3.5.4），
+> **不能**让两边同时指向同一个 `microclass.db`。
+
+#### 3.5.2 初始管理员
+
+账号固定为 `admin`。首次启动生成随机密码写入 `/vol1/@appdata/microclass/adminpass`（权限 600）：
+
+```bash
+sudo ls -l /vol1/@appdata/microclass/adminpass     # -rw------- ... adminpass
+sudo cat /vol1/@appdata/microclass/adminpass
+```
+
+- **首次登录后立即改密**：应用内「个人中心 → 修改密码」。
+- 该文件只在**首次创建管理员**时使用；改密后文件内容不会同步更新，别把它当密码管理器。
+- 升级、重启不会重置密码；重装包也不会丢账号（数据目录保留）。库里已有管理员时 `MC_ADMIN_PASS` 不生效。
+
+#### 3.5.3 应用权限（媒体共享目录）
+
+FPK 按 `config/privilege` 的 `run-as: package` 运行，默认读不到 NAS 共享目录。视频放在
+`/vol1/1000/JAVA课`、`/vol1/1000` 这类目录时，先授权：
+
+1. fnOS「**设置 → 应用权限 → 微课堂**」；
+2. 给要用的媒体共享目录勾选**读取**（播放只需读，不要给写）；
+3. 保存后**重启应用**，权限才会应用到新进程：
+
+```bash
+sudo /vol1/@appcenter/microclass/cmd/main stop
+sudo /vol1/@appcenter/microclass/cmd/main start
+sudo /vol1/@appcenter/microclass/cmd/main status
+```
+
+然后进「课程管理 → 媒体目录 → 添加媒体目录」，路径填 **NAS 真实路径**（native 应用没有容器映射），
+例如 `/vol1/1000/JAVA课`。用运行用户验证可读（能输出字节数即正常）：
+
+```bash
+FPK_USER=$(ps -o user= -p "$(cat /vol1/@appdata/microclass/app.pid)" | tr -d ' ')
+echo "FPK 运行用户: $FPK_USER"
+sudo -u "$FPK_USER" head -c 16 "/vol1/1000/JAVA课/示例.mp4" | wc -c
+```
+
+> 授权前已添加的目录同样受影响：授权并重启后，回媒体目录点一次「重新扫描」，文件数才会更新。
+> 权限不足时表现为目录文件数为 0，或播放/接口返回 403「文件不可读」。
+> `app.pid` 被 fnOS 清理时，运行用户可用 `stat -c '%U' /vol1/@appdata/microclass/data/microclass.db`
+> 或 `pgrep -af '/server/dist/server.js'` 反查（`ps -o user= -p <pid>`）。
+
+#### 3.5.4 把 Docker 生产数据迁到 FPK（可选，二选一）
+
+适用场景：让 8092 的 FPK 接管现有生产数据。**迁移窗口内两边都停，迁移后只保留一套对外服务。**
+SQLite 同一时刻只允许一个写者，两个进程同时写同一个库会 `database is locked`，甚至损坏数据 ——
+所以**禁止双写**，也不要把 FPK 的数据目录再挂进 Docker（或反过来）。
+
+前置：在 8091 后台记下课程 / 课时 / 题库数量，迁移后在 8092 对照；备份统一放
+`/vol1/1000/microclass-backup`（不要放进数据目录）。
+
+**① 备份 Docker 数据卷**
+
+```bash
+TS=$(date +%Y%m%d-%H%M%S)
+mkdir -p /vol1/1000/microclass-backup
+docker volume inspect microclass_data >/dev/null   # 卷必须存在，否则备份出来是空的
+docker run --rm -v microclass_data:/data \
+  -v /vol1/1000/microclass-backup:/backup alpine \
+  tar czf "/backup/docker-data-$TS.tar.gz" -C /data .
+ls -lh "/vol1/1000/microclass-backup/docker-data-$TS.tar.gz"
+```
+
+> 当前用户不在 `docker` 组时，给 `docker run` 加 `sudo`。宿主上的等价路径是
+> `/vol1/docker/volumes/microclass_data/_data`。备份后立即执行 ② 停写；若要求严格一致，
+> 也可把 ① 放到 ② 之后（服务已停时快照最干净）。
+
+**② 停 Docker（只停 api，卷保留）**
+
+```bash
+cd /vol1/1000/microclass-deploy
+docker compose -f compose.evo4.yml stop api
+docker compose -f compose.evo4.yml ps        # api 应为 exited
+```
+
+**③ 记录 FPK 运行用户，再停 FPK**
+
+`cmd/main stop` 会删除 `app.pid`，所以**先记录运行用户**：
+
+```bash
+FPK_USER=$(ps -o user= -p "$(cat /vol1/@appdata/microclass/app.pid)" | tr -d ' ')
+echo "FPK 运行用户: $FPK_USER"
+sudo /vol1/@appcenter/microclass/cmd/main stop
+```
+
+pid 文件已被 fnOS 清理时，用数据目录现有文件的属主判断（由服务进程创建）：
+
+```bash
+stat -c '%U:%G' /vol1/@appdata/microclass/data/microclass.db
+# 或先 pgrep -af '/server/dist/server.js' 找到 pid，再 ps -o user= -p <pid>
+```
+
+**④ 复制数据并修正属主**
+
+Docker 卷里的文件属主是**容器运行用户**（镜像默认 10001，生产 compose 也可能写成 `1000:1000`），
+FPK 是 package 用户，两者不同，直接拷会读不了/写不了：
+
+```bash
+sudo cp -a /vol1/docker/volumes/microclass_data/_data/. /vol1/@appdata/microclass/data/
+sudo chown -R "$FPK_USER":"$FPK_USER" /vol1/@appdata/microclass/data
+sudo ls -ln /vol1/@appdata/microclass/data | head
+```
+
+> 运行用户与主组同名时上面的 `chown` 即可；不同名时用
+> `sudo chown -R "$FPK_USER:$(id -gn "$FPK_USER")" /vol1/@appdata/microclass/data`。
+
+**⑤ 启动 FPK 并验收**
+
+```bash
+sudo /vol1/@appcenter/microclass/cmd/main start
+sudo /vol1/@appcenter/microclass/cmd/main status
+curl -fsS http://127.0.0.1:8092/api/v1/version
+curl -fsS http://127.0.0.1:8092/api/v1/healthz
+```
+
+用**迁移前 Docker 侧的管理员账号**登录（不是 `adminpass` 里的初始密码——那只对应 FPK 首次启动的空库），
+并核对数量：
+
+```bash
+read -rsp 'admin 密码（迁移前 Docker 侧的密码）: ' MC_PASS; echo
+curl -fsS -c /tmp/mc.jar -o /dev/null -w 'login HTTP %{http_code}\n' \
+  -X POST http://127.0.0.1:8092/api/v1/auth/login \
+  -H 'content-type: application/json' \
+  -d "{\"username\":\"admin\",\"password\":\"$MC_PASS\"}"
+
+# 课程数（带登录 Cookie）
+curl -fsS -b /tmp/mc.jar http://127.0.0.1:8092/api/v1/courses \
+  | /vol1/@appcenter/nodejs_v22/bin/node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>{const j=JSON.parse(s);console.log("课程数:",Array.isArray(j)?j.length:(j.courses??[]).length)})'
+
+# 题库数（limit=1 只取一条，total 为全量计数）
+curl -fsS -b /tmp/mc.jar 'http://127.0.0.1:8092/api/v1/banks?limit=1' \
+  | /vol1/@appcenter/nodejs_v22/bin/node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>{const j=JSON.parse(s);console.log("题库数:",j.total)})'
+```
+
+浏览器再走一遍：8092 能登录 → 课程大厅有课 → 点开课时能播放/拖进度 → 题库与错题本有数据 →
+「媒体目录」文件数不为 0。
+
+> 迁移后「媒体目录」里可能还留着 Docker 的**容器内路径**（如 `/media/java`、`/media/nas`）。
+> FPK 是 native 应用，这些路径在 NAS 上不存在，要改成 NAS 真实路径（如 `/vol1/1000/JAVA课`）
+> 并重新扫描，否则课时视频会 404。
+
+**⑥ 回滚（切回 Docker）**
+
+```bash
+# 停 FPK
+sudo /vol1/@appcenter/microclass/cmd/main stop
+
+# 起 Docker（卷内数据没动过，直接起即可）
+cd /vol1/1000/microclass-deploy
+docker compose -f compose.evo4.yml start api
+docker compose -f compose.evo4.yml ps
+curl -fsS http://127.0.0.1:8091/api/v1/readyz
+```
+
+如果迁移期间 Docker 卷被写过（例如误起了容器），用 ① 的备份恢复卷再起：
+
+```bash
+cd /vol1/1000/microclass-deploy
+docker compose -f compose.evo4.yml stop api
+docker run --rm -v microclass_data:/data \
+  -v /vol1/1000/microclass-backup:/backup alpine \
+  sh -c 'find /data -mindepth 1 -maxdepth 1 -exec rm -rf {} + && tar xzf /backup/docker-data-<TS>.tar.gz -C /data'
+docker compose -f compose.evo4.yml start api
+curl -fsS http://127.0.0.1:8091/api/v1/readyz
+```
+
+`<TS>` 换成 ① 生成的时间戳（`ls /vol1/1000/microclass-backup/docker-data-*.tar.gz` 可查）。
+
+**⑦ 迁移后的硬约束**
+
+- 只保留一套对外服务：切到 FPK 后 Docker 端保持 `stop`（不要 `up -d`，也不要在 NAS UI 点「启动/重构」），
+  反代与端口映射只指向 8092。
+- 只是试用 FPK 的话，验收完按 ⑥ 回滚并停掉 FPK，让 8091 继续对外。
+- 任何时候都**不要**让两个进程写同一个 `microclass.db`，也不要把 `/vol1/@appdata/microclass/data`
+  作为 Docker 的 `/app/data` 挂载。
+
+#### 3.5.5 常见问题（FPK）
+
+依赖 `nodejs_v22` 缺失时应用起不来，先确认 `/vol1/@appcenter/nodejs_v22/bin/node` 存在；其余按现象对表：
+
+| 现象                                              | 原因                                                                                     | 处理                                                                                                                            |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| 应用中心报 **10330**（安装/启动失败）             | 旧包 `cmd/main` 在 `set -u` 下引用了新版 fnOS 不再注入的 `TRIM_PKGDIR`，脚本一启动就退出 | 升级到已修复的包（按 `TRIM_APPDEST` 定位程序目录，保留 `TRIM_PKGDIR` 回退）；装完 `cmd/main status` 应为 0，仍失败看 `info.log` |
+| 应用中心报 **10500**（进程在跑却提示未运行/失败） | fnOS 会清理 `$TRIM_PKGVAR/app.pid`，旧 `status` 只认 pid 文件                            | 新包 `status` 已加健康探针与 `pgrep` 兜底：先 `curl -fsS localhost:8092/api/v1/healthz`，再 `cmd/main stop` + `start` 重建 pid  |
+| 桌面图标点开**页面空白**                          | `app/ui/config` 的端口与 `cmd/main` 的 `PORT` 不一致，或服务没起来                       | 两处都应为 8092；`curl -sI localhost:8092/` 应返回 200 `text/html`；否则看 `info.log`                                           |
+| **视频目录看不到** / 播放 403                     | 应用未获媒体共享目录读权限（native 应用按 package 用户运行）                             | 「设置 → 应用权限」给「微课堂」对应目录读取权限，然后重启应用（见 3.5.3）                                                       |
+| `/api/v1/version` **显示 2.0.0**                  | `MC_VERSION` 未注入，API 回退到硬编码版本                                                | 新包由 `cmd/main` 从 `TRIM_APPVER`/`manifest` 注入；确认 `manifest` 的 `version` 正确后重装并重启，再 `curl .../version` 校验   |
 
 ---
 
