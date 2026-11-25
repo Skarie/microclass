@@ -25,6 +25,7 @@
     "yauzl": "^3.4.0"
   },
   "devDependencies": {
+    "@types/pg": "^8.23.1",
     "@types/yauzl": "^3.4.0",
     "tsx": "^4.19.2"
   }
