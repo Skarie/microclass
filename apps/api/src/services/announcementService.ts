@@ -119,44 +119,44 @@ export class AnnouncementService {
     private readonly audit: AuditRepository,
   ) {}
 
-  listPublic(rawLimit: unknown): PublicAnnouncement[] {
+  async listPublic(rawLimit: unknown): Promise<PublicAnnouncement[]> {
     const limit = intParam(rawLimit, 'limit', 5, 1, PUBLIC_LIMIT_MAX);
-    return this.repo.listPublished(limit).map(toPublic);
+    return (await this.repo.listPublished(limit)).map(toPublic);
   }
 
-  listAdmin(rawLimit: unknown, rawOffset: unknown): AdminAnnouncementPage {
+  async listAdmin(rawLimit: unknown, rawOffset: unknown): Promise<AdminAnnouncementPage> {
     const paginated = rawLimit !== undefined && rawLimit !== '';
     const limit = paginated ? intParam(rawLimit, 'limit', ADMIN_LIMIT_MAX, 1, ADMIN_LIMIT_MAX) : null;
     const offset = limit === null ? 0 : intParam(rawOffset, 'offset', 0, 0, OFFSET_MAX);
     return {
-      announcements: this.repo.listAll(limit, offset).map(toAdmin),
-      total: this.repo.countAll(),
+      announcements: (await this.repo.listAll(limit, offset)).map(toAdmin),
+      total: await this.repo.countAll(),
       limit,
       offset,
     };
   }
 
-  create(actor: User, input: AnnouncementInput): number {
+  async create(actor: User, input: AnnouncementInput): Promise<number> {
     const write = this.merge(
       input,
       { title: '', body: '', level: 'info', pinned: false, published: true, createdBy: actor.id },
       true,
     );
-    const id = this.repo.create(write);
+    const id = await this.repo.create(write);
     this.writeAudit(actor, 'announcement.create', id, write);
     return id;
   }
 
-  update(actor: User, id: number, input: AnnouncementInput): void {
-    const existing = this.requireRow(id);
+  async update(actor: User, id: number, input: AnnouncementInput): Promise<void> {
+    const existing = await this.requireRow(id);
     const write = this.merge(input, baseOf(existing));
-    this.repo.update(id, write);
+    await this.repo.update(id, write);
     this.writeAudit(actor, 'announcement.update', id, write);
   }
 
-  remove(actor: User, id: number): void {
-    const existing = this.requireRow(id);
-    this.repo.remove(id);
+  async remove(actor: User, id: number): Promise<void> {
+    const existing = await this.requireRow(id);
+    await this.repo.remove(id);
     this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
@@ -167,8 +167,8 @@ export class AnnouncementService {
     });
   }
 
-  private requireRow(id: number): AnnouncementRow {
-    const row = this.repo.findById(id);
+  private async requireRow(id: number): Promise<AnnouncementRow> {
+    const row = await this.repo.findById(id);
     if (!row) throw AppError.notFound('公告不存在');
     return row;
   }

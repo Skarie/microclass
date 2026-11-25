@@ -14,6 +14,7 @@ import { AppError } from '@microclass/shared';
 import { requireAdmin, requireUser } from '../http/guards.js';
 import type { Deps } from '../app.js';
 import { AnnouncementRepository } from '../db/repositories/announcementRepository.js';
+import { getAsyncDb } from '../db/driver.js';
 import { AnnouncementService, type AnnouncementInput } from '../services/announcementService.js';
 
 const writeBodySchema = {
@@ -35,12 +36,12 @@ function idOf(req: FastifyRequest): number {
 }
 
 export async function registerAnnouncementRoutes(app: FastifyInstance, deps: Deps): Promise<void> {
-  const service = new AnnouncementService(new AnnouncementRepository(deps.db), deps.audit);
+  const service = new AnnouncementService(new AnnouncementRepository(getAsyncDb(deps.config, deps.db)), deps.audit);
 
   app.get('/announcements', async (req, reply) => {
     requireUser(req, reply);
     const q = req.query as { limit?: unknown };
-    return { announcements: service.listPublic(q.limit) };
+    return { announcements: await service.listPublic(q.limit) };
   });
 
   app.get('/admin/announcements', async (req, reply) => {
@@ -51,19 +52,19 @@ export async function registerAnnouncementRoutes(app: FastifyInstance, deps: Dep
 
   app.post('/admin/announcements', { schema: { body: writeBodySchema } }, async (req, reply) => {
     const actor = requireAdmin(req, reply);
-    const id = service.create(actor, req.body as AnnouncementInput);
+    const id = await service.create(actor, req.body as AnnouncementInput);
     return reply.code(201).send({ ok: true, id });
   });
 
   app.put('/admin/announcements/:id', { schema: { body: writeBodySchema } }, async (req, reply) => {
     const actor = requireAdmin(req, reply);
-    service.update(actor, idOf(req), req.body as AnnouncementInput);
+    await service.update(actor, idOf(req), req.body as AnnouncementInput);
     return { ok: true };
   });
 
   app.delete('/admin/announcements/:id', async (req, reply) => {
     const actor = requireAdmin(req, reply);
-    service.remove(actor, idOf(req));
+    await service.remove(actor, idOf(req));
     return { ok: true };
   });
 }
