@@ -19,12 +19,12 @@ export async function registerBankSectionRoutes(app: FastifyInstance, deps: Deps
   app.get('/banks/catalog-sections', async (req, reply) => {
     requireUser(req, reply);
     const { view, kind } = parseBankSectionCatalogQuery(req.query as BankSectionCatalogQuery);
-    return deps.bankService.catalogSections(view, kind);
+    return await deps.bankService.catalogSections(view, kind);
   });
 
   app.post('/banks/backfill-sections', async (req, reply) => {
     const actor = requireTeacherOrAdmin(req, reply);
     const { dryRun, kind } = parseBackfillSectionsBody(req.body);
-    return deps.bankService.backfillSections(actor, { dryRun, kind });
+    return await deps.bankService.backfillSections(actor, { dryRun, kind });
   });
 }

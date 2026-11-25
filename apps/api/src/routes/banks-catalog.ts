@@ -20,15 +20,15 @@ export async function registerBankCatalogRoutes(app: FastifyInstance, deps: Deps
   app.get('/banks/catalog', async (req, reply) => {
     requireUser(req, reply);
     const { courseId, kind } = parseBankCatalogQuery(req.query as BankCatalogQuery);
-    if (courseId !== undefined) return deps.bankService.catalogCourse(courseId);
-    return deps.bankService.catalog(kind);
+    if (courseId !== undefined) return await deps.bankService.catalogCourse(courseId);
+    return await deps.bankService.catalog(kind);
   });
 
   /** 按册次批量挂课程（未归属题库的批量归类）；`courseId: null` = 移出课程 */
   app.post('/banks/bind-by-book', { schema: { body: bindByBookBodySchema } }, async (req, reply) => {
     const actor = requireTeacherOrAdmin(req, reply);
     const { book, courseId } = req.body as { book: string; courseId?: number | null };
-    return deps.bankService.bindUnboundByBook(actor, book, courseId ?? null);
+    return await deps.bankService.bindUnboundByBook(actor, book, courseId ?? null);
   });
 
   /**

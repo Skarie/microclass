@@ -4,7 +4,7 @@
  * 从 `bankRepository` 抽出：这些查询只读、无状态，放在独立模块后仓储文件
  * 保持在 300 行以内，目录的统计口径也集中在一处，避免方法一多又长回去。
  */
-import type { Db } from '../client.js';
+import type { AsyncDb } from '../async.js';
 import type { BankKind } from './bankRepository.js';
 import { bankSectionOfName, chapterKeyFromBankName } from './bankNaming.js';
 
@@ -36,7 +36,7 @@ export interface CatalogNode {
 }
 
 /** 课程列表 + 每门课的题库数/题量（筛选树第一层；`kind` 为空表示全部类型） */
-export function catalogCourses(db: Db, kind: BankKind | '' = ''): CatalogCourse[] {
+export async function catalogCourses(db: AsyncDb, kind: BankKind | '' = ''): Promise<CatalogCourse[]> {
   return db.all<CatalogCourse>(
     `SELECT c.id, c.name,
             COUNT(DISTINCT b.id) AS bankCount,
@@ -53,21 +53,23 @@ export function catalogCourses(db: Db, kind: BankKind | '' = ''): CatalogCourse[
 }
 
 /** 未归属课程的题库（含「课时库没挂课时」这种历史数据；`kind` 为空表示全部类型） */
-export function catalogUnbound(db: Db, kind: BankKind | '' = ''): { bankCount: number; questionCount: number } {
-  return (
-    db.get<{ bankCount: number; questionCount: number }>(
-      `SELECT COUNT(*) AS bankCount, COALESCE(SUM(b.question_count), 0) AS questionCount
+export async function catalogUnbound(
+  db: AsyncDb,
+  kind: BankKind | '' = '',
+): Promise<{ bankCount: number; questionCount: number }> {
+  const row = await db.get<{ bankCount: number; questionCount: number }>(
+    `SELECT COUNT(*) AS bankCount, COALESCE(SUM(b.question_count), 0) AS questionCount
        FROM banks b WHERE b.course_id IS NULL AND (?1 = '' OR b.kind = ?1)`,
-      [kind],
-    ) ?? { bankCount: 0, questionCount: 0 }
+    [kind],
   );
+  return row ?? { bankCount: 0, questionCount: 0 };
 }
 
 /** 未归属课程按册次分组（目录树里仍能分类导航，而不是一大坨；`kind` 为空表示全部类型） */
-export function catalogUnboundBooks(
-  db: Db,
+export async function catalogUnboundBooks(
+  db: AsyncDb,
   kind: BankKind | '' = '',
-): { book: string; bankCount: number; questionCount: number }[] {
+): Promise<{ book: string; bankCount: number; questionCount: number }[]> {
   return db.all<{ book: string; bankCount: number; questionCount: number }>(
     `SELECT COALESCE(NULLIF(b.book, ''), '(无册次信息)') AS book,
             COUNT(*) AS bankCount,
@@ -82,16 +84,16 @@ export function catalogUnboundBooks(
  * 某门课的目录：章节（group_name）→ 小节（lesson）→ 题库；
  * 不挂课时的章节题库/整卷试卷按「知识点前缀」归到「未分章」分组里。
  */
-export function catalogCourse(
-  db: Db,
+export async function catalogCourse(
+  db: AsyncDb,
   courseId: number,
-): { course: { id: number; name: string } | undefined; chapters: CatalogNode[] } {
-  const course = db.get<{ id: number; name: string }>('SELECT id, name FROM courses WHERE id = ?', [courseId]);
-  const lessons = db.all<{ id: number; title: string; group_name: string; sort: number }>(
+): Promise<{ course: { id: number; name: string } | undefined; chapters: CatalogNode[] }> {
+  const course = await db.get<{ id: number; name: string }>('SELECT id, name FROM courses WHERE id = ?', [courseId]);
+  const lessons = await db.all<{ id: number; title: string; group_name: string; sort: number }>(
     'SELECT id, title, group_name, sort FROM lessons WHERE course_id = ? ORDER BY sort, id',
     [courseId],
   );
-  const banks = db.all<{
+  const banks = await db.all<{
     id: number;
     name: string;
     kind: string;

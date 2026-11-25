@@ -22,24 +22,24 @@ export class BankCatalogService {
    * 原来题库只能按「课时 / 类型 / 书册」平铺筛，7,000+ 个章节题库与整卷试卷
    * 因为不挂课时而根本筛不出来；现在统一按「课程 → 章节 → 小节 → 题库」组织。
    */
-  catalog(kind: BankKind | '' = ''): {
-    courses: ReturnType<BankRepository['catalogCourses']>;
+  async catalog(kind: BankKind | '' = ''): Promise<{
+    courses: Awaited<ReturnType<BankRepository['catalogCourses']>>;
     unbound: { bankCount: number; questionCount: number };
     /** 未归属课程按册次分组（复习类/未建课程的册次仍能分类导航） */
-    unboundBooks: ReturnType<BankRepository['catalogUnboundBooks']>;
+    unboundBooks: Awaited<ReturnType<BankRepository['catalogUnboundBooks']>>;
     binding: { bound: number; unbound: number; banks: number };
-  } {
+  }> {
     return {
-      courses: this.banks.catalogCourses(kind),
-      unbound: this.banks.catalogUnbound(kind),
-      unboundBooks: this.banks.catalogUnboundBooks(kind),
+      courses: await this.banks.catalogCourses(kind),
+      unbound: await this.banks.catalogUnbound(kind),
+      unboundBooks: await this.banks.catalogUnboundBooks(kind),
       binding: this.banks.courseBindingStats(kind)[0] ?? { bound: 0, unbound: 0, banks: 0 },
     };
   }
 
   /** 某门课的章节 → 小节 → 题库 目录 */
-  catalogCourse(courseId: number): ReturnType<BankRepository['catalogCourse']> {
-    const res = this.banks.catalogCourse(courseId);
+  async catalogCourse(courseId: number): Promise<Awaited<ReturnType<BankRepository['catalogCourse']>>> {
+    const res = await this.banks.catalogCourse(courseId);
     if (!res.course) throw AppError.notFound('课程不存在');
     return res;
   }
@@ -48,17 +48,17 @@ export class BankCatalogService {
    * 把某个**册次**下所有未归属题库挂到指定课程（courseId 为 null 表示移出课程）。
    * 界面「未归属课程 → 按册次」里的批量操作走这里，避免 1700+ 个题库一个个点。
    */
-  bindUnboundByBook(
+  async bindUnboundByBook(
     actor: User,
     book: string,
     courseId: number | null,
-  ): { updated: number; book: string; courseId: number | null; courseName: string } {
+  ): Promise<{ updated: number; book: string; courseId: number | null; courseName: string }> {
     const name = book.trim();
     if (!name) throw AppError.badRequest('册次不能为空');
     let courseName = '';
     if (courseId !== null) {
       // 用仓储已有的课程目录查询做存在性校验（不存在会抛 notFound），顺便拿课程名
-      const course = this.banks.catalogCourse(courseId).course;
+      const course = (await this.banks.catalogCourse(courseId)).course;
       if (!course) throw AppError.notFound('课程不存在');
       courseName = course.name;
     }

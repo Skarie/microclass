@@ -5,6 +5,7 @@
  * 不关心课时树，所以没有课程也能把题库分到「册次 → 章节」下。
  */
 import type { Db } from '../client.js';
+import type { AsyncDb } from '../async.js';
 import type { BankKind } from './bankRepository.js';
 import { compareNaturalName } from '../../domain/nameOrder.js';
 
@@ -74,8 +75,8 @@ interface SectionRow {
  * view=book：全部题库按 `book → section` 分组。
  * 册次与章节都用自然序，空串（未归类册次 / 未分章）排在最后。
  */
-export function catalogSectionsByBook(db: Db, kind: BankKind | '' = ''): BankBookCatalog {
-  const rows = db.all<SectionRow>(
+export async function catalogSectionsByBook(db: AsyncDb, kind: BankKind | '' = ''): Promise<BankBookCatalog> {
+  const rows = await db.all<SectionRow>(
     `SELECT COALESCE(b.book, '') AS book, COALESCE(b.section, '') AS section,
             COUNT(*) AS bankCount,
             COALESCE(SUM(b.question_count), 0) AS questionCount,
@@ -109,8 +110,8 @@ export function catalogSectionsByBook(db: Db, kind: BankKind | '' = ''): BankBoo
 /**
  * view=course：只统计挂了课程的题库，按 `course → book → section` 分组。
  */
-export function catalogSectionsByCourse(db: Db, kind: BankKind | '' = ''): BankCourseCatalog {
-  const rows = db.all<SectionRow & { courseId: number; name: string }>(
+export async function catalogSectionsByCourse(db: AsyncDb, kind: BankKind | '' = ''): Promise<BankCourseCatalog> {
+  const rows = await db.all<SectionRow & { courseId: number; name: string }>(
     `SELECT c.id AS courseId, c.name,
             COALESCE(b.book, '') AS book, COALESCE(b.section, '') AS section,
             COUNT(*) AS bankCount,
@@ -152,7 +153,7 @@ export function catalogSectionsByCourse(db: Db, kind: BankKind | '' = ''): BankC
 }
 
 /** 回填候选：section 为空（可按 kind 过滤），带课时 group_name 供优先继承 */
-export function banksMissingSection(db: Db, kind: BankKind | '' = ''): BankMissingSectionRow[] {
+export async function banksMissingSection(db: AsyncDb, kind: BankKind | '' = ''): Promise<BankMissingSectionRow[]> {
   return db.all<BankMissingSectionRow>(
     `SELECT b.id, b.name, COALESCE(b.book, '') AS book, b.lesson_id AS lessonId, COALESCE(l.group_name, '') AS groupName
        FROM banks b LEFT JOIN lessons l ON l.id = b.lesson_id

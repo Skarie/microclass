@@ -7,6 +7,7 @@
  */
 import type { Bank } from '@microclass/shared';
 import type { Db } from '../client.js';
+import { createSqliteAsyncDb, type AsyncDb } from '../async.js';
 import {
   countBanks,
   findBankWithStats,
@@ -71,8 +72,16 @@ export interface BankInput {
 }
 
 export class BankRepository {
-  /** 文件夹仓储等需要直接读库时复用同一个连接（app.ts 不再额外注入依赖） */
-  constructor(readonly db: Db) {}
+  /** 写方法与未迁移的读方法用同步 Db；已迁移的只读方法走 asyncDb（P0 阶段 2，B3a） */
+  constructor(
+    readonly db: Db,
+    private readonly asyncDb?: AsyncDb,
+  ) {}
+
+  /** 已迁移的只读方法要求注入 asyncDb；测试里没注入时退回 sqlite 包装，保持构造简单 */
+  private adb(): AsyncDb {
+    return this.asyncDb ?? createSqliteAsyncDb(this.db);
+  }
 
   /** 题库列表（SQL 与派生字段见 `bankListQueries`） */
   list(options?: BankListFilter): BankWithStats[] {
@@ -91,34 +100,38 @@ export class BankRepository {
 
   /* ---------------- 课程 → 章节 → 小节 → 题库 目录（筛选与组卷挑题用） ---------------- */
 
-  catalogCourses(kind: BankKind | '' = ''): CatalogCourse[] {
-    return catalogCourses(this.db, kind);
+  async catalogCourses(kind: BankKind | '' = ''): Promise<CatalogCourse[]> {
+    return catalogCourses(this.adb(), kind);
   }
 
-  catalogUnbound(kind: BankKind | '' = ''): { bankCount: number; questionCount: number } {
-    return catalogUnbound(this.db, kind);
+  async catalogUnbound(kind: BankKind | '' = ''): Promise<{ bankCount: number; questionCount: number }> {
+    return catalogUnbound(this.adb(), kind);
   }
 
-  catalogUnboundBooks(kind: BankKind | '' = ''): { book: string; bankCount: number; questionCount: number }[] {
-    return catalogUnboundBooks(this.db, kind);
+  async catalogUnboundBooks(
+    kind: BankKind | '' = '',
+  ): Promise<{ book: string; bankCount: number; questionCount: number }[]> {
+    return catalogUnboundBooks(this.adb(), kind);
   }
 
-  catalogCourse(courseId: number): { course: { id: number; name: string } | undefined; chapters: CatalogNode[] } {
-    return catalogCourse(this.db, courseId);
+  async catalogCourse(
+    courseId: number,
+  ): Promise<{ course: { id: number; name: string } | undefined; chapters: CatalogNode[] }> {
+    return catalogCourse(this.adb(), courseId);
   }
 
   /* ---------------- 章节目录（册次 → 章节）与批量回填 ---------------- */
 
-  sectionCatalogByBook(kind: BankKind | '' = ''): BankBookCatalog {
-    return catalogSectionsByBook(this.db, kind);
+  async sectionCatalogByBook(kind: BankKind | '' = ''): Promise<BankBookCatalog> {
+    return catalogSectionsByBook(this.adb(), kind);
   }
 
-  sectionCatalogByCourse(kind: BankKind | '' = ''): BankCourseCatalog {
-    return catalogSectionsByCourse(this.db, kind);
+  async sectionCatalogByCourse(kind: BankKind | '' = ''): Promise<BankCourseCatalog> {
+    return catalogSectionsByCourse(this.adb(), kind);
   }
 
-  banksWithoutSection(kind: BankKind | '' = ''): BankMissingSectionRow[] {
-    return banksMissingSection(this.db, kind);
+  async banksWithoutSection(kind: BankKind | '' = ''): Promise<BankMissingSectionRow[]> {
+    return banksMissingSection(this.adb(), kind);
   }
 
   applyBankSections(updates: { id: number; section: string }[]): number {

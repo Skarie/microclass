@@ -51,18 +51,23 @@ export class BankSectionService {
   ) {}
 
   /** 目录：view=book 全部题库按册次分组；view=course 只统计已归属课程的题库 */
-  catalogSections(view: BankSectionView = 'book', kind: BankKind | '' = ''): BankSectionCatalog {
-    return view === 'course' ? this.banks.sectionCatalogByCourse(kind) : this.banks.sectionCatalogByBook(kind);
+  async catalogSections(view: BankSectionView = 'book', kind: BankKind | '' = ''): Promise<BankSectionCatalog> {
+    return view === 'course'
+      ? await this.banks.sectionCatalogByCourse(kind)
+      : await this.banks.sectionCatalogByBook(kind);
   }
 
   /**
    * 批量回填 `section` 为空的题库。
    * dryRun=true 时只统计候选与样本，不写库（前端先预览再确认）。
    */
-  backfillSections(actor: User, input: { dryRun?: boolean; kind?: BankKind | '' }): BackfillSectionsResult {
+  async backfillSections(
+    actor: User,
+    input: { dryRun?: boolean; kind?: BankKind | '' },
+  ): Promise<BackfillSectionsResult> {
     const dryRun = input.dryRun === true;
     const kind = input.kind ?? '';
-    const rows = this.banks.banksWithoutSection(kind);
+    const rows = await this.banks.banksWithoutSection(kind);
     const plan: { id: number; section: string }[] = [];
     const samples: BackfillSectionsResult['samples'] = [];
     const skippedSamples: BackfillSectionsResult['skippedSamples'] = [];
