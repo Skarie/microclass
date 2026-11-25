@@ -268,3 +268,38 @@ Test Files  1 passed (1)
   esbuild 等 postinstall 需要执行权限报 `EACCES`。
 - 测试默认 `skip`（不设 `MC_PG_TEST_URL` 时不连 PG），所以 `npx vitest run` 仍是纯 sqlite 全绿。
 - 以后每迁一个域，就往 `apps/api/test/pg-*.test.ts` 加一份；CI/预发用同一脚本跑。
+
+## 12. 预发/压测的生产保护（必读）
+
+2026-11-26 两次生产卡顿都是同一类：**同步 `node:sqlite` + `/vol1` 机械盘被压满**，事件循环被一次读盘卡住，
+全站无响应几十秒到几分钟（看门狗能恢复，但会中断服务）。
+
+**硬性约定**：
+
+1. **预发实例的数据副本放 NVMe**（`/var/lib/mc-preprod-data`），不要放 `/vol1`；
+   预发启动时读 1.2 GB sqlite 副本足以把机械盘打到 99% util。
+2. **重活只在 01:00–06:00 跑**：PG 重装（`load-pg.sh`）、`pg_dump` 全库备份、全表聚合体检、大批量导入。
+3. **预发前先过 IO 门槛**（util > 70% 直接退出）：
+
+   ```bash
+   $ sudo bash ops/scripts/pg/guard-io.sh           # 超 70% 退出 1
+   $ MC_IO_MAX=60 sudo -E bash ops/scripts/pg/guard-io.sh
+   $ MC_IO_WAIT=1 sudo -E bash ops/scripts/pg/guard-io.sh   # 等待（最多 10 分钟）
+   ```
+
+   实测样例：
+
+   ```
+   [2026-11-26 03:12:44] /vol1 util=8%（阈值 70%）
+   ✓ 磁盘压力可接受，继续
+   ```
+
+   失败样例（事故当时）：
+
+   ```
+   [2026-11-26 02:57:30] /vol1 util=100%（阈值 70%）
+   ✗ /vol1 当前 util=100%（> 70%），为避免拖慢生产，本次预发取消
+   ```
+
+4. 预发脚本模板（`build/pg-migration/preprod-*.sh`，不入库）：起容器前先跑 `guard-io.sh`，
+   数据目录用 NVMe 副本，结束后 `docker rm -f` 立即清理。
