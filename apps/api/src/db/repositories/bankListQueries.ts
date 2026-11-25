@@ -5,6 +5,7 @@
  * `bank_folders` 路径，SQL 比较长；放在独立模块后仓储文件保持在 300 行以内。
  */
 import type { Db } from '../client.js';
+import { likeCI } from '../sql.js';
 import type { BankKind, BankRow } from './bankRepository.js';
 
 /** 题库行 + 列表展示所需的派生字段 */
@@ -80,7 +81,7 @@ function bankWhere(options?: BankListFilter): { where: string; params: unknown[]
     params.push(options.book);
   }
   if (options?.keyword) {
-    clauses.push('b.name LIKE ?');
+    clauses.push(likeCI('b.name'));
     params.push(`%${options.keyword}%`);
   }
   if (options?.courseId === null) clauses.push('b.course_id IS NULL');
