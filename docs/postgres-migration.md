@@ -115,10 +115,63 @@ bash ops/scripts/pg/verify-parity.sh /path/microclass.db
    （P1 多副本时每个副本池上限要乘副本数）。
 6. **P1 起**：API 无状态化（会话→Redis）→ 多副本 + 反代 → 队列化体检/导入/转码。
 
-## 8. 本次环境备注
+## 8. 阶段 1 已落地的运行形态（同机容器化）
 
-- 临时 PG：`docker run -d --name mc-pg -e POSTGRES_PASSWORD=devonly -p 55432:5432 \
--v /vol1/1000/mc-pg-dev:/var/lib/postgresql/data postgres:16-alpine`
-- 导出产物：`/tmp/pg-export`（512 MB，可随时用 `export-tsv.mjs` 重新生成）
-- 用完可 `docker stop mc-pg`（数据卷保留，`docker start mc-pg` 继续用）；确认不再需要再删
-  `/vol1/1000/mc-pg-dev`。
+> 决策：**先同机部署**（同一台 NAS），优先消灭「同步 SQLite 阻塞」；高可用/多机留给后续阶段。
+
+| 项目     | 值                                                                                 |
+| -------- | ---------------------------------------------------------------------------------- |
+| 服务     | `compose.evo4.yml` 里的 `db` 服务（同一 compose 项目，api 走内网 `db:5432`）       |
+| 镜像     | `postgres:16-alpine`（实测 16.16）                                                 |
+| 数据目录 | **NVMe**：`/var/lib/microclass-pg`（宿主 bind mount，属主 `999:999`、700）         |
+| 宿主端口 | 仅 `127.0.0.1:55432`（运维排查用，不暴露内网/公网）                                |
+| 账号/库  | `microclass` / `microclass`；密码在部署目录 `.env` 的 `MC_PG_PASSWORD`（600）      |
+| 重启策略 | `restart: unless-stopped` + `pg_isready` 健康检查（15s 间隔）                      |
+| 连接串   | api 侧：`postgres://microclass:<密码>@db:5432/microclass`（`.env` 的 `MC_PG_URL`） |
+
+关键参数（按 16 GB 内存给）：
+
+| 参数                           | 值                   |
+| ------------------------------ | -------------------- |
+| `shared_buffers`               | 4 GB                 |
+| `effective_cache_size`         | 8 GB                 |
+| `work_mem`                     | 32 MB                |
+| `maintenance_work_mem`         | 512 MB               |
+| `max_connections`              | 100                  |
+| `random_page_cost`             | 1.1（NVMe）          |
+| `log_min_duration_statement`   | 200 ms（慢查询日志） |
+| `checkpoint_completion_target` | 0.9                  |
+
+运维命令：
+
+```bash
+cd /vol1/1000/microclass-deploy
+docker compose -f compose.evo4.yml up -d db        # 只起数据库，不动 api
+docker exec microclass-db pg_isready -U microclass -d microclass
+docker exec -it microclass-db psql -U microclass -d microclass
+
+# 备份（纳入日常备份！NVMe 系统盘重装会丢）
+docker exec microclass-db pg_dump -U microclass -Fc microclass > /vol1/1000/microclass-backup/pg-$(date +%F).dump
+```
+
+> ⚠️ 数据放在**系统盘**（NVMe）是为了性能；它不在 `microclass_data` 卷里，重装系统会丢，
+> 所以 `pg_dump` 必须进备份计划（备份文件放 `/vol1`，与数据物理分离）。
+
+### 阶段 1 实测
+
+| 项目                 | 结果                                                                |
+| -------------------- | ------------------------------------------------------------------- |
+| 数据导入（TSV → PG） | 454,097 行 / 30 表，**35 s**（NVMe；同一份数据在 HDD 上需 195 s）   |
+| 行数校验             | 30/30 一致                                                          |
+| 内容指纹             | 10 组「COUNT + SUM(id) + 文本长度和」完全一致                       |
+| 全表聚合             | SQLite 2,005 ms → PG **25.6 ms**（≈78×）                            |
+| 规模                 | 30 表 / 83 索引 / 21 外键 / 3 触发器 / 数据 1.6 GB                  |
+| 生产影响             | **零**：8091/8092 全程 `healthz 200`，api 容器未重建（仍跑 SQLite） |
+
+## 9. 环境备注
+
+- 开发期用的临时容器 `mc-pg`（端口 55432、数据目录 `/vol1/1000/mc-pg-dev`）已在阶段 1 结束后删除；
+  现在只有正式的 `microclass-db`。
+- 导出产物 `/tmp/pg-export`（512 MB，`/tmp` 在系统盘，重启即失效）：随时可用
+  `export-tsv.mjs` 从 SQLite 重新生成，不需要长期保留。
+- 重新演练完整迁移：见 §4 工具链的四条命令 + §5 Runbook，全程不触碰生产 api。

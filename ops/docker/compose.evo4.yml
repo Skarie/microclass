@@ -23,6 +23,64 @@
 name: microclass-prod
 
 services:
+  # PostgreSQL 16：数据层（P0 迁移目标）。数据放 NVMe 系统盘（/var/lib/microclass-pg），
+  # 端口只绑 127.0.0.1 供运维排查；api 走 compose 内网 db:5432，不经过宿主端口。
+  # 备份：pg_dump 必须纳入日常备份；升级 fnOS 不会动 /var/lib 之外的卷，但重装系统会，需单独备份。
+  db:
+    image: postgres:16-alpine
+    container_name: microclass-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: microclass
+      POSTGRES_USER: microclass
+      POSTGRES_PASSWORD: ${MC_PG_PASSWORD:?请在 .env 设置 MC_PG_PASSWORD}
+      TZ: Asia/Shanghai
+    command:
+      - postgres
+      # 16G 内存的 NAS：shared_buffers ≈ 25%，留给页缓存和 ffmpeg
+      - -c
+      - shared_buffers=4GB
+      - -c
+      - effective_cache_size=8GB
+      - -c
+      - work_mem=32MB
+      - -c
+      - maintenance_work_mem=512MB
+      - -c
+      - max_connections=100
+      # NVMe：随机读代价接近顺序读
+      - -c
+      - random_page_cost=1.1
+      - -c
+      - checkpoint_completion_target=0.9
+      - -c
+      - wal_compression=on
+      # 慢查询：>200ms 记日志，排查阻塞用
+      - -c
+      - log_min_duration_statement=200
+      - -c
+      - log_checkpoints=on
+      - -c
+      - timezone=Asia/Shanghai
+    ports:
+      - '127.0.0.1:55432:5432'
+    volumes:
+      - /var/lib/microclass-pg:/var/lib/postgresql/data
+    shm_size: 512mb
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U microclass -d microclass
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '5'
+
   api:
     image: microclass:${MC_VERSION:?请设置 .env 的 MC_VERSION（例如 MC_VERSION=2.3.0）}
     container_name: microclass-api
@@ -41,6 +99,9 @@ services:
       MC_MAX_UPLOAD_MB: ${MC_MAX_UPLOAD_MB:-200}
       MC_LOG_LEVEL: ${MC_LOG_LEVEL:-info}
       MC_TRUST_PROXY: ${MC_TRUST_PROXY:-1}
+      # 数据层开关：sqlite（默认，行为不变）| pg（P0 切流后启用）
+      MC_DB: ${MC_DB:-sqlite}
+      MC_PG_URL: ${MC_PG_URL:-}
       TZ: Asia/Shanghai
     ports:
       - '8091:8091'

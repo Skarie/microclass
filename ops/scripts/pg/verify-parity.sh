@@ -9,7 +9,8 @@ set -uo pipefail
 SQLITE_DB="${1:?需要 sqlite 路径}"
 PG_CONTAINER="${2:-mc-pg}"
 PG_DB="${3:-microclass}"
-NODE_BIN="${MC_NODE_BIN:-/vol1/@appcenter/nodejs_v22/bin/node}"
+NODE_BIN=${MC_NODE_BIN:-/vol1/@appcenter/nodejs_v22/bin/node}
+PG_USER=${PG_USER:-postgres}
 OUT=/tmp/parity
 
 mkdir -p "$OUT"
@@ -48,7 +49,7 @@ while IFS='|' read -r t expr; do
     SQL+="SELECT '$t|$expr', COUNT(*), COALESCE(SUM(id),0), COALESCE(SUM(LENGTH(COALESCE($expr,''))),0) FROM \"$t\";"$'\n'
 done <<< "$CHECKS"
 echo "$SQL" > "$OUT/parity.sql"
-docker exec -i "$PG_CONTAINER" psql -U postgres -d "$PG_DB" -tA -F$'\t' < "$OUT/parity.sql" \
+docker exec -i "$PG_CONTAINER" psql -U "$PG_USER" -d "$PG_DB" -tA -F$'\t' < "$OUT/parity.sql" \
   | awk -F'\t' '{split($1,a,"|"); print a[1]"\t"a[2]"\t"$2"\t"$3"\t"$4}' > "$OUT/pg.txt"
 cat "$OUT/pg.txt"
 
@@ -75,7 +76,7 @@ run_sqlite() {
     ' "$SQLITE_DB" "$1" 2>/dev/null
 }
 run_pg() {
-    docker exec "$PG_CONTAINER" psql -U postgres -d "$PG_DB" -tA -c "\timing on" -c "$1" 2>/dev/null \
+    docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d "$PG_DB" -tA -c "\timing on" -c "$1" 2>/dev/null \
       | grep -oE 'Time: [0-9.]+ ms' | head -1 | sed 's/Time: //'
 }
 
