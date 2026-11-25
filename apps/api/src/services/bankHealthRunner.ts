@@ -74,7 +74,7 @@ export function createWorkerHealthRunner(dbFile: string): BankHealthRunner {
     const attempts: { bin: string; args: string[] }[] = [
       { bin: 'ionice', args: ['-c3', '-n', '7', 'nice', '-n', '19', ...plain] },
       { bin: 'nice', args: ['-n', '19', ...plain] },
-      { bin: plain[0], args: plain.slice(1) },
+      { bin: process.execPath, args: [childScript] },
     ];
     let lastError: unknown;
     for (const attempt of attempts) {
