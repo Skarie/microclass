@@ -33,7 +33,9 @@ async function search(keyword: string): Promise<BankListItem[]> {
     headers: { cookie },
   });
   expect(res.statusCode, res.body).toBe(200);
-  return json<{ banks?: BankListItem[]; items?: BankListItem[] }>(res).banks ?? json<{ items: BankListItem[] }>(res).items;
+  return (
+    json<{ banks?: BankListItem[]; items?: BankListItem[] }>(res).banks ?? json<{ items: BankListItem[] }>(res).items
+  );
 }
 
 beforeAll(async () => {

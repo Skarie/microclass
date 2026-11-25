@@ -236,3 +236,35 @@ sudo /vol1/1000/microclass-deploy/backup.sh      # 先手动跑一次确认
 - 导出产物 `/tmp/pg-export`（512 MB，`/tmp` 在系统盘，重启即失效）：随时可用
   `export-tsv.mjs` 从 SQLite 重新生成，不需要长期保留。
 - 重新演练完整迁移：见 §4 工具链的四条命令 + §5 Runbook，全程不触碰生产 api。
+
+## 11. PG 集成测试怎么跑（不需要隧道）
+
+宿主机 SSH `direct-tcpip` 被拒时，把测试放进 **compose 网络内的一次性容器**跑（可直接连 `db:5432`）：
+
+```bash
+# 在 NAS 上（root）
+rm -rf /vol1/1000/mc-pg-test && mkdir -p /vol1/1000/mc-pg-test
+tar xzf /tmp/docker-src.tar.gz -C /vol1/1000/mc-pg-test      # 注意：不要 --strip-components
+
+docker exec microclass-db psql -U microclass -d postgres \
+  -c 'CREATE DATABASE microclass_test' 2>/dev/null || true    # 幂等
+
+PASS=$(grep '^MC_PG_PASSWORD=' /vol1/1000/microclass-deploy/.env | cut -d= -f2-)
+MC_PG_TEST_URL="postgres://microclass:${PASS}@db:5432/microclass_test" \
+  bash /vol1/1000/mc-pg-test/ops/scripts/pg/run-pg-tests.sh
+```
+
+实测输出（2026-11-26）：
+
+```
+✓ apps/api/test/pg-announcements.test.ts (4 tests) 557ms
+Test Files  1 passed (1)
+     Tests  4 passed (4)
+```
+
+要点：
+
+- 源码**只读挂载**到 `/src`，容器内 `cp -a` 到可写层再 `npm ci`；直接在宿主机卷上装依赖会因
+  esbuild 等 postinstall 需要执行权限报 `EACCES`。
+- 测试默认 `skip`（不设 `MC_PG_TEST_URL` 时不连 PG），所以 `npx vitest run` 仍是纯 sqlite 全绿。
+- 以后每迁一个域，就往 `apps/api/test/pg-*.test.ts` 加一份；CI/预发用同一脚本跑。
