@@ -33,7 +33,7 @@ export class BankCatalogService {
       courses: await this.banks.catalogCourses(kind),
       unbound: await this.banks.catalogUnbound(kind),
       unboundBooks: await this.banks.catalogUnboundBooks(kind),
-      binding: this.banks.courseBindingStats(kind)[0] ?? { bound: 0, unbound: 0, banks: 0 },
+      binding: (await this.banks.courseBindingStats(kind))[0] ?? { bound: 0, unbound: 0, banks: 0 },
     };
   }
 
@@ -80,16 +80,16 @@ export class BankCatalogService {
    *   2) 章节题库 / 整卷试卷按册次匹配（课程名 `·` 之后的册次 vs `banks.book`，取最长匹配）；
    *   3) 匹配不上的留在「未归属课程」，界面里可手工挂。
    */
-  rebindCourses(actor: User): {
+  async rebindCourses(actor: User): Promise<{
     byLesson: number;
     byBook: number;
     unmatched: number;
     unmatchedBooks: { book: string; banks: number }[];
     binding: { bound: number; unbound: number; banks: number };
-  } {
+  }> {
     const byLesson = this.banks.bindCourseByLesson();
-    const courses = this.banks.courseBookKeys().filter((c) => c.key !== '');
-    const unbound = this.banks.unboundWithBook();
+    const courses = (await this.banks.courseBookKeys()).filter((c) => c.key !== '');
+    const unbound = await this.banks.unboundWithBook();
     const updates: { bankId: number; courseId: number }[] = [];
     for (const bank of unbound) {
       const book = normalizeBookKey(bank.book);
@@ -106,7 +106,7 @@ export class BankCatalogService {
       if (best) updates.push({ bankId: bank.id, courseId: best.id });
     }
     const byBook = this.banks.setCourseBindings(updates);
-    const stillUnbound = this.banks.unboundWithBook();
+    const stillUnbound = await this.banks.unboundWithBook();
     const grouped = new Map<string, number>();
     for (const bank of stillUnbound) {
       const key = String(bank.book ?? '').trim() || '(无册次信息)';
@@ -127,7 +127,7 @@ export class BankCatalogService {
       byBook,
       unmatched: stillUnbound.length,
       unmatchedBooks: unmatchedBooks.slice(0, 20),
-      binding: this.banks.courseBindingStats()[0] ?? { bound: 0, unbound: 0, banks: 0 },
+      binding: (await this.banks.courseBindingStats())[0] ?? { bound: 0, unbound: 0, banks: 0 },
     };
   }
 
@@ -135,13 +135,13 @@ export class BankCatalogService {
    * 整卷试卷题库 → 一键建考试（多样化：导入进来的期中/期末/单元测试卷可以直接变成一场考试）。
    * 返回考试 id 与加入的题目数；试卷为空时拒绝（避免建出空考试）。
    */
-  createExamFromBank(
+  async createExamFromBank(
     actor: User,
     bankId: number,
     input: { courseId: number; title?: string; durationMinutes?: number; passScore?: number; publish?: boolean },
     examService: ExamService,
-  ): { examId: number; questions: number } {
-    const bank = this.banks.findById(bankId);
+  ): Promise<{ examId: number; questions: number }> {
+    const bank = await this.banks.findById(bankId);
     if (!bank) throw AppError.notFound('题库不存在');
     const rows = this.questions.listByBank(bankId);
     if (rows.length === 0) throw AppError.badRequest('这个题库还没有题目，无法建考试');

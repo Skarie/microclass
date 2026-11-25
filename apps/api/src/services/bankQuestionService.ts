@@ -23,16 +23,16 @@ export class BankQuestionService {
     this.inputContext = { banks, lessons, storage };
   }
 
-  listQuestions(
+  async listQuestions(
     bankId: number,
     filter?: QuestionFilter & { page?: number; pageSize?: number },
-  ): {
+  ): Promise<{
     total: number;
     page: number;
     pageSize: number;
     questions: QuestionForViewer[];
-  } {
-    const bank = this.banks.findById(bankId);
+  }> {
+    const bank = await this.banks.findById(bankId);
     if (!bank) throw AppError.notFound('题库不存在');
     const page = Math.max(1, filter?.page ?? 1);
     const pageSize = Math.min(200, Math.max(1, filter?.pageSize ?? 50));
@@ -83,10 +83,10 @@ export class BankQuestionService {
     return this.questions.findById(id);
   }
 
-  createQuestion(actor: User, input: QuestionDto): number {
+  async createQuestion(actor: User, input: QuestionDto): Promise<number> {
     const prepared = prepareQuestionInput(this.inputContext, input);
     const id = this.questions.create(prepared);
-    this.markManualDifficulty(id, prepared);
+    await this.markManualDifficulty(id, prepared);
     this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
@@ -98,7 +98,7 @@ export class BankQuestionService {
     return id;
   }
 
-  updateQuestion(actor: User, id: number, input: QuestionDto): void {
+  async updateQuestion(actor: User, id: number, input: QuestionDto): Promise<void> {
     const existing = this.questions.findById(id);
     if (!existing) throw AppError.notFound('题目不存在');
     // 未提交图片路径时保留原图
@@ -107,7 +107,7 @@ export class BankQuestionService {
       imagePath: input.imagePath ?? existing.image_path,
     });
     this.questions.update(id, prepared);
-    this.markManualDifficulty(id, prepared);
+    await this.markManualDifficulty(id, prepared);
     this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
@@ -118,10 +118,10 @@ export class BankQuestionService {
   }
 
   /** 人工指定难度记为 manual（重算难度不覆盖），并按模型分与档位中点算参考分。 */
-  private markManualDifficulty(id: number, prepared: QuestionInput): void {
+  private async markManualDifficulty(id: number, prepared: QuestionInput): Promise<void> {
     const difficulty = String(prepared.difficulty ?? '');
     if (!difficulty) return;
-    const bank = this.banks.findById(prepared.bankId);
+    const bank = await this.banks.findById(prepared.bankId);
     const scored = scoreDifficulty({
       type: prepared.type,
       stem: prepared.stem,
@@ -177,13 +177,13 @@ export class BankQuestionService {
   }
 
   /** 批量改章节/小节（只影响该题库；两个字段都可单独传，空串表示清空） */
-  setQuestionsSections(
+  async setQuestionsSections(
     actor: User,
     bankId: number,
     ids: number[],
     patch: { chapter?: string; section?: string },
-  ): { updated: number } {
-    if (!this.banks.findById(bankId)) throw AppError.notFound('题库不存在');
+  ): Promise<{ updated: number }> {
+    if (!(await this.banks.findById(bankId))) throw AppError.notFound('题库不存在');
     const normalize = (value: string | undefined): string | undefined =>
       value === undefined ? undefined : String(value).trim().slice(0, 120);
     const chapter = normalize(patch.chapter);
@@ -204,12 +204,12 @@ export class BankQuestionService {
   }
 
   /** 批量设置难度（人工标注）：逐题走 updateQuestion，与单条编辑口径一致。 */
-  setQuestionsDifficulty(
+  async setQuestionsDifficulty(
     actor: User,
     bankId: number,
     ids: number[],
     difficulty: 'easy' | 'medium' | 'hard',
-  ): { updated: number; skipped: number } {
+  ): Promise<{ updated: number; skipped: number }> {
     let updated = 0;
     let skipped = 0;
     for (const id of ids) {
@@ -218,7 +218,7 @@ export class BankQuestionService {
         skipped += 1;
         continue;
       }
-      this.updateQuestion(actor, id, { ...questionRowToDto(existing), difficulty });
+      await this.updateQuestion(actor, id, { ...questionRowToDto(existing), difficulty });
       updated += 1;
     }
     return { updated, skipped };

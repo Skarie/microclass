@@ -99,8 +99,8 @@ export class PracticeLinkService {
     return this.links.listByBank(bankId).map((row) => this.dto(row));
   }
 
-  create(actor: User, input: PracticeLinkInput): PracticeLinkDto {
-    const target = this.normalizeTarget(input);
+  async create(actor: User, input: PracticeLinkInput): Promise<PracticeLinkDto> {
+    const target = await this.normalizeTarget(input);
     const lessonIds = this.normalizeLessonIds(input.lessonIds);
     this.assertLessons(lessonIds);
     // 同目标重复关联：不报错，复用已有 link 并补上缺少的课时
@@ -134,14 +134,14 @@ export class PracticeLinkService {
   }
 
   /** 某课时关联的练习内容：题库/章节/小节进 banks，单题进 questions */
-  lessonPractice(lessonId: number): LessonPracticeResult {
+  async lessonPractice(lessonId: number): Promise<LessonPracticeResult> {
     if (!this.lessons.findById(lessonId)) throw AppError.notFound('课时不存在');
     const rows = this.links.listByLesson(lessonId);
     const banks: LessonPracticeBank[] = [];
     const seenBank = new Set<string>();
     for (const row of rows) {
       if (row.target_type !== 'bank' && row.target_type !== 'chapter' && row.target_type !== 'section') continue;
-      const bank = this.banks.findById(row.bank_id);
+      const bank = await this.banks.findById(row.bank_id);
       if (!bank) continue;
       const key = `${row.bank_id}\u0000${row.chapter}\u0000${row.section}`;
       if (seenBank.has(key)) continue;
@@ -159,12 +159,12 @@ export class PracticeLinkService {
     return { lessonId, banks, questions };
   }
 
-  private normalizeTarget(input: PracticeLinkInput): PracticeTarget {
+  private async normalizeTarget(input: PracticeLinkInput): Promise<PracticeTarget> {
     const targetType = String(input.targetType) as PracticeTargetType;
     if (!TARGET_TYPES.includes(targetType)) throw AppError.badRequest('关联目标类型非法');
     const bankId = Number(input.bankId);
     if (!Number.isInteger(bankId) || bankId <= 0) throw AppError.badRequest('题库 id 非法');
-    if (!this.banks.findById(bankId)) throw AppError.notFound('题库不存在');
+    if (!(await this.banks.findById(bankId))) throw AppError.notFound('题库不存在');
 
     let questionId: number | null = null;
     let chapter = '';

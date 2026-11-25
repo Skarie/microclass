@@ -46,8 +46,8 @@ export class BankQuestionImageService {
    * 建**图片题**（扫描件拆题用）：题面是图片，题干文本可以为空。
    * 返回题目 id；图片落在 `question-images` 目录（与「上传配图」同一套存储）。
    */
-  createImageQuestion(actor: User, input: ImageQuestionInput): { id: number; imagePath: string } {
-    const bank = this.banks.findById(input.bankId);
+  async createImageQuestion(actor: User, input: ImageQuestionInput): Promise<{ id: number; imagePath: string }> {
+    const bank = await this.banks.findById(input.bankId);
     if (!bank) throw AppError.notFound('题库不存在');
     if (!['single', 'multiple', 'judge', 'fill', 'short'].includes(input.type)) {
       throw AppError.badRequest('题型非法');

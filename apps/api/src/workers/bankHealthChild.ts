@@ -43,7 +43,7 @@ try {
   try {
     const settings = new SettingsRepository(asyncDb);
     await settings.load();
-    const payload = computeGlobalHealthPayload(db, settings, limit);
+    const payload = await computeGlobalHealthPayload(db, asyncDb, settings, limit);
     process.stdout.write(JSON.stringify({ ok: true, payload }));
   } finally {
     db.close();

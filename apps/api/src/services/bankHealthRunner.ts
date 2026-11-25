@@ -11,6 +11,7 @@
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import type { Db } from '../db/client.js';
+import { createSqliteAsyncDb } from '../db/async.js';
 import type { SettingsRepository } from '../db/repositories/settingsRepository.js';
 import { computeGlobalHealthPayload, type BankHealthPayload } from '../db/repositories/bankHealthPayload.js';
 
@@ -93,5 +94,7 @@ export function createWorkerHealthRunner(dbFile: string): BankHealthRunner {
 
 /** 进程内 runner：测试与「无法起进程」的场景（语义与子进程完全一致） */
 export function createInlineHealthRunner(db: Db, settings: SettingsRepository): BankHealthRunner {
-  return (limit) => Promise.resolve().then(() => computeGlobalHealthPayload(db, settings, limit));
+  // 测试/本地小库：复用同一个 sqlite 连接包一个 AsyncDb（不再新开连接池）
+  const asyncDb = createSqliteAsyncDb(db);
+  return (limit) => Promise.resolve().then(() => computeGlobalHealthPayload(db, asyncDb, settings, limit));
 }

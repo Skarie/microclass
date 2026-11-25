@@ -22,8 +22,8 @@ export class BankExportService {
   ) {}
 
   /** 导出题库为 CSV（列序与 V1 模板一致） */
-  exportCsv(bankId: number): { filename: string; body: string } {
-    const bank = this.banks.findById(bankId);
+  async exportCsv(bankId: number): Promise<{ filename: string; body: string }> {
+    const bank = await this.banks.findById(bankId);
     if (!bank) throw AppError.notFound('题库不存在');
     const rows: unknown[][] = [['题型', '题干', '选项A', '选项B', '选项C', '选项D', '选项E', '选项F', '答案', '解析']];
     for (const q of this.questions.listByBank(bankId)) {
@@ -40,8 +40,11 @@ export class BankExportService {
    * 导出 Markdown：人可读、可进版本库、可直接贴进笔记软件或交给 AI 改写；
    * 用同一套纯文本规则，导出的文件可以再次导入（往返无损）。
    */
-  exportMarkdown(bankId: number, options?: { withAnswers?: boolean }): { filename: string; body: string } {
-    const bank = this.banks.findById(bankId);
+  async exportMarkdown(
+    bankId: number,
+    options?: { withAnswers?: boolean },
+  ): Promise<{ filename: string; body: string }> {
+    const bank = await this.banks.findById(bankId);
     if (!bank) throw AppError.notFound('题库不存在');
     const questions = this.questions.listByBank(bankId);
     return {
@@ -58,8 +61,8 @@ export class BankExportService {
    * 导出 Word：一份可以直接打印、发给学生或教研组继续改的试卷。
    * 题目配图会**内嵌**进 docx（单文件即可分发）。
    */
-  exportDocx(bankId: number, options?: { withAnswers?: boolean }): { filename: string; body: Buffer } {
-    const bank = this.banks.findById(bankId);
+  async exportDocx(bankId: number, options?: { withAnswers?: boolean }): Promise<{ filename: string; body: Buffer }> {
+    const bank = await this.banks.findById(bankId);
     if (!bank) throw AppError.notFound('题库不存在');
     const withAnswers = options?.withAnswers !== false;
     const questions = this.questions.listByBank(bankId);

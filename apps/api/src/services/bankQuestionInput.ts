@@ -38,7 +38,7 @@ export function resolveLessonId(lessons: LessonRepository, lessonId: number | nu
 /** 校验并规范化题目输入 */
 export function prepareQuestionInput(ctx: QuestionInputContext, input: QuestionDto): QuestionInput {
   const bankId = Number(input.bankId);
-  const bank = Number.isInteger(bankId) ? ctx.banks.findById(bankId) : undefined;
+  const bank = Number.isInteger(bankId) ? ctx.banks.findByIdSync(bankId) : undefined;
   if (!bank) throw AppError.notFound('题库不存在');
 
   const type = input.type;

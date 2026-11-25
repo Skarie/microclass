@@ -5,6 +5,7 @@
  * 仓储只保留题库本身的增删改查，文件行数也能守住 300 行上限。
  */
 import type { Db } from '../client.js';
+import type { AsyncDb } from '../async.js';
 import type { BankKind } from './bankRepository.js';
 import { bookKeyOfCourseName } from './bankNaming.js';
 
@@ -49,26 +50,25 @@ export function setCourseBindings(db: Db, updates: { bankId: number; courseId: n
 }
 
 /** 未归属课程但带册次信息的题库（供册次匹配用） */
-export function unboundWithBook(db: Db): { id: number; book: string; subject: string; kind: string }[] {
+export async function unboundWithBook(
+  db: AsyncDb,
+): Promise<{ id: number; book: string; subject: string; kind: string }[]> {
   return db.all<{ id: number; book: string; subject: string; kind: string }>(
     "SELECT id, book, subject, COALESCE(kind, '') AS kind FROM banks WHERE course_id IS NULL AND book <> ''",
   );
 }
 
 /** 课程名册次候选（课程名形如「小学数学·二年级上册（新）」→「二年级上册（新）」） */
-export function courseBookKeys(db: Db): { id: number; name: string; key: string }[] {
-  return db.all<{ id: number; name: string }>('SELECT id, name FROM courses').map((c) => ({
-    id: c.id,
-    name: c.name,
-    key: bookKeyOfCourseName(c.name),
-  }));
+export async function courseBookKeys(db: AsyncDb): Promise<{ id: number; name: string; key: string }[]> {
+  const rows = await db.all<{ id: number; name: string }>('SELECT id, name FROM courses');
+  return rows.map((c) => ({ id: c.id, name: c.name, key: bookKeyOfCourseName(c.name) }));
 }
 
 /** 题库分布：按课程归属统计（体检/运维用；`kind` 为空表示全部类型） */
-export function courseBindingStats(
-  db: Db,
+export async function courseBindingStats(
+  db: AsyncDb,
   kind: BankKind | '' = '',
-): { bound: number; unbound: number; banks: number }[] {
+): Promise<{ bound: number; unbound: number; banks: number }[]> {
   return db.all<{ bound: number; unbound: number; banks: number }>(
     `SELECT COALESCE(SUM(CASE WHEN course_id IS NOT NULL THEN 1 ELSE 0 END), 0) AS bound,
             COALESCE(SUM(CASE WHEN course_id IS NULL THEN 1 ELSE 0 END), 0) AS unbound,

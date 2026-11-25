@@ -32,11 +32,11 @@ export class BankImportService {
    *   - `.docx` → 抽出 Word 正文文本后，走**同一套**纯文本题块解析
    * 逐题校验：失败的题带序号与原因返回，不影响其它题。
    */
-  importFile(
+  async importFile(
     actor: User,
     bankId: number,
     file: { filename: string; data: Buffer },
-  ): { inserted: number; errors: string[]; warnings: string[] } {
+  ): Promise<{ inserted: number; errors: string[]; warnings: string[] }> {
     const name = file.filename.toLowerCase();
     if (name.endsWith('.docx')) {
       let content: DocxContent;
@@ -46,25 +46,25 @@ export class BankImportService {
         throw AppError.badRequest(`无法读取 Word 文件：${e instanceof Error ? e.message : '格式不受支持'}`);
       }
       // 图片位置以 `[[img:N]]` 标记留在文本里，解析后按题把配图存进题目图片目录
-      return this.importText(actor, bankId, content.paragraphs.join('\n'), 'docx', content.images);
+      return await this.importText(actor, bankId, content.paragraphs.join('\n'), 'docx', content.images);
     }
     const text = file.data.toString('utf8');
     if (name.endsWith('.csv')) {
-      const res = this.importCsv(actor, bankId, text);
+      const res = await this.importCsv(actor, bankId, text);
       return { ...res, warnings: [] };
     }
-    return this.importText(actor, bankId, text, 'md');
+    return await this.importText(actor, bankId, text, 'md');
   }
 
   /** 导入 Markdown / 纯文本题块（Word 时带内嵌图片） */
-  importText(
+  async importText(
     actor: User,
     bankId: number,
     text: string,
     source: 'md' | 'docx' = 'md',
     images: DocxImageFile[] = [],
-  ): { inserted: number; errors: string[]; warnings: string[] } {
-    const bank = this.banks.findById(bankId);
+  ): Promise<{ inserted: number; errors: string[]; warnings: string[] }> {
+    const bank = await this.banks.findById(bankId);
     if (!bank) throw AppError.notFound('题库不存在');
     const parsed = parseQuestionText(text);
     if (parsed.questions.length === 0 && parsed.errors.length === 0) {
@@ -90,8 +90,8 @@ export class BankImportService {
   }
 
   /** 导入 CSV：逐行校验，失败行返回行号与原因，不阻断其它行 */
-  importCsv(actor: User, bankId: number, text: string): { inserted: number; errors: string[] } {
-    const bank = this.banks.findById(bankId);
+  async importCsv(actor: User, bankId: number, text: string): Promise<{ inserted: number; errors: string[] }> {
+    const bank = await this.banks.findById(bankId);
     if (!bank) throw AppError.notFound('题库不存在');
     const rows = parseCsv(text);
     if (rows.length === 0) throw AppError.badRequest('CSV 内容为空');

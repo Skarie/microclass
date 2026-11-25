@@ -24,7 +24,7 @@ export class BankManifestImportService {
    * 批量导入题目（资料提炼结果）。逐题独立：某一题失败只记下原因，不影响其它题。
    * 带图的题走 `createImageQuestion`（题面是图，题干可为空）；纯文字题走 `createQuestion`。
    */
-  importQuestions(
+  async importQuestions(
     actor: User,
     bankId: number,
     rawQuestions: unknown[],
@@ -34,8 +34,8 @@ export class BankManifestImportService {
      * 服务端把它们存进题图仓库（内容寻址去重），再把占位符换成 markdown 图片。
      */
     mediaFiles: Map<number, ImportFile> = new Map(),
-  ): { inserted: number; failed: { index: number; reason: string }[]; missingAnswer: number } {
-    const bank = this.banks.findById(bankId);
+  ): Promise<{ inserted: number; failed: { index: number; reason: string }[]; missingAnswer: number }> {
+    const bank = await this.banks.findById(bankId);
     if (!bank) throw AppError.notFound('题库不存在');
     let inserted = 0;
     const failed: { index: number; reason: string }[] = [];
@@ -64,7 +64,7 @@ export class BankManifestImportService {
     const asText = (v: unknown): string =>
       typeof v === 'string' ? v : typeof v === 'number' || typeof v === 'boolean' ? String(v) : '';
 
-    rawQuestions.forEach((raw, index) => {
+    for (const [index, raw] of rawQuestions.entries()) {
       const q = (raw ?? {}) as Record<string, unknown>;
       const type = (asText(q.type) || 'short') as QuestionType;
       const stem = replaceMediaPlaceholders(asText(q.stem)).trim();
@@ -85,7 +85,7 @@ export class BankManifestImportService {
       const file = imageField === '' ? undefined : files.get(imageField);
       try {
         if (file) {
-          this.questionImages.createImageQuestion(actor, {
+          await this.questionImages.createImageQuestion(actor, {
             bankId,
             type,
             ...(stem ? { stem } : {}),
@@ -95,7 +95,7 @@ export class BankManifestImportService {
             file,
           });
         } else {
-          this.questions.createQuestion(actor, {
+          await this.questions.createQuestion(actor, {
             bankId,
             type,
             stem,
@@ -111,7 +111,7 @@ export class BankManifestImportService {
       } catch (e) {
         failed.push({ index, reason: e instanceof Error ? e.message : '未知错误' });
       }
-    });
+    }
 
     this.audit.write({
       actorId: actor.id,

@@ -69,7 +69,7 @@ export async function registerPracticeLinkRoutes(app: FastifyInstance, deps: Dep
 
   app.post('/practice-links', { schema: { body: createBodySchema } }, async (req, reply) => {
     const actor = requireTeacherOrAdmin(req, reply);
-    const link = service.create(actor, req.body as PracticeLinkInput);
+    const link = await service.create(actor, req.body as PracticeLinkInput);
     return reply.code(201).send({ link });
   });
 
@@ -88,6 +88,6 @@ export async function registerPracticeLinkRoutes(app: FastifyInstance, deps: Dep
   /** 学生端：某课时关联的练习内容（整库 / 章节 / 小节 / 单题汇总） */
   app.get('/lessons/:id/practice', async (req, reply) => {
     requireUser(req, reply);
-    return service.lessonPractice(positiveId((req.params as { id: string }).id, '课时 id'));
+    return await service.lessonPractice(positiveId((req.params as { id: string }).id, '课时 id'));
   });
 }

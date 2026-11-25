@@ -37,7 +37,7 @@ export async function registerBankQuestionRoutes(app: FastifyInstance, deps: Dep
   /** 题库内题目列表（支持题型/难度筛选、关键词搜索、分页） */
   app.get('/banks/:id/questions', async (req, reply) => {
     requireUser(req, reply);
-    return deps.bankService.listQuestions(
+    return await deps.bankService.listQuestions(
       bankIdOf(req),
       parseBankQuestionListQuery(req.query as BankQuestionListQuery),
     );
@@ -48,7 +48,7 @@ export async function registerBankQuestionRoutes(app: FastifyInstance, deps: Dep
     const user = requireTeacherOrAdmin(req, reply);
     const bankId = bankIdOf(req);
     const body = req.body as QuestionDto;
-    return { ok: true, id: deps.bankService.createQuestion(user, { ...body, bankId }) };
+    return { ok: true, id: await deps.bankService.createQuestion(user, { ...body, bankId }) };
   });
 
   app.get('/questions/:id', async (req, reply) => {
@@ -60,7 +60,7 @@ export async function registerBankQuestionRoutes(app: FastifyInstance, deps: Dep
 
   app.put('/questions/:id', { schema: { body: questionBodySchema } }, async (req, reply) => {
     const user = requireTeacherOrAdmin(req, reply);
-    deps.bankService.updateQuestion(user, questionIdOf(req), req.body as QuestionDto);
+    await deps.bankService.updateQuestion(user, questionIdOf(req), req.body as QuestionDto);
     return { ok: true };
   });
 
@@ -75,7 +75,7 @@ export async function registerBankQuestionRoutes(app: FastifyInstance, deps: Dep
     const user = requireTeacherOrAdmin(req, reply);
     const bankId = bankIdOf(req);
     const body = req.body as { ids: number[]; chapter?: string; section?: string };
-    return deps.bankService.setQuestionsSections(user, bankId, body.ids, {
+    return await deps.bankService.setQuestionsSections(user, bankId, body.ids, {
       ...(body.chapter === undefined ? {} : { chapter: body.chapter }),
       ...(body.section === undefined ? {} : { section: body.section }),
     });

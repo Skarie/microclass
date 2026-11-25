@@ -25,7 +25,7 @@ export async function registerBankHealthRoutes(app: FastifyInstance, deps: Deps)
     const actor = requireTeacherOrAdmin(req, reply);
     const { bankId, limit, refresh } = parseBankHealthQuery(req.query as BankHealthQuery);
     if (bankId !== undefined) {
-      return deps.bankService.health(bankId, limit, { refresh });
+      return await deps.bankService.health(bankId, limit, { refresh });
     }
     if (refresh) {
       deps.audit.write({
@@ -76,6 +76,6 @@ export async function registerBankHealthRoutes(app: FastifyInstance, deps: Deps)
   app.post('/banks/:id/dedupe', async (req, reply) => {
     const user = requireTeacherOrAdmin(req, reply);
     const body = (req.body ?? {}) as { dryRun?: boolean };
-    return { ok: true, ...deps.bankService.dedupeBank(user, bankIdOf(req), { dryRun: body.dryRun !== false }) };
+    return { ok: true, ...(await deps.bankService.dedupeBank(user, bankIdOf(req), { dryRun: body.dryRun !== false })) };
   });
 }

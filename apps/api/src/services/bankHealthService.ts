@@ -83,7 +83,7 @@ export class BankHealthService {
    * 全库体检要扫 36.6 万题（库约 590MB、常在 NAS 机械盘上），因此结果**缓存 5 分钟**：
    * 管理端反复打开/切换时秒回；`refresh: true` 强制重算。
    */
-  health(bankId: number | undefined, limit: number, options?: { refresh?: boolean }): BankHealthResult {
+  async health(bankId: number | undefined, limit: number, options?: { refresh?: boolean }): Promise<BankHealthResult> {
     const cacheKey = healthCacheKey(bankId, limit);
     const cached = this.healthCache.get(cacheKey);
     if (!options?.refresh && cached && isHealthCacheFresh(cached.at)) {
@@ -91,7 +91,7 @@ export class BankHealthService {
     }
     let name = '全库';
     if (bankId !== undefined) {
-      const bank = this.banks.findById(bankId);
+      const bank = await this.banks.findById(bankId);
       if (!bank) throw AppError.notFound('题库不存在');
       name = bank.name;
     }
@@ -108,7 +108,7 @@ export class BankHealthService {
         withHash: this.questions.countByMeta(bankId, 'content_hash', stats.total),
       },
       duplicates: this.questions.duplicateGroups(limit, bankId),
-      kinds: this.banks.kindStats(),
+      kinds: await this.banks.kindStats(),
       difficulty: this.difficulty.stats(bankId),
     };
     const at = Date.now();
@@ -120,18 +120,18 @@ export class BankHealthService {
    * 题库内去重（标准化）：同一题库里「题干 + 选项」指纹相同、**答案也一致**的题只保留一条。
    * `dryRun`（默认 true）只报告不删；答案冲突的组不动，由体检单独列出。
    */
-  dedupeBank(
+  async dedupeBank(
     actor: User,
     bankId: number,
     options?: { dryRun?: boolean },
-  ): {
+  ): Promise<{
     dryRun: boolean;
     groups: number;
     removable: number;
     removed: number;
     samples: { stem: string; count: number }[];
-  } {
-    const bank = this.banks.findById(bankId);
+  }> {
+    const bank = await this.banks.findById(bankId);
     if (!bank) throw AppError.notFound('题库不存在');
     const groups = this.questions.duplicateIdsInBank(bankId);
     const plan = planDedupe(groups, (keepId) => String(this.questions.findById(keepId)?.stem ?? ''));

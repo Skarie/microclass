@@ -9,6 +9,7 @@
  * 只依赖 `Db` 与仓储，不依赖 Fastify / 配置 / 审计，因此 worker 里可以直接 import。
  */
 import type { Db } from '../client.js';
+import type { AsyncDb } from '../async.js';
 import { BankRepository } from './bankRepository.js';
 import { QuestionRepository } from './questionRepository.js';
 import type { SettingsRepository } from './settingsRepository.js';
@@ -19,10 +20,15 @@ import type { BankHealthResult } from '../../services/bankHealthService.js';
 /** 落库 / 返回的 payload（不含 cachedAt：那是由缓存时间算出来的） */
 export type BankHealthPayload = Omit<BankHealthResult, 'cachedAt'>;
 
-/** 计算全库体检（同步、只读；大库很慢，必须只在 worker 或测试里调用） */
-export function computeGlobalHealthPayload(db: Db, settings: SettingsRepository, limit: number): BankHealthPayload {
+/** 计算全库体检（大库很慢，必须只在 worker / 子进程 / 测试里调用） */
+export async function computeGlobalHealthPayload(
+  db: Db,
+  asyncDb: AsyncDb,
+  settings: SettingsRepository,
+  limit: number,
+): Promise<BankHealthPayload> {
   const questions = new QuestionRepository(db);
-  const banks = new BankRepository(db);
+  const banks = new BankRepository(db, asyncDb);
 
   const stats = questions.health(undefined);
   return {
@@ -35,7 +41,7 @@ export function computeGlobalHealthPayload(db: Db, settings: SettingsRepository,
       withHash: questions.countByMeta(undefined, 'content_hash', stats.total),
     },
     duplicates: questions.duplicateGroups(limit),
-    kinds: banks.kindStats(),
+    kinds: await banks.kindStats(),
     difficulty: difficultyStats(db, undefined, parseDifficultyCuts(settings.getSync(DIFFICULTY_CUTS_KEY))),
   };
 }

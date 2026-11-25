@@ -154,30 +154,38 @@ export class BankRepository {
     return setCourseBindings(this.db, updates);
   }
 
-  unboundWithBook(): { id: number; book: string; subject: string; kind: string }[] {
-    return unboundWithBook(this.db);
+  async unboundWithBook(): Promise<{ id: number; book: string; subject: string; kind: string }[]> {
+    return unboundWithBook(this.adb());
   }
 
-  courseBookKeys(): { id: number; name: string; key: string }[] {
-    return courseBookKeys(this.db);
+  async courseBookKeys(): Promise<{ id: number; name: string; key: string }[]> {
+    return courseBookKeys(this.adb());
   }
 
-  courseBindingStats(kind: BankKind | '' = ''): { bound: number; unbound: number; banks: number }[] {
-    return courseBindingStats(this.db, kind);
+  async courseBindingStats(kind: BankKind | '' = ''): Promise<{ bound: number; unbound: number; banks: number }[]> {
+    return courseBindingStats(this.adb(), kind);
   }
 
-  findById(id: number): BankRow | undefined {
+  async findById(id: number): Promise<BankRow | undefined> {
+    return this.adb().get<BankRow>('SELECT * FROM banks WHERE id = ?', [id]);
+  }
+
+  /**
+   * 同步版 findById：仅供**必须保持同步**的纯函数/校验路径使用（如 `prepareQuestionInput`）。
+   * B3b 迁移完成后应删除，统一走 async。
+   */
+  findByIdSync(id: number): BankRow | undefined {
     return this.db.get<BankRow>('SELECT * FROM banks WHERE id = ?', [id]);
   }
 
   /** 按名字精确查（没有课时归属的题库——章节题库 / 整卷试卷——用它做幂等键） */
-  findByName(name: string): BankRow | undefined {
-    return this.db.get<BankRow>('SELECT * FROM banks WHERE name = ? ORDER BY id LIMIT 1', [name]);
+  async findByName(name: string): Promise<BankRow | undefined> {
+    return this.adb().get<BankRow>('SELECT * FROM banks WHERE name = ? ORDER BY id LIMIT 1', [name]);
   }
 
   /** 题库类型/归属统计（管理端大题库总览） */
-  kindStats(): { kind: BankKind; banks: number; questions: number }[] {
-    return this.db.all(
+  async kindStats(): Promise<{ kind: BankKind; banks: number; questions: number }[]> {
+    return this.adb().all(
       `SELECT COALESCE(NULLIF(b.kind, ''), 'lesson') AS kind, COUNT(DISTINCT b.id) AS banks, COUNT(q.id) AS questions
        FROM banks b LEFT JOIN questions q ON q.bank_id = b.id
        GROUP BY kind ORDER BY questions DESC`,
@@ -201,7 +209,8 @@ export class BankRepository {
   }
 
   update(id: number, input: BankInput): void {
-    const existing = this.findById(id);
+    // 写方法仍走同步连接（B3b 再迁），这里读旧值也用同步连接，避免把写路径拉进异步
+    const existing = this.db.get<BankRow>('SELECT * FROM banks WHERE id = ?', [id]);
     // courseId / folderId 用 `undefined` 表示「不动」，显式 `null` 表示「移出」——
     // 写 COALESCE(?, col) 的话永远解绑不了，所以按需拼列。
     const setCourse = input.courseId !== undefined;
@@ -238,7 +247,8 @@ export class BankRepository {
     this.db.run('DELETE FROM banks WHERE id = ?', [id]);
   }
 
-  questionCount(bankId: number): number {
-    return this.db.get<{ c: number }>('SELECT COUNT(*) AS c FROM questions WHERE bank_id = ?', [bankId])?.c ?? 0;
+  async questionCount(bankId: number): Promise<number> {
+    const row = await this.adb().get<{ c: number }>('SELECT COUNT(*) AS c FROM questions WHERE bank_id = ?', [bankId]);
+    return row?.c ?? 0;
   }
 }

@@ -111,8 +111,8 @@ export class BankService {
     return id;
   }
 
-  update(actor: User, id: number, input: BankDto): void {
-    const bank = this.banks.findById(id);
+  async update(actor: User, id: number, input: BankDto): Promise<void> {
+    const bank = await this.banks.findById(id);
     if (!bank) throw AppError.notFound('题库不存在');
     const name = (input.name ?? '').trim();
     if (!name) throw AppError.badRequest('题库名称不能为空');
@@ -147,8 +147,8 @@ export class BankService {
     this.auditWrite(actor, 'bank.update', 'bank', id, { folderId });
   }
 
-  remove(actor: User, id: number): void {
-    const bank = this.banks.findById(id);
+  async remove(actor: User, id: number): Promise<void> {
+    const bank = await this.banks.findById(id);
     if (!bank) throw AppError.notFound('题库不存在');
     // 题目随题库级联删除（ON DELETE CASCADE）
     this.banks.delete(id);

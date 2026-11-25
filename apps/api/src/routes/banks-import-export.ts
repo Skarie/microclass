@@ -43,7 +43,7 @@ export async function registerBankImportExportRoutes(app: FastifyInstance, deps:
   /** 导出题库 CSV */
   app.get('/banks/:id/export.csv', async (req, reply) => {
     requireTeacherOrAdmin(req, reply);
-    const { filename, body } = deps.bankService.exportCsv(bankIdOf(req));
+    const { filename, body } = await deps.bankService.exportCsv(bankIdOf(req));
     return reply.headers(csvHeaders(filename)).send(body);
   });
 
@@ -58,7 +58,7 @@ export async function registerBankImportExportRoutes(app: FastifyInstance, deps:
   app.get('/banks/:id/export.md', async (req, reply) => {
     requireTeacherOrAdmin(req, reply);
     const withAnswers = withAnswersFlag((req.query as { answers?: string }).answers);
-    const { filename, body } = deps.bankService.exportMarkdown(bankIdOf(req), { withAnswers });
+    const { filename, body } = await deps.bankService.exportMarkdown(bankIdOf(req), { withAnswers });
     return reply.headers(textHeaders(filename, 'text/markdown; charset=utf-8')).send(body);
   });
 
@@ -73,7 +73,7 @@ export async function registerBankImportExportRoutes(app: FastifyInstance, deps:
   app.get('/banks/:id/export.docx', async (req, reply) => {
     requireTeacherOrAdmin(req, reply);
     const withAnswers = withAnswersFlag((req.query as { answers?: string }).answers);
-    const { filename, body } = deps.bankService.exportDocx(bankIdOf(req), { withAnswers });
+    const { filename, body } = await deps.bankService.exportDocx(bankIdOf(req), { withAnswers });
     return reply.headers(docxHeaders(filename)).send(body);
   });
 
@@ -94,7 +94,7 @@ export async function registerBankImportExportRoutes(app: FastifyInstance, deps:
     const data = await file.toBuffer();
     const error = importFileError(data.length);
     if (error) throw AppError.badRequest(error);
-    const result = deps.bankService.importFile(user, id, { filename: name, data });
+    const result = await deps.bankService.importFile(user, id, { filename: name, data });
     return { ok: true, ...result };
   });
 
@@ -146,6 +146,6 @@ export async function registerBankImportExportRoutes(app: FastifyInstance, deps:
     if (mediaError) throw AppError.badRequest(mediaError);
     // 清单校验（空 / 非法 JSON / 非数组 / 超过 500 题）统一在纯函数里，消息与拆分前一致
     const questions = parseImportManifest(manifest);
-    return deps.bankService.importQuestions(user, bankId, questions, files, mediaFiles);
+    return await deps.bankService.importQuestions(user, bankId, questions, files, mediaFiles);
   });
 }

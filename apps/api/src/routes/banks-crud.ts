@@ -33,13 +33,13 @@ export async function registerBankCrudRoutes(app: FastifyInstance, deps: Deps): 
 
   app.put('/banks/:id', { schema: { body: bankBodySchema } }, async (req, reply) => {
     const user = requireTeacherOrAdmin(req, reply);
-    deps.bankService.update(user, bankIdOf(req), req.body as BankDto);
+    await deps.bankService.update(user, bankIdOf(req), req.body as BankDto);
     return { ok: true };
   });
 
   app.delete('/banks/:id', async (req, reply) => {
     const user = requireTeacherOrAdmin(req, reply);
-    deps.bankService.remove(user, bankIdOf(req));
+    await deps.bankService.remove(user, bankIdOf(req));
     return { ok: true };
   });
 
@@ -56,7 +56,7 @@ export async function registerBankCrudRoutes(app: FastifyInstance, deps: Deps): 
     };
     return {
       ok: true,
-      ...deps.bankService.createExamFromBank(
+      ...(await deps.bankService.createExamFromBank(
         user,
         id,
         {
@@ -67,7 +67,7 @@ export async function registerBankCrudRoutes(app: FastifyInstance, deps: Deps): 
           ...(body.publish === undefined ? {} : { publish: Boolean(body.publish) }),
         },
         deps.examService,
-      ),
+      )),
     };
   });
 }
