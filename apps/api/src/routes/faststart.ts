@@ -14,7 +14,7 @@ export async function registerFaststartRoutes(app: FastifyInstance, deps: Deps):
   app.post('/admin/media/faststart/run', async (req, reply) => {
     requireTeacherOrAdmin(req, reply);
     let added = 0;
-    const raw = deps.settings.get('media_roots');
+    const raw = deps.settings.getSync('media_roots');
     const roots = raw ? (JSON.parse(raw) as { path?: string }[]) : [];
     for (const root of roots) {
       if (!root.path) continue;

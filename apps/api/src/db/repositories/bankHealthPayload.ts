@@ -11,7 +11,7 @@
 import type { Db } from '../client.js';
 import { BankRepository } from './bankRepository.js';
 import { QuestionRepository } from './questionRepository.js';
-import { SettingsRepository } from './settingsRepository.js';
+import type { SettingsRepository } from './settingsRepository.js';
 import { difficultyStats } from './question-stats.js';
 import { DIFFICULTY_CUTS_KEY, parseDifficultyCuts } from '../../domain/difficultyCuts.js';
 import type { BankHealthResult } from '../../services/bankHealthService.js';
@@ -20,10 +20,9 @@ import type { BankHealthResult } from '../../services/bankHealthService.js';
 export type BankHealthPayload = Omit<BankHealthResult, 'cachedAt'>;
 
 /** 计算全库体检（同步、只读；大库很慢，必须只在 worker 或测试里调用） */
-export function computeGlobalHealthPayload(db: Db, limit: number): BankHealthPayload {
+export function computeGlobalHealthPayload(db: Db, settings: SettingsRepository, limit: number): BankHealthPayload {
   const questions = new QuestionRepository(db);
   const banks = new BankRepository(db);
-  const settings = new SettingsRepository(db);
 
   const stats = questions.health(undefined);
   return {
@@ -37,6 +36,6 @@ export function computeGlobalHealthPayload(db: Db, limit: number): BankHealthPay
     },
     duplicates: questions.duplicateGroups(limit),
     kinds: banks.kindStats(),
-    difficulty: difficultyStats(db, undefined, parseDifficultyCuts(settings.get(DIFFICULTY_CUTS_KEY))),
+    difficulty: difficultyStats(db, undefined, parseDifficultyCuts(settings.getSync(DIFFICULTY_CUTS_KEY))),
   };
 }

@@ -34,7 +34,7 @@ export class MediaRootService {
   ) {}
 
   list(): MediaRoot[] {
-    const raw = this.settings.get('media_roots');
+    const raw = this.settings.getSync('media_roots');
     if (!raw) return [];
     try {
       const parsed: unknown = JSON.parse(raw);
@@ -48,8 +48,8 @@ export class MediaRootService {
     }
   }
 
-  private save(roots: MediaRoot[]): void {
-    this.settings.set('media_roots', JSON.stringify(roots));
+  private async save(roots: MediaRoot[]): Promise<void> {
+    await this.settings.set('media_roots', JSON.stringify(roots));
   }
 
   isAvailable(root: MediaRoot): boolean {
@@ -61,7 +61,7 @@ export class MediaRootService {
     }
   }
 
-  add(actor: User, input: { name: string; path: string }): MediaRoot {
+  async add(actor: User, input: { name: string; path: string }): Promise<MediaRoot> {
     const name = (input.name ?? '').trim();
     const p = (input.path ?? '').trim();
     if (!name) throw AppError.badRequest('请填写显示名称');
@@ -74,17 +74,17 @@ export class MediaRootService {
     if (roots.some((r) => r.path === p)) throw AppError.conflict('该路径已添加');
     const root: MediaRoot = { id: `m${Date.now().toString(36)}`, name, path: p };
     roots.push(root);
-    this.save(roots);
+    await this.save(roots);
     void actor;
     return root;
   }
 
-  remove(id: string): void {
+  async remove(id: string): Promise<void> {
     const roots = this.list();
     const target = roots.find((r) => r.id === id);
     if (!target) throw AppError.notFound('文件夹不存在');
     if (target.internal) throw AppError.badRequest('这是系统内置的视频目录（站内上传用），不能移除');
-    this.save(roots.filter((r) => r.id !== id));
+    await this.save(roots.filter((r) => r.id !== id));
   }
 
   /**
@@ -92,7 +92,7 @@ export class MediaRootService {
    * 网页直接上传的视频落在 <dataDir>/uploads/videos，通过它参与既有的
    * 媒体根解析与 Range 播放流程，无需运维挂载任何宿主机目录。
    */
-  ensureUploadRoot(dataDir: string): void {
+  async ensureUploadRoot(dataDir: string): Promise<void> {
     const abs = path.join(dataDir, 'uploads', 'videos');
     fs.mkdirSync(abs, { recursive: true });
     const roots = this.list();
@@ -100,23 +100,29 @@ export class MediaRootService {
     if (existing) {
       if (existing.path !== abs) {
         existing.path = abs;
-        this.save(roots);
+        await this.save(roots);
       }
       return;
     }
     // 内置目录放最前面，方便在管理端一眼看到
     roots.unshift({ id: UPLOAD_ROOT_ID, name: '站内上传（课程视频）', path: abs, internal: true });
-    this.save(roots);
+    await this.save(roots);
+  }
+
+  /** 相对路径 → 绝对路径（纯同步：不查库，只做路径拼接与越界校验，供同步回调复用） */
+  absOf(root: MediaRoot, relPath: string): string {
+    const base = path.resolve(this.repoRoot, root.path);
+    const abs = path.resolve(base, String(relPath || '').replace(/^\/+/, ''));
+    if (abs !== base && !abs.startsWith(base + path.sep)) throw AppError.badRequest('路径越界');
+    return abs;
   }
 
   /** 解析 rootId + 相对路径 → 绝对路径（越界抛错） */
   resolve(rootId: string, relPath: string): { root: MediaRoot; abs: string; base: string } {
     const root = this.list().find((r) => r.id === rootId);
     if (!root) throw AppError.badRequest('无效的媒体目录');
-    const base = path.resolve(this.repoRoot, root.path);
-    const abs = path.resolve(base, String(relPath || '').replace(/^\/+/, ''));
-    if (abs !== base && !abs.startsWith(base + path.sep)) throw AppError.badRequest('路径越界');
-    return { root, abs, base };
+    const abs = this.absOf(root, relPath);
+    return { root, abs, base: path.resolve(this.repoRoot, root.path) };
   }
 
   /** 扫描目录下的视频（递归，按子文件夹分组） */

@@ -12,7 +12,7 @@ export async function registerAuthRoutes(app: FastifyInstance, deps: Deps): Prom
   app.get('/meta', async (req) => ({
     siteName: deps.config.siteName,
     user: req.authUser,
-    allowRegister: deps.settings.getBool('allow_register', deps.config.allowRegister),
+    allowRegister: deps.settings.getBoolSync('allow_register', deps.config.allowRegister),
   }));
 
   app.get('/me', async (req, reply) => {

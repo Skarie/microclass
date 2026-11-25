@@ -37,7 +37,7 @@ export async function registerMediaRoutes(app: FastifyInstance, deps: Deps): Pro
     async (req, reply) => {
       const user = requireTeacherOrAdmin(req, reply);
       const body = req.body as { name: string; path: string };
-      const root = deps.media.add(user, body);
+      const root = await deps.media.add(user, body);
       deps.audit.write({
         actorId: user.id,
         actorName: user.username,
@@ -55,7 +55,7 @@ export async function registerMediaRoutes(app: FastifyInstance, deps: Deps): Pro
     const id = (req.params as { id: string }).id;
     const used = deps.db.get<{ c: number }>('SELECT COUNT(*) AS c FROM lessons WHERE media_root = ?', [id])?.c ?? 0;
     if (used > 0) throw AppError.badRequest(`有 ${used} 个课时正在使用该文件夹，请先改绑或删除后再移除`);
-    deps.media.remove(id);
+    await deps.media.remove(id);
     deps.audit.write({
       actorId: user.id,
       actorName: user.username,

@@ -42,7 +42,7 @@ export async function registerDifficultyRoutes(app: FastifyInstance, deps: Deps)
     const q = (req.query ?? {}) as { bankId?: string; dryRun?: string; keepManual?: string; keepCalibrated?: string };
     const bankId = q.bankId === undefined || q.bankId === '' ? undefined : Number(q.bankId);
     return reply.send(
-      deps.difficultyService.apply(actor, {
+      await deps.difficultyService.apply(actor, {
         ...(bankId === undefined ? {} : { bankId }),
         dryRun: q.dryRun === '1' || q.dryRun === 'true',
         keepManual: q.keepManual !== '0',

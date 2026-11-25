@@ -83,8 +83,12 @@ class SqliteAsyncDb implements AsyncDb {
     }
   }
 
+  /**
+   * 不关闭连接：sqlite 的 `Db` 由调用方（app / 子进程）持有并负责关闭。
+   * 若这里也 close，调用方再 close 就会抛 `database is not open`。
+   */
   async close(): Promise<void> {
-    this.db.close();
+    /* no-op：所有权在调用方 */
   }
 }
 

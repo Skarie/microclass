@@ -4,8 +4,25 @@
  */
 import type { FastifyInstance } from 'fastify';
 import type { AppConfig } from '../config/env.js';
+import type { SettingsRepository } from '../db/repositories/settingsRepository.js';
+import type { MediaRootService } from './mediaRootService.js';
 import type { MediaOptimizeService } from './mediaOptimizeService.js';
 import type { BankHealthCoordinator } from './bankHealthCoordinator.js';
+
+/**
+ * 首次启动播种媒体根（来自 MC_MEDIA_ROOTS），并把站内上传目录登记进去。
+ * 必须在 `settings.load()` 之后调用：读的是进程内快照，写库后快照同步更新。
+ */
+export async function seedMediaRoots(
+  settings: SettingsRepository,
+  media: MediaRootService,
+  config: AppConfig,
+): Promise<void> {
+  if (!settings.getSync('media_roots') && config.mediaRoots.length > 0) {
+    await settings.set('media_roots', JSON.stringify(config.mediaRoots));
+  }
+  await media.ensureUploadRoot(config.dataDir);
+}
 
 /** 遍历所有媒体根做一次 faststart（单目录失败不影响其它） */
 function sweepAll(faststart: MediaOptimizeService, config: AppConfig): void {

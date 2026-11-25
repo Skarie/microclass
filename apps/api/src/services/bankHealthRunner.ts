@@ -11,6 +11,7 @@
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import type { Db } from '../db/client.js';
+import type { SettingsRepository } from '../db/repositories/settingsRepository.js';
 import { computeGlobalHealthPayload, type BankHealthPayload } from '../db/repositories/bankHealthPayload.js';
 
 /** 一次体检计算（异步：生产走子进程，测试可替换） */
@@ -91,6 +92,6 @@ export function createWorkerHealthRunner(dbFile: string): BankHealthRunner {
 }
 
 /** 进程内 runner：测试与「无法起进程」的场景（语义与子进程完全一致） */
-export function createInlineHealthRunner(db: Db): BankHealthRunner {
-  return (limit) => Promise.resolve().then(() => computeGlobalHealthPayload(db, limit));
+export function createInlineHealthRunner(db: Db, settings: SettingsRepository): BankHealthRunner {
+  return (limit) => Promise.resolve().then(() => computeGlobalHealthPayload(db, settings, limit));
 }

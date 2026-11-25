@@ -37,12 +37,22 @@ export function createDatabaseHandles(config: AppConfig, sqliteDb: Db): Database
  *
  * 为什么不做成 Deps 字段：`app.ts` 已到文件行数守卫的基线，不能再长；
  * 而且一个进程本来就只该有一个连接池，单例比到处构造更安全（PG 连接数有限）。
+ *
+ * 缓存里记着「是哪个 sqlite Db 包出来的」：测试会为每个用例新建 `:memory:` 库，
+ * 若沿用旧句柄就会 `database is not open`，所以底层 Db 变了就重建（PG 模式同理换池）。
  */
-let cached: DatabaseHandles | null = null;
+let cached: (DatabaseHandles & { source: Db }) | null = null;
 
 export function getAsyncDb(config: AppConfig, sqliteDb: Db): AsyncDb {
-  if (!cached) cached = createDatabaseHandles(config, sqliteDb);
+  if (!cached || cached.source !== sqliteDb) {
+    cached = { ...createDatabaseHandles(config, sqliteDb), source: sqliteDb };
+  }
   return cached.asyncDb;
+}
+
+/** 测试用：丢掉缓存的句柄（不影响已关闭的底层连接） */
+export function resetAsyncDbCache(): void {
+  cached = null;
 }
 
 /** 打日志用（不含密码）；未初始化时返回 sqlite */

@@ -38,12 +38,13 @@ import { CourseKnowledgeService } from './services/courseKnowledgeService.js';
 import { LessonService } from './services/lessonService.js';
 import { KnowledgeImportService } from './services/knowledgeImportService.js';
 import { KnowledgeMediaStore } from './services/knowledgeMediaStore.js';
-import { startFaststartSweeps, warmBankHealth } from './services/startupTasks.js';
+import { seedMediaRoots, startFaststartSweeps, warmBankHealth } from './services/startupTasks.js';
 import { MediaRootService } from './services/mediaRootService.js';
 import { StorageService } from './services/storageService.js';
 import { QuestionMediaStore } from './services/questionMediaStore.js';
 import { BankService } from './services/bankService.js';
 import { createBankHealthCoordinator } from './services/bankHealthSetup.js';
+import { getAsyncDb } from './db/driver.js';
 import type { BankHealthCoordinator } from './services/bankHealthCoordinator.js';
 import { QuestionConflictService } from './services/questionConflictService.js';
 import { DifficultyService } from './services/difficultyService.js';
@@ -113,7 +114,7 @@ export interface BuiltApp {
 
 export function buildDeps(config: AppConfig, db: Db, options?: { inlineHealthRunner?: boolean }): Deps {
   const users = new UserRepository(db);
-  const settings = new SettingsRepository(db);
+  const settings = new SettingsRepository(getAsyncDb(config, db));
   const audit = new AuditRepository(db);
   const courses = new CourseRepository(db);
   const lessons = new LessonRepository(db);
@@ -167,7 +168,7 @@ export function buildDeps(config: AppConfig, db: Db, options?: { inlineHealthRun
    * 全库体检：生产用独立 worker 线程（只读连接）算、结果写持久缓存；测试注入内存库时用进程内 runner。
    * 装配细节见 services/bankHealthSetup（app.ts 受行数守卫约束，只保留一行创建）。
    */
-  const bankHealth = createBankHealthCoordinator(db, config, { inline: options?.inlineHealthRunner });
+  const bankHealth = createBankHealthCoordinator(db, config, settings, { inline: options?.inlineHealthRunner });
   const questionStats = new QuestionStatsRepository(db);
   const analyticsService = new AnalyticsService(new AnalyticsRepository(db));
   const examService = new ExamService(exams, courses, audit, questions, questionMedia);
@@ -242,10 +243,6 @@ export async function buildApp(config: AppConfig, options?: { db?: Db }): Promis
 
   // 首次启动：引导管理员 + 播种媒体根目录设置 + 登记站内上传目录
   deps.auth.bootstrapAdmin(config.bootstrapAdminUser, config.bootstrapAdminPass);
-  if (!deps.settings.get('media_roots') && config.mediaRoots.length > 0) {
-    deps.settings.set('media_roots', JSON.stringify(config.mediaRoots));
-  }
-  deps.media.ensureUploadRoot(config.dataDir);
 
   const app = Fastify({
     logger: loggerOptions(config),
@@ -373,6 +370,9 @@ export async function buildApp(config: AppConfig, options?: { db?: Db }): Promis
   });
 
   app.addHook('onReady', async () => {
+    // settings 读取走进程内快照（低频配置表）；必须在任何同步读之前装载。
+    await deps.settings.load();
+    await seedMediaRoots(deps.settings, deps.media, config);
     warmBankHealth(app, deps.bankHealth, config);
   });
 

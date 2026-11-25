@@ -111,7 +111,7 @@ export async function registerUserRoutes(app: FastifyInstance, deps: Deps): Prom
 
   app.get('/settings', async (req, reply) => {
     requireAdmin(req, reply);
-    const s = deps.settings.all();
+    const s = deps.settings.allSync();
     // 仅暴露可公开的管理项，密钥类不返回
     return { settings: { allow_register: s.allow_register ?? '1' } };
   });
@@ -120,7 +120,7 @@ export async function registerUserRoutes(app: FastifyInstance, deps: Deps): Prom
     const actor = requireAdmin(req, reply);
     const body = req.body as { allowRegister?: boolean };
     if (body.allowRegister !== undefined) {
-      deps.settings.setBool('allow_register', body.allowRegister);
+      await deps.settings.setBool('allow_register', body.allowRegister);
       deps.audit.write({
         actorId: actor.id,
         actorName: actor.username,
@@ -130,7 +130,7 @@ export async function registerUserRoutes(app: FastifyInstance, deps: Deps): Prom
         detail: { value: body.allowRegister },
       });
     }
-    return { ok: true, allowRegister: deps.settings.getBool('allow_register', true) };
+    return { ok: true, allowRegister: deps.settings.getBoolSync('allow_register', true) };
   });
 
   app.get('/admin/me', async (req, reply) => {

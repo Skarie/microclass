@@ -67,7 +67,7 @@ export class AuthService {
   }
 
   register(input: { username: string; password: string; displayName?: string }): { user: User; token: string } {
-    if (!this.settings.getBool('allow_register', true)) {
+    if (!this.settings.getBoolSync('allow_register', true)) {
       throw AppError.forbidden('未开放自助注册，请联系管理员开通账号');
     }
     const username = (input.username ?? '').trim().toLowerCase();

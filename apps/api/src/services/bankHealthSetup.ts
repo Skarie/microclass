@@ -8,6 +8,7 @@
 import path from 'node:path';
 import type { AppConfig } from '../config/env.js';
 import type { Db } from '../db/client.js';
+import type { SettingsRepository } from '../db/repositories/settingsRepository.js';
 import { BankHealthCacheRepository } from '../db/repositories/bankHealthCacheRepository.js';
 import { BankHealthCoordinator } from './bankHealthCoordinator.js';
 import { createInlineHealthRunner, createWorkerHealthRunner } from './bankHealthRunner.js';
@@ -24,10 +25,11 @@ export interface CreateBankHealthOptions {
 export function createBankHealthCoordinator(
   db: Db,
   config: Pick<AppConfig, 'dataDir' | 'autoBankHealth'>,
+  settings: SettingsRepository,
   options?: CreateBankHealthOptions,
 ): BankHealthCoordinator {
   const runner = options?.inline
-    ? createInlineHealthRunner(db)
+    ? createInlineHealthRunner(db, settings)
     : createWorkerHealthRunner(path.join(config.dataDir, 'microclass.db'));
   return new BankHealthCoordinator(
     new BankHealthCacheRepository(db),

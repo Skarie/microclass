@@ -77,7 +77,7 @@ export class DifficultyService {
 
   /** 当前阈值：settings 里有就用它，否则用默认（与库里的 difficulty 保持一致） */
   cuts(): DifficultyCuts {
-    return parseDifficultyCuts(this.settings.get(CUTS_KEY));
+    return parseDifficultyCuts(this.settings.getSync(CUTS_KEY));
   }
 
   /** 难度现状（体检用）：分布 + 来源统计 */
@@ -228,10 +228,10 @@ export class DifficultyService {
    * 落库。`cuts` 取全库分位数（在 preview 里算过；这里重新按同一口径算一次，保证一致）。
    * `applyCuts` 会把阈值写进 settings，之后全库共用。
    */
-  apply(
+  async apply(
     actor: User,
     options?: { bankId?: number; keepManual?: boolean; keepCalibrated?: boolean; dryRun?: boolean },
-  ): DifficultyApplyResult {
+  ): Promise<DifficultyApplyResult> {
     const bankId = options?.bankId;
     const batch = this.scoreBatch(bankId, options ?? {});
     // 阈值：整库用全库分位数；单题库也用全库阈值（保证跨题库可比），全库没算过就退回默认
@@ -254,7 +254,7 @@ export class DifficultyService {
       };
     }
     const updated = this.questions.setDifficulty(items);
-    if (bankId === undefined) this.settings.set(CUTS_KEY, JSON.stringify(cuts));
+    if (bankId === undefined) await this.settings.set(CUTS_KEY, JSON.stringify(cuts));
     this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
