@@ -99,6 +99,10 @@ services:
       MC_MAX_UPLOAD_MB: ${MC_MAX_UPLOAD_MB:-200}
       MC_LOG_LEVEL: ${MC_LOG_LEVEL:-info}
       MC_TRUST_PROXY: ${MC_TRUST_PROXY:-1}
+      # 反代/域名访问的 Origin 白名单（逗号分隔；支持 https://*.example.com）
+      # 不传这个变量时，应用只会用 Host/X-Forwarded-Host 推导自身地址，
+      # 反代若改写 Host（常见），浏览器登录会被 403「Origin 不被信任」拦掉。
+      MC_ALLOWED_ORIGINS: ${MC_ALLOWED_ORIGINS:-}
       # 数据层开关：sqlite（默认，行为不变）| pg（P0 切流后启用）
       MC_DB: ${MC_DB:-sqlite}
       MC_PG_URL: ${MC_PG_URL:-}

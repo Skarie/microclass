@@ -806,6 +806,63 @@ MC_DATA_DIR=/path/to/existing/data npm run migrate   # 自动补 schema_migratio
 
    返回 200 即正常；仍 403 时错误信息里会带上被拒的 Origin，照它填进 `MC_ALLOWED_ORIGINS` 即可。
 
+5. **`MC_ALLOWED_ORIGINS` 必须精确到端口**（最容易踩的坑）：
+
+   浏览器发的是 `Origin: https://<域名>:<端口>`，校验是**规范化后精确匹配**（只去掉 `:443`/`:80`），
+   中间端口不会被忽略；`https://*.example.com` 通配**只匹配主机名，不匹配端口**。
+
+   ```bash
+   # 别猜端口，直接从日志里读浏览器真实发的 Origin（最可靠）
+   sudo docker logs --since 30m microclass-api 2>&1 | grep '堵住了一个 Origin' | tail -5
+   # → {"level":40,...,"origin":"https://office.app.5ddd.com:38065","msg":"堵住了一个 Origin ..."}
+   ```
+
+   实测案例：反代端口从 `43175` 换成 `38065` 后，白名单只写了 `:43175` → 一直 403；
+   把 `https://office.app.5ddd.com:38065` 加进去立刻恢复。**同一域名多个入口时，每个端口都要登记**。
+
+6. **改完 `.env` 必须 `--force-recreate`**（`docker restart` 不会重读 compose 插值的环境变量）：
+
+   ```bash
+   cd /vol1/1000/microclass-deploy
+   sudo docker compose -f compose.evo4.yml up -d --force-recreate --no-deps api
+   # 或者用仓库脚本（同样会 force-recreate）
+   sudo bash redeploy.sh
+   ```
+
+   已经踩过的坑：只改 `.env` 不重建 → 容器里 `MC_ALLOWED_ORIGINS` 仍是空/旧值，403 照旧。
+   验证容器里到底有没有：
+
+   ```bash
+   sudo docker exec microclass-api sh -c 'echo "ALLOWED=[$MC_ALLOWED_ORIGINS]"'
+   sudo docker inspect microclass-api --format '{{range .Config.Env}}{{println .}}{{end}}' | grep ALLOWED_ORIGINS
+   ```
+
+7. **验证要模拟「反代改写 Host」**（这是真实链路，而不是直连）：
+
+   ```bash
+   # 合法 Origin + 被改写的 Host → 应 401（凭据错）或 200，绝不能 403
+   curl -s -o /dev/null -w '%{http_code}\n' -X POST http://127.0.0.1:8091/api/v1/auth/login \
+     -H 'Origin: https://office.app.5ddd.com:38065' -H 'Host: 127.0.0.1:8091' \
+     -H 'X-Forwarded-Proto: https' -H 'content-type: application/json' \
+     -d '{"username":"admin","password":"<真实密码>"}'
+
+   # 未登记域名必须是 403（确认防护没被放空）
+   curl -s -o /dev/null -w '%{http_code}\n' -X POST http://127.0.0.1:8091/api/v1/auth/login \
+     -H 'Origin: https://evil.example.com' -H 'Host: 127.0.0.1:8091' \
+     -H 'content-type: application/json' -d '{"username":"x","password":"x"}'
+   ```
+
+   参考生效值（本机实测）：
+
+   ```dotenv
+   # /vol1/1000/microclass-deploy/.env（不要加引号，逗号分隔且不要空格）
+   MC_TRUST_PROXY=1
+   MC_ALLOWED_ORIGINS=https://office.app.5ddd.com:38065,https://office.app.5ddd.com:43175,https://office.app.5ddd.com,http://office.app.5ddd.com:38065
+   ```
+
+   会话 Cookie 是 `HttpOnly; SameSite=Lax`，**不含 `Secure`**：https 反代下正常工作，
+   但如果同一入口还能用 `http://` 访问，Cookie 会随 http 明文发出，建议反代强制跳 https。
+
 ---
 
 ## 8. 题库体检：对生产的影响与开关（2.3.2）

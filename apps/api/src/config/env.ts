@@ -65,7 +65,13 @@ export interface AppConfig {
   rateLimitWindow: string;
   /** 可信代理（反代场景下取真实 IP/协议） */
   trustProxy: boolean;
-  /** 跨站请求白名单（Origin 校验）；同源请求自动放行，无需配置 */
+  /**
+   * 跨站请求白名单（Origin 校验）；同源请求自动放行，无需配置。
+   *
+   * 写 `*` 表示**关闭 Origin 校验**（显式开关，进程内只告警一次）：
+   * 任何站点都能对本站发起写请求，仅在可信/单机环境使用。
+   * 一般应填具体地址，支持 `https://*.example.com` 通配（只匹配主机名，端口需精确写）。
+   */
   allowedOrigins: string[];
   /** 是否下发严格 CSP（默认关闭；同源托管时可开启） */
   cspEnabled: boolean;
@@ -83,6 +89,15 @@ export interface AppConfig {
    * （`?refresh=1`）时计算，日常读取走向持久缓存。
    */
   autoBankHealth: boolean;
+  /**
+   * 数据层驱动：`sqlite`（默认，行为不变）或 `pg`。
+   *
+   * P0 迁移期间按域逐步切换：已迁移的域走 `pg`，未迁移的仍走 SQLite，
+   * 同一个请求内**不能**跨库事务（见 docs/postgres-migration.md）。
+   */
+  dbDriver: 'sqlite' | 'pg';
+  /** PG 连接串（含密码，禁止打日志；需要时可经 describePgUrl 降级输出） */
+  pgUrl: string | null;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -126,5 +141,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     ffmpegPath: str('MC_FFMPEG_PATH', '', env),
     autoFaststart: str('MC_AUTO_FASTSTART', '1', env) !== '0',
     autoBankHealth: bool('MC_HEALTH_AUTO', false, env),
+    dbDriver: str('MC_DB', 'sqlite', env).trim().toLowerCase() === 'pg' ? 'pg' : 'sqlite',
+    pgUrl: (env.MC_PG_URL ?? '').trim() || null,
   };
 }

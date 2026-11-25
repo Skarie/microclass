@@ -19,6 +19,22 @@ import { AppError } from '@microclass/shared';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
+/**
+ * `MC_ALLOWED_ORIGINS=*` 时关闭 Origin 校验（显式开关）。
+ * 告警每进程只打一次，避免刷屏。
+ */
+let wildcardWarned = false;
+
+/** 测试用：重置「已告警」标记 */
+export function resetOriginWildcardWarning(): void {
+  wildcardWarned = false;
+}
+
+/** 测试/观测用：`*` 模式是否已经打过告警 */
+export function isOriginWildcardWarned(): boolean {
+  return wildcardWarned;
+}
+
 /** 规范化：去尾部斜杠、小写、去默认端口 */
 function normalizeOrigin(raw: string): string {
   let s = raw.trim().replace(/\/+$/, '').toLowerCase();
@@ -75,11 +91,25 @@ function matchesAllowList(origin: string, allowList: string[]): boolean {
 }
 
 export function registerOriginCheck(app: FastifyInstance, config: { allowedOrigins: string[] }): void {
+  // 显式「放行所有 Origin」：白名单里出现 `*`（trim 后完全等于 *）
+  const allowAll = config.allowedOrigins.some((v) => v.trim() === '*');
+
   app.addHook('onRequest', async (req: FastifyRequest) => {
     if (SAFE_METHODS.has(req.method)) return;
     const origin = req.headers.origin;
     // 非浏览器客户端不带 Origin：无 Cookie 自动携带风险，放行
     if (typeof origin !== 'string' || origin === '') return;
+
+    if (allowAll) {
+      if (!wildcardWarned) {
+        wildcardWarned = true;
+        req.log.warn(
+          'MC_ALLOWED_ORIGINS=*：已关闭 Origin 校验，任何站点都能对本站发起写请求；' +
+            '仅在可信/单机环境使用，建议改回具体域名白名单。',
+        );
+      }
+      return;
+    }
 
     const normalized = normalizeOrigin(origin);
     if (matchesAllowList(origin, config.allowedOrigins)) return;
