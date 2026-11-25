@@ -33,11 +33,12 @@ docker network inspect "$NETWORK" >/dev/null 2>&1 || {
 }
 
 echo "=== 在容器内跑 PG 集成测试（网络 $NETWORK）==="
+# 源码只读挂载到 /src，容器内拷到可写层再装依赖：
+# 直接在宿主机卷上 npm ci 会因 esbuild 等 postinstall 需要执行权限而 EACCES。
 docker run --rm \
     --network "$NETWORK" \
-    -v "$SRC":/app \
-    -w /app \
+    -v "$SRC":/src:ro \
     -e "MC_PG_TEST_URL=$DSN" \
     -e CI=true \
     node:22-alpine \
-    sh -c "npm ci --no-audit --no-fund >/dev/null && npx vitest run $PATTERN"
+    sh -c "mkdir -p /app && cp -a /src/. /app/ && cd /app && npm ci --no-audit --no-fund >/dev/null && npx vitest run $PATTERN"
