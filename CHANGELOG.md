@@ -4,6 +4,24 @@
 
 ## [Unreleased]
 
+### 2.3.3：SQLite 读内存化 + 设置读取走内存快照（2026-11-26）
+
+**问题**：生产两次整站无响应（约 3 分钟），根因一致 —— 同步 `node:sqlite` 在机械盘上读页阻塞事件循环，
+`/api/v1/healthz` 连续超时，只能靠看门狗重启恢复。
+
+**改动**：
+
+- SQLite 连接参数（`apps/api/src/db/client.ts`，仅 `MC_DB=sqlite`）：
+  `cache_size` 64→**256 MB**、`mmap_size` 256 MB→**2 GB**、只读连接加 `query_only=ON`；
+  `synchronous=NORMAL` / `busy_timeout=5000` / `journal_size_limit=64MB` 不变。
+- 设置读取改走**进程内快照**（`SettingsRepository.load()/getSync`）：写仍走数据库（sqlite / PG 双栈），
+  写完同步更新快照；体检子进程启动时 `await load()`。为后续 PG 迁移铺路，同时不再让同步读设置阻塞请求。
+
+**实测**：NVMe 副本上接口 P50 几乎不变（热页已命中），收益在机械盘冷页；容器 RSS 80→104 MB（上限 2 GiB），
+WAL 77→121 KB，`quick_check=ok`。
+
+**质量**：`vitest 924 passed / 5 skipped`、E2E **40/40**、eslint 0 error、prettier、size guard、build 全绿。
+
 ### 2.3.1：题库体检改为后台 worker（修复冷缓存全站卡死，2026-11-20）
 
 **问题**：`GET /api/v1/banks/health` 是同步驱动的 SQLite 全表聚合（生产 39.6 万题 / 库 1.2GB、
