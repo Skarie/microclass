@@ -75,6 +75,14 @@ export interface AppConfig {
   ffmpegPath: string;
   /** 是否在后台自动把视频重封装成 faststart（moov 前置），默认开启 */
   autoFaststart: boolean;
+  /**
+   * 是否自动跑「题库全库体检」（启动预热 + 缓存过期时自动重算）。
+   *
+   * 默认**关闭**：全库体检要扫 39.6 万题 / 1.2GB 库，机械盘上是一次重度 IO；
+   * 实测曾把事件循环拖死、整站无响应。现在只允许管理员在题库页点「重新体检」
+   * （`?refresh=1`）时计算，日常读取走向持久缓存。
+   */
+  autoBankHealth: boolean;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -117,5 +125,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     ffprobePath: str('MC_FFPROBE_PATH', '', env),
     ffmpegPath: str('MC_FFMPEG_PATH', '', env),
     autoFaststart: str('MC_AUTO_FASTSTART', '1', env) !== '0',
+    autoBankHealth: bool('MC_HEALTH_AUTO', false, env),
   };
 }

@@ -805,3 +805,79 @@ MC_DATA_DIR=/path/to/existing/data npm run migrate   # 自动补 schema_migratio
    ```
 
    返回 200 即正常；仍 403 时错误信息里会带上被拒的 Origin，照它填进 `MC_ALLOWED_ORIGINS` 即可。
+
+---
+
+## 8. 题库体检：对生产的影响与开关（2.3.2）
+
+「题库体检」= 全库聚合（元数据覆盖率 / 质量统计 / 重复题），要扫 **39.6 万题 / 1.2 GB 库**。
+放在机械盘上是一次重度 IO：早期同步实现直接把事件循环占住（实测冷缓存 6.5 分钟全站卡死）；
+2.3.1 改成「持久缓存 + 后台 worker + 202」，但**启动预热和过期自动重算本身仍是一次全库扫描**。
+
+2.3.2 起的默认行为：
+
+| 项目               | 默认                                                          |
+| ------------------ | ------------------------------------------------------------- |
+| 启动预热           | **关闭**                                                      |
+| 缓存过期自动重算   | **关闭**（读到过期缓存会返回旧结果并带 `stale: true`）        |
+| 何时才会真算       | 管理端题库页点「重新体检」→ `GET /api/v1/banks/health?refresh=1` |
+| 计算进程           | 独立子进程，`ionice -c3 nice -n 19`（容器无 ionice 时自动回退） |
+| 算完收尾           | 写缓存后 `PRAGMA wal_checkpoint(TRUNCATE)`，避免 WAL 只涨不落  |
+
+```bash
+# 想恢复「过期自动算」（不推荐大库使用）
+docker compose -f compose.evo4.yml ...      # 在 .env 或 environment 里加
+MC_HEALTH_AUTO=1
+```
+
+判断当前状态：
+
+```bash
+curl -s localhost:8091/api/v1/banks/health/status   # 需教师/管理员 cookie
+# { "status": "ready" | "computing" | "stale", "computedAt": 1763... }
+```
+
+**建议**：大库（>500 MB）保持默认关闭，只在低峰手动点「重新体检」；`stale` 的旧数据不影响日常刷题，
+只影响管理端那张体检报表的新鲜度。
+
+---
+
+## 9. 看门狗（整站无响应的兜底）
+
+docker 自带 healthcheck 只会把容器标记成 `unhealthy`，**不会重启**。
+2026-11-26 00:06 就出现过「进程还在、healthz 超时、整站不可用」持续数分钟的情况，靠人工重启才恢复。
+
+`ops/deploy/watchdog.sh` 补上这一环：
+
+```bash
+# 安装（root，在 NAS 上）
+install -m 755 ops/deploy/watchdog.sh /vol1/1000/microclass-deploy/watchdog.sh
+( crontab -l 2>/dev/null; \
+  echo '*/2 * * * * /vol1/1000/microclass-deploy/watchdog.sh >> /var/log/microclass-watchdog.log 2>&1' \
+) | crontab -
+crontab -l | grep watchdog          # 确认已写入
+tail -f /var/log/microclass-watchdog.log
+```
+
+行为：
+
+- 每 2 分钟 `curl http://127.0.0.1:8091/api/v1/healthz`（超时 5s）；
+- **连续 2 次**失败才 `docker restart microclass-api`（单次磁盘抖动不误杀）；
+- 重启后 20s 复查：恢复则记一行日志；仍失败则只记日志、**停止自动重启**（防重启风暴，等人工）；
+- 用 `flock` 防重叠执行；状态文件 `/tmp/microclass-watchdog.state`。
+
+替代方案：`willfarrell/autoheal`（需挂载 docker.sock，会按 `autoheal=true` 标签自动重启 unhealthy 容器）。
+内网/离线环境优先用上面的 cron 脚本，不引入新镜像。
+
+### 事故记录：2026-11-26 00:06 整站无响应
+
+| 项目     | 内容                                                                                                              |
+| -------- | ----------------------------------------------------------------------------------------------------------------- |
+| 现象     | 8091 全站不可达（宿主 `curl` 8s 超时），容器 `unhealthy`，但进程未退出；8092 学生端返回 `upstream_unavailable`     |
+| 持续     | 约 5 分钟（00:06 起），人工 `docker restart` 后恢复                                                                |
+| 取证     | 旧容器日志随 compose `--force-recreate` 丢失；`bank_health_cache.computed_at`=21:42（未过期）→ **不是体检在跑**；   |
+|          | 容器内存 52 MB / 2 GiB（无 OOM）；WAL 0 字节；事故后 `announcements`（小表）仍需 2.4s → 磁盘延迟抖动明显           |
+| 根因     | 组合因素：**(b) 存储 IO 延迟 + 同步 SQLite 架构** —— `node:sqlite` 是同步 API，任一慢查询都会卡住整个事件循环；     |
+|          | 机械盘 IO 抖动（NAS 上还有下载/媒体任务）时，健康检查这类纯内存接口也被拖死。体检 worker 当时未运行，属潜在引信      |
+| 处置     | 重启容器恢复；2.3.2 关闭自动体检、体检降优先级、算完 checkpoint、补看门狗                                          |
+| 遗留风险 | 体检改为手动后仍需在低峰点；同步 SQLite 的固有风险未消除（彻底方案：换异步驱动或读写分离/独立进程）                |

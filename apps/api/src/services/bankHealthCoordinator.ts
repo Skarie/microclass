@@ -25,6 +25,11 @@ export interface HealthReadyResponse extends BankHealthPayload {
   status: 'ready';
   /** 结果写入缓存的时间（毫秒时间戳，前端显示「缓存于 HH:MM:SS」） */
   cachedAt: number;
+  /**
+   * 缓存已过期但自动体检关闭（`MC_HEALTH_AUTO=0`）时置为 true：
+   * 返回的是旧结果，管理端应提示「数据较旧，可手动重新体检」。
+   */
+  stale?: boolean;
 }
 
 export interface HealthComputingResponse {
@@ -64,6 +69,15 @@ export class BankHealthCoordinator {
     runner: BankHealthRunner,
     private readonly ttlMs: number = HEALTH_TTL_MS,
     private readonly now: () => number = Date.now,
+    /**
+     * 是否允许「自动」体检（启动预热 + 缓存过期时自动重算）。
+     *
+     * 生产默认关闭（`config.autoBankHealth`，来自 `MC_HEALTH_AUTO`，默认 0）：
+     * 全库扫描在机械盘上是重度 IO，曾把事件循环拖死。关掉后只有
+     * `refresh=1`（管理端「重新体检」）才会真正计算。
+     * 构造函数默认 true，保持单测里「过期即自动算」的既有语义。
+     */
+    private readonly auto: boolean = true,
   ) {
     this.runner = runner;
   }
@@ -73,6 +87,10 @@ export class BankHealthCoordinator {
     const snapshot = this.snapshot();
     if (!options?.refresh && snapshot && this.isFresh(snapshot)) {
       return { status: 'ready', ...snapshot.payload, cachedAt: snapshot.computedAtMs };
+    }
+    // 自动体检关闭 + 有过期缓存：直接给旧结果并标记 stale，绝不偷偷起 worker
+    if (!options?.refresh && !this.auto && snapshot) {
+      return { status: 'ready', stale: true, ...snapshot.payload, cachedAt: snapshot.computedAtMs };
     }
     this.start();
     return { status: 'computing', startedAt: this.startedAt, retryAfterMs: HEALTH_RETRY_AFTER_MS };
@@ -99,8 +117,9 @@ export class BankHealthCoordinator {
     };
   }
 
-  /** 启动预热用：缓存过期才在后台算一次（绝不阻塞启动） */
+  /** 启动预热用：缓存过期才在后台算一次（绝不阻塞启动）；自动体检关闭时什么都不做 */
   ensureFresh(): void {
+    if (!this.auto) return;
     const snapshot = this.snapshot();
     if (snapshot && this.isFresh(snapshot)) return;
     this.start();
@@ -128,6 +147,8 @@ export class BankHealthCoordinator {
     const run = this.runner(HEALTH_WORKER_LIMIT)
       .then((payload) => {
         this.cache.save(new Date(this.now()).toISOString(), JSON.stringify(payload));
+        // 体检期间 worker 长期只读，checkpoint 推不动；算完主动收一次 WAL
+        this.cache.checkpoint();
       })
       .catch((e: unknown) => {
         this.lastError = e instanceof Error ? e.message : String(e);

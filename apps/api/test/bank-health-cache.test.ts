@@ -180,13 +180,33 @@ describe('冷缓存 → 202 → 算完 200', () => {
     expect(runnerCalls).toBe(callsAfterCompute); // 命中缓存没有再算
   });
 
-  it('缓存过期（computed_at 很旧）→ 重新 202', async () => {
+  it('缓存过期 + 自动体检关闭（生产默认）→ 直接返回旧结果并标记 stale，不偷偷重算', async () => {
     // 先写一条两天前的缓存
     built.deps.db.run('INSERT INTO bank_health_cache (id, computed_at, payload) VALUES (1, ?, ?)', [
       new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
       JSON.stringify(samplePayload(5)),
     ]);
+    const before = runnerCalls;
     const res = await getHealth();
+    // 2.3.2 之前这里是 202（自动重算）；现在默认 MC_HEALTH_AUTO=0，只能显式刷新
+    expect(res.statusCode).toBe(200);
+    const body = json<{ status: string; stale?: boolean; stats?: { total?: number } }>(res);
+    expect(body.status).toBe('ready');
+    expect(body.stale).toBe(true);
+    expect(body.stats?.total).toBe(5);
+    expect(runnerCalls).toBe(before); // 没有起计算
+  });
+
+  it('缓存过期 + refresh=1 → 仍然 202 重算（管理端「重新体检」）', async () => {
+    built.deps.db.run('INSERT INTO bank_health_cache (id, computed_at, payload) VALUES (1, ?, ?)', [
+      new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+      JSON.stringify(samplePayload(5)),
+    ]);
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/banks/health?refresh=1',
+      headers: { cookie: adminCookie },
+    });
     expect(res.statusCode).toBe(202);
     expect(json<{ status: string }>(res).status).toBe('computing');
   });

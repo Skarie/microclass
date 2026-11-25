@@ -6,24 +6,34 @@
  * app.ts 里只保留一行创建。
  */
 import path from 'node:path';
+import type { AppConfig } from '../config/env.js';
 import type { Db } from '../db/client.js';
 import { BankHealthCacheRepository } from '../db/repositories/bankHealthCacheRepository.js';
 import { BankHealthCoordinator } from './bankHealthCoordinator.js';
 import { createInlineHealthRunner, createWorkerHealthRunner } from './bankHealthRunner.js';
 
 export interface CreateBankHealthOptions {
-  /** 测试注入内存库时用进程内 runner（不用起 worker 线程） */
+  /** 测试注入内存库时用进程内 runner（不用起 worker 进程） */
   inline?: boolean;
 }
 
-/** 创建全库体检协调器：生产用 worker 线程（只读连接），测试用进程内 runner */
+/**
+ * 创建全库体检协调器：生产用独立子进程（只读连接，ionice/nice 降优先级），
+ * 测试用进程内 runner。`config.autoBankHealth` 决定是否允许自动重算（默认关）。
+ */
 export function createBankHealthCoordinator(
   db: Db,
-  dataDir: string,
+  config: Pick<AppConfig, 'dataDir' | 'autoBankHealth'>,
   options?: CreateBankHealthOptions,
 ): BankHealthCoordinator {
   const runner = options?.inline
     ? createInlineHealthRunner(db)
-    : createWorkerHealthRunner(path.join(dataDir, 'microclass.db'));
-  return new BankHealthCoordinator(new BankHealthCacheRepository(db), runner);
+    : createWorkerHealthRunner(path.join(config.dataDir, 'microclass.db'));
+  return new BankHealthCoordinator(
+    new BankHealthCacheRepository(db),
+    runner,
+    undefined,
+    undefined,
+    config.autoBankHealth,
+  );
 }

@@ -37,8 +37,15 @@ export function startFaststartSweeps(faststart: MediaOptimizeService, config: Ap
  * 为什么不再在这里同步调用体检：全库聚合在生产（39.6 万题 / 库 1.2GB、NAS 机械盘）要 6 分钟级，
  * 同步跑会把事件循环占住 —— 期间所有接口超时、健康检查变 unhealthy。
  * 现在只「触发」不「等待」：worker 算完写持久缓存（迁移 0031），第一次请求直接命中。
+ *
+ * 自 2.3.2 起**默认不预热**（`MC_HEALTH_AUTO=0`）：预热也是一次全库扫描，
+ * 夜里在机械盘上曾把整站拖死；现在只有管理员点「重新体检」（`?refresh=1`）才算。
  */
-export function warmBankHealth(app: FastifyInstance, coordinator: BankHealthCoordinator): void {
+export function warmBankHealth(app: FastifyInstance, coordinator: BankHealthCoordinator, config: AppConfig): void {
+  if (!config.autoBankHealth) {
+    app.log.info('题库体检自动预热已关闭（MC_HEALTH_AUTO=0）：仅管理员手动「重新体检」时才计算');
+    return;
+  }
   const timer = setTimeout(() => {
     try {
       coordinator.ensureFresh();

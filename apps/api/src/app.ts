@@ -167,7 +167,7 @@ export function buildDeps(config: AppConfig, db: Db, options?: { inlineHealthRun
    * 全库体检：生产用独立 worker 线程（只读连接）算、结果写持久缓存；测试注入内存库时用进程内 runner。
    * 装配细节见 services/bankHealthSetup（app.ts 受行数守卫约束，只保留一行创建）。
    */
-  const bankHealth = createBankHealthCoordinator(db, config.dataDir, { inline: options?.inlineHealthRunner });
+  const bankHealth = createBankHealthCoordinator(db, config, { inline: options?.inlineHealthRunner });
   const questionStats = new QuestionStatsRepository(db);
   const analyticsService = new AnalyticsService(new AnalyticsRepository(db));
   const examService = new ExamService(exams, courses, audit, questions, questionMedia);
@@ -373,7 +373,7 @@ export async function buildApp(config: AppConfig, options?: { db?: Db }): Promis
   });
 
   app.addHook('onReady', async () => {
-    warmBankHealth(app, deps.bankHealth);
+    warmBankHealth(app, deps.bankHealth, config);
   });
 
   return { app, deps, migrations };

@@ -27,4 +27,18 @@ export class BankHealthCacheRepository {
       [computedAt, payloadJson],
     );
   }
+
+  /**
+   * 体检结束后主动把 WAL 收回去（尽力而为）。
+   *
+   * 体检 worker 会长时间只读同一份库，期间 checkpoint 推不动、WAL 只涨不落；
+   * 写完缓存后显式 TRUNCATE 一次，避免下一次写请求被大 WAL 拖慢。
+   */
+  checkpoint(): void {
+    try {
+      this.db.run('PRAGMA wal_checkpoint(TRUNCATE)');
+    } catch {
+      /* 有长读者时 checkpoint 可能失败：忽略，交给 SQLite 自动 checkpoint */
+    }
+  }
 }

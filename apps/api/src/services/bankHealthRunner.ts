@@ -1,52 +1,86 @@
 /**
- * 体检计算 runner：把「算全库体检」这件事交给独立 worker 线程。
+ * 体检计算 runner：把「算全库体检」这件事交给**独立子进程**。
  *
- * 生产用 `createWorkerHealthRunner(dbFile)`：worker 自己开**只读** SQLite 连接扫库，
- * 主线程只等 postMessage，事件循环不被占住（这是修「冷缓存 6.5 分钟全站卡死」的关键）。
+ * 2.3.2 起改为 `ionice -c3 nice -n 19` 启动的子进程（容器里没有 ionice 时自动回退）：
+ * 全库扫描是几十万行 / GB 级读，机械盘上会和主服务抢 IO；用 idle 级 IO 优先级 +
+ * 最低 CPU 优先级跑，主线程的请求不再被它拖住。
  *
- * 测试/本地小库用 `createInlineHealthRunner(db)`：同一段聚合在主线程算，
- * 但 API 语义（202 → ready）与生产完全一致；runner 可注入，便于单测并发与落库。
+ * 测试/本地小库仍用 `createInlineHealthRunner(db)`：同一段聚合在主线程算，
+ * 便于断言并发与落库。
  */
-import { Worker } from 'node:worker_threads';
+import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import type { Db } from '../db/client.js';
 import { computeGlobalHealthPayload, type BankHealthPayload } from '../db/repositories/bankHealthPayload.js';
 
-/** 一次体检计算（异步：生产走 worker，测试可替换） */
+/** 一次体检计算（异步：生产走子进程，测试可替换） */
 export type BankHealthRunner = (limit: number) => Promise<BankHealthPayload>;
 
-interface WorkerMessage {
+/** 子进程输出的消息约定 */
+interface ChildMessage {
   ok: boolean;
   payload?: BankHealthPayload;
   error?: string;
 }
 
-/** 生产 runner：单独线程 + 只读连接；同一时刻只有一个 worker（由协调器保证） */
-export function createWorkerHealthRunner(dbFile: string): BankHealthRunner {
-  return (limit) =>
-    new Promise<BankHealthPayload>((resolve, reject) => {
-      // 编译产物里本文件在 dist/services/，worker 在 dist/workers/
-      const worker = new Worker(new URL('../workers/bankHealthWorker.js', import.meta.url), {
-        workerData: { dbFile, limit },
-      });
-      let settled = false;
-      const finish = (fn: () => void): void => {
-        if (settled) return;
-        settled = true;
-        void worker.terminate();
-        fn();
-      };
-      worker.once('message', (message: WorkerMessage) => {
-        if (message.ok && message.payload) finish(() => resolve(message.payload as BankHealthPayload));
-        else finish(() => reject(new Error(message.error ?? '体检 worker 未返回结果')));
-      });
-      worker.once('error', (e) => finish(() => reject(e)));
-      worker.once('exit', (code) => {
-        if (code !== 0) finish(() => reject(new Error(`体检 worker 异常退出（code=${code}）`)));
-      });
+/** 跑一次子进程并把 stdout 的 JSON 解析成 payload */
+function runHealthChild(bin: string, args: string[], dbFile: string, limit: number): Promise<BankHealthPayload> {
+  return new Promise<BankHealthPayload>((resolve, reject) => {
+    const child = spawn(bin, args, {
+      env: { ...process.env, MC_HEALTH_DB: dbFile, MC_HEALTH_LIMIT: String(limit) },
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
+    const stdoutStream = child.stdout;
+    const stderrStream = child.stderr;
+    if (!stdoutStream) {
+      reject(new Error('体检子进程没有可读的 stdout'));
+      return;
+    }
+    let stdout = '';
+    let stderr = '';
+    stdoutStream.on('data', (chunk: Buffer) => (stdout += chunk.toString()));
+    stderrStream?.on('data', (chunk: Buffer) => (stderr += chunk.toString()));
+    child.once('error', reject);
+    child.once('close', (code) => {
+      let message: ChildMessage;
+      try {
+        message = JSON.parse(stdout.trim() || '{}') as ChildMessage;
+      } catch {
+        reject(new Error(`体检子进程输出不可解析（code=${code}）: ${stderr.slice(0, 200)}`));
+        return;
+      }
+      if (message.ok && message.payload) {
+        resolve(message.payload);
+        return;
+      }
+      reject(new Error(message.error ?? `体检子进程异常退出（code=${code}）`));
+    });
+  });
 }
 
-/** 进程内 runner：测试与「无法起线程」的场景（语义与 worker 完全一致） */
+/**
+ * 生产 runner：idle IO + 最低 CPU 优先级跑子进程。
+ *
+ * 容器镜像里可能没有 ionice（极简镜像），此时按同样参数回退到普通子进程，
+ * 保证功能不受影响，只是少了 IO 限速。
+ */
+export function createWorkerHealthRunner(dbFile: string): BankHealthRunner {
+  return async (limit) => {
+    // 编译产物里本文件在 dist/services/，子进程入口在 dist/workers/
+    const childScript = fileURLToPath(new URL('../workers/bankHealthChild.js', import.meta.url));
+    const nice = ['-n', '19', process.execPath, childScript];
+    try {
+      return await runHealthChild('ionice', ['-c3', '-n', '7', 'nice', ...nice], dbFile, limit);
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
+        return runHealthChild('nice', nice, dbFile, limit);
+      }
+      throw e;
+    }
+  };
+}
+
+/** 进程内 runner：测试与「无法起进程」的场景（语义与子进程完全一致） */
 export function createInlineHealthRunner(db: Db): BankHealthRunner {
   return (limit) => Promise.resolve().then(() => computeGlobalHealthPayload(db, limit));
 }
