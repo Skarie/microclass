@@ -303,3 +303,78 @@ Test Files  1 passed (1)
 
 4. 预发脚本模板（`build/pg-migration/preprod-*.sh`，不入库）：起容器前先跑 `guard-io.sh`，
    数据目录用 NVMe 副本，结束后 `docker rm -f` 立即清理。
+
+### 12.1 「本机不再跑预发」检查清单（跑之前逐条确认）
+
+> 2026-11-26 三次生产卡顿（02:57、03:48、04:38）**全部**发生在「同机起预发容器 / 并行对比」时。
+> 结论：**只要生产还在用同步 SQLite，就不要在同一台 NAS 上起预发实例**。
+
+```bash
+# 1) 是否还有预发容器在跑？（应为空）
+sudo docker ps -a --filter name=mc- --filter name=preprod --format '{{.Names}} {{.Status}}'
+
+# 2) 8097 等预发端口是否被占用？（应无输出）
+sudo ss -ltnp | grep -E ':(8096|8097|8098)\b'
+
+# 3) 有没有并发的镜像构建 / npm / apt 在吃盘？（应无 build-image.sh）
+pgrep -af 'build-image.sh|npm|docker build' | head
+
+# 4) 磁盘压力是否可接受？（≤70% 才动手）
+sudo bash ops/scripts/pg/guard-io.sh
+
+# 5) 生产此刻是否健康？（必须 200）
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8091/api/v1/healthz
+```
+
+**做任何预发前，必须同时满足**：1 和 2 为空、3 无构建、4 通过、5 为 200。
+否则先等（或用 `MC_IO_WAIT=1 guard-io.sh` 等盘），**不要“顺手跑一下”**。
+
+### 12.2 切流预演草案（需要用户确认窗口后才执行）
+
+**前置条件**
+
+- `main` 上所有域已迁移完、`MC_DB=sqlite` 全绿（vitest / E2E 40 / eslint / build / size）
+- PG 侧数据与 SQLite 一致：`verify-parity.sh` 10 组指纹一致；`schema_migrations` 已对齐
+- 备份就绪：`pg_dump -Fc` 一份 + SQLite 卷 tar 一份，都在 `/vol1/1000/microclass-backup/`
+- 回滚路径演练过：`echo 2.3.2-stable > .image-tag && bash redeploy.sh` 能在 1 分钟内恢复
+
+**窗口**：建议 01:00–06:00，预留 **60 分钟**（实测纯切换约 5 分钟，其余留给验证与回滚）
+
+**执行顺序**
+
+```bash
+# 1) 停 API（避免切流期间的写入落到 SQLite）
+sudo docker compose -f /vol1/1000/microclass-deploy/compose.evo4.yml stop api
+# 2) 备份 SQLite（停写后的一份干净副本）
+sudo bash /vol1/1000/microclass-deploy/backup.sh
+# 3) 切库：.env 里 MC_DB=pg + MC_PG_URL=postgres://microclass:***@db:5432/microclass
+sudo sed -i 's/^MC_DB=.*/MC_DB=pg/' /vol1/1000/microclass-deploy/.env
+# 4) 起 API（新镜像需已构建：microclass:<版本>）
+sudo bash /vol1/1000/microclass-deploy/redeploy.sh
+```
+
+**验证清单（每条都要记录结果）**
+
+| #   | 检查                                  | 通过标准                              |
+| --- | ------------------------------------- | ------------------------------------- |
+| 1   | `/api/v1/version`                     | 版本号正确                            |
+| 2   | `healthz` / `readyz`                  | 200，< 50ms                           |
+| 3   | 登录（admin + 学生）                  | 200 + Set-Cookie                      |
+| 4   | 课程列表 / 题库列表 / 题目详情        | 200，条数与切流前一致                 |
+| 5   | 组卷挑题 / 刷题取题 + 提交            | 200/201                               |
+| 6   | 设置读写 / 公告读写                   | 200                                   |
+| 7   | 体检触发（`/banks/health?refresh=1`） | 202 → 轮询 ready，`total` 一致        |
+| 8   | 学生端 8092                           | healthz 200 + 首页 200                |
+| 9   | 写操作抽查（新建题库/题目/删除）      | 200，PG 里能查到                      |
+| 10  | 观察 15 分钟                          | healthz/courses 每 30s 全 200，无重启 |
+
+**回滚（任一验证失败立即执行）**
+
+```bash
+sudo sed -i 's/^MC_DB=.*/MC_DB=sqlite/' /vol1/1000/microclass-deploy/.env
+sudo bash /vol1/1000/microclass-deploy/redeploy.sh   # 仍用 microclass:2.3.3 即可（sqlite 分支）
+# 若镜像本身有问题：
+echo 2.3.2-stable > /vol1/1000/microclass-deploy/.image-tag && sudo bash /vol1/1000/microclass-deploy/redeploy.sh
+```
+
+> 切流后 SQLite 只作历史归档，`MC_DB=sqlite` 分支保留至少两个版本以便回滚。
