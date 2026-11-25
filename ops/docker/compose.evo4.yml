@@ -65,7 +65,7 @@ services:
     ports:
       - '127.0.0.1:55432:5432'
     volumes:
-      - /var/lib/microclass-pg:/var/lib/postgresql/data
+      - /vol1/1000/microclass-pg:/var/lib/postgresql/data
     shm_size: 512mb
     healthcheck:
       test:
