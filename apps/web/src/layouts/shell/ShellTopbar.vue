@@ -29,7 +29,7 @@ const { userName, manageMenuItems, userMenuItems, onUserSelect, onManageSelect }
 <template>
   <header class="topbar">
     <RouterLink class="brand" :to="{ name: 'home' }" aria-label="回到首页">
-      <span class="brand__logo" aria-hidden="true">微</span>
+      <img class="brand__logo" src="/logo.png" alt="" aria-hidden="true" />
       <span class="brand__name">{{ auth.siteName }}</span>
     </RouterLink>
 
@@ -111,15 +111,11 @@ const { userName, manageMenuItems, userMenuItems, onUserSelect, onManageSelect }
 }
 
 .brand__logo {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   width: 30px;
   height: 30px;
   border-radius: var(--mc-radius-sm);
-  background: var(--mc-primary);
-  color: var(--mc-neutral-0);
-  font-weight: var(--mc-font-bold);
+  object-fit: contain;
+  flex: none;
 }
 
 .brand__name {

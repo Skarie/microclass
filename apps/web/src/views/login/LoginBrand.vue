@@ -19,7 +19,7 @@ const features: { icon: IconName; title: string; text: string }[] = [
   <aside class="brand">
     <div class="brand__inner">
       <header class="brand__head">
-        <span class="brand__logo" aria-hidden="true">微</span>
+        <img class="brand__logo" src="/logo.png" alt="" aria-hidden="true" />
         <span class="brand__name">{{ siteName }}</span>
       </header>
 
@@ -65,16 +65,11 @@ const features: { icon: IconName; title: string; text: string }[] = [
 }
 
 .brand__logo {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   width: 40px;
   height: 40px;
   border-radius: var(--mc-radius-md);
-  background: var(--mc-primary);
-  color: var(--mc-text-inverse);
-  font-size: var(--mc-text-md);
-  font-weight: var(--mc-font-bold);
+  object-fit: contain;
+  flex: none;
 }
 
 .brand__name {
