@@ -38,8 +38,14 @@ export class Db {
       this.handle = new DatabaseSync(file, { readOnly: true });
       this.handle.exec('PRAGMA busy_timeout = 5000;');
       this.handle.exec('PRAGMA temp_store = MEMORY;');
-      this.handle.exec('PRAGMA cache_size = -65536;');
-      this.handle.exec('PRAGMA mmap_size = 268435456;');
+      // 只读连接（体检子进程）：缓存/mmap 与主连接一致，并显式禁止写
+      this.handle.exec('PRAGMA cache_size = -262144;'); // ≈256MB 页缓存
+      try {
+        this.handle.exec('PRAGMA mmap_size = 2147483648;'); // 2GB：1.2GB 库基本可全映射
+      } catch {
+        /* 某些平台不支持 mmap，忽略 */
+      }
+      this.handle.exec('PRAGMA query_only = ON;');
       return;
     }
     this.handle = new DatabaseSync(file);
@@ -54,11 +60,15 @@ export class Db {
     this.handle.exec('PRAGMA synchronous = NORMAL;');
     // 题库全量导入后库有几百 MB，且常常落在 NAS 机械盘上：
     // 把排序/分组用的临时表放进内存、缓存与 mmap 调大，避免体检这类聚合查询把磁盘打满。
+    //
+    // 稳定性补丁（2026-11-26）：生产两次卡顿都是「同步 SQLite 在机械盘上读页」阻塞事件循环。
+    // 把页缓存提到 256MB、mmap 提到 2GB 后，1.2GB 的库在内存里基本能装下热页，
+    // 打到盘上的随机读显著减少（内存上限 2GiB 下实测 RSS 仍 < 300MB，见 docs/deploy.md §9）。
     this.handle.exec('PRAGMA temp_store = MEMORY;');
-    this.handle.exec('PRAGMA cache_size = -65536;'); // ≈64MB 页缓存
+    this.handle.exec('PRAGMA cache_size = -262144;'); // ≈256MB 页缓存（原 64MB）
     if (file !== ':memory:') {
       try {
-        this.handle.exec('PRAGMA mmap_size = 268435456;'); // 256MB
+        this.handle.exec('PRAGMA mmap_size = 2147483648;'); // 2GB（原 256MB）
       } catch {
         /* 某些平台不支持 mmap，忽略 */
       }
