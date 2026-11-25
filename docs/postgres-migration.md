@@ -119,15 +119,15 @@ bash ops/scripts/pg/verify-parity.sh /path/microclass.db
 
 > 决策：**先同机部署**（同一台 NAS），优先消灭「同步 SQLite 阻塞」；高可用/多机留给后续阶段。
 
-| 项目     | 值                                                                                 |
-| -------- | ---------------------------------------------------------------------------------- |
-| 服务     | `compose.evo4.yml` 里的 `db` 服务（同一 compose 项目，api 走内网 `db:5432`）       |
-| 镜像     | `postgres:16-alpine`（实测 16.16）                                                 |
-| 数据目录 | **NVMe**：`/var/lib/microclass-pg`（宿主 bind mount，属主 `999:999`、700）         |
-| 宿主端口 | 仅 `127.0.0.1:55432`（运维排查用，不暴露内网/公网）                                |
-| 账号/库  | `microclass` / `microclass`；密码在部署目录 `.env` 的 `MC_PG_PASSWORD`（600）      |
-| 重启策略 | `restart: unless-stopped` + `pg_isready` 健康检查（15s 间隔）                      |
-| 连接串   | api 侧：`postgres://microclass:<密码>@db:5432/microclass`（`.env` 的 `MC_PG_URL`） |
+| 项目     | 值                                                                                                        |
+| -------- | --------------------------------------------------------------------------------------------------------- |
+| 服务     | `compose.evo4.yml` 里的 `db` 服务（同一 compose 项目，api 走内网 `db:5432`）                              |
+| 镜像     | `postgres:16-alpine`（实测 16.16）                                                                        |
+| 数据目录 | **机械盘 `/vol1`**：`/vol1/1000/microclass-pg`（bind mount，属主 `999:999`、700；NVMe 版已迁走，见 §8.1） |
+| 宿主端口 | 仅 `127.0.0.1:55432`（运维排查用，不暴露内网/公网）                                                       |
+| 账号/库  | `microclass` / `microclass`；密码在部署目录 `.env` 的 `MC_PG_PASSWORD`（600）                             |
+| 重启策略 | `restart: unless-stopped` + `pg_isready` 健康检查（15s 间隔）                                             |
+| 连接串   | api 侧：`postgres://microclass:<密码>@db:5432/microclass`（`.env` 的 `MC_PG_URL`）                        |
 
 关键参数（按 16 GB 内存给）：
 
@@ -159,14 +159,55 @@ docker exec microclass-db pg_dump -U microclass -Fc microclass > /vol1/1000/micr
 
 ### 阶段 1 实测
 
-| 项目                 | 结果                                                                |
-| -------------------- | ------------------------------------------------------------------- |
-| 数据导入（TSV → PG） | 454,097 行 / 30 表，**35 s**（NVMe；同一份数据在 HDD 上需 195 s）   |
-| 行数校验             | 30/30 一致                                                          |
-| 内容指纹             | 10 组「COUNT + SUM(id) + 文本长度和」完全一致                       |
-| 全表聚合             | SQLite 2,005 ms → PG **25.6 ms**（≈78×）                            |
-| 规模                 | 30 表 / 83 索引 / 21 外键 / 3 触发器 / 数据 1.6 GB                  |
-| 生产影响             | **零**：8091/8092 全程 `healthz 200`，api 容器未重建（仍跑 SQLite） |
+| 项目                 | 结果                                                                                     |
+| -------------------- | ---------------------------------------------------------------------------------------- |
+| 数据导入（TSV → PG） | 454,097 行 / 30 表，**42 s**（`/vol1` 机械盘，页缓存热；冷盘首次约 195 s）               |
+| 行数校验             | 30/30 一致                                                                               |
+| 内容指纹             | 10 组「COUNT + SUM(id) + 文本长度和」完全一致                                            |
+| 全表聚合             | PG **18.8 ms**（预热后取 5 次最好值）；同一份数据 SQLite 冷缓存 2,005 ms / 热缓存 226 ms |
+| 规模                 | 30 表 / 83 索引 / 21 外键 / 3 触发器 / 数据 1.6 GB                                       |
+| 生产影响             | **零**：8091/8092 全程 `healthz 200`，api 容器未重建（仍跑 SQLite）                      |
+
+### 8.1 数据目录从 NVMe 迁到 `/vol1`（2026-11-26）
+
+用户要求 PG 数据放机械盘（不要占系统盘），已迁移完成：
+
+| 步骤 | 操作                                                                                          |
+| ---- | --------------------------------------------------------------------------------------------- |
+| 1    | `pg_dump -Fc` 逻辑备份到 `/vol1/1000/microclass-backup/pg/pre-move-<ts>.dump`（121 MB）       |
+| 2    | `docker compose stop db`                                                                      |
+| 3    | `rsync -a /var/lib/microclass-pg/ /vol1/1000/microclass-pg/`，`chown -R 999:999`、`chmod 700` |
+| 4    | compose 的 bind mount 改为 `/vol1/1000/microclass-pg:/var/lib/postgresql/data`                |
+| 5    | `docker compose up -d db` → `pg_isready` 通过                                                 |
+| 6    | 重装 454,097 行（**42 s**）+ `verify-parity.sh`：行数 30/30、10 组指纹一致                    |
+| 7    | 旧目录改名 `/var/lib/microclass-pg.old`（1.7 GB，保留 24h 后人工删）                          |
+
+迁移后实测（机械盘、预热后 5 次最好值）：
+
+| 查询                          | 耗时        |
+| ----------------------------- | ----------- |
+| 课程列表（53 门 + 课时统计）  | **4.4 ms**  |
+| 单课时点查（150 题课时取 50） | **3.6 ms**  |
+| 题库列表（按课程过滤）        | **2.7 ms**  |
+| 全表聚合 `count(*) questions` | **18.8 ms** |
+
+> 机械盘并没有拖慢多少：库只有 1.6 GB，`shared_buffers=4GB` + OS page cache 基本能装下热数据。
+> 冷盘首次全表扫描仍会到秒级（约 2 s），这也是「不自动体检」策略依然要保留的原因。
+
+**备份（必须做）**：`ops/deploy/pg-backup.sh` 每日 `pg_dump -Fc` → `/vol1/1000/microclass-backup/pg/`，
+保留 7 份、失败写日志；`ops/deploy/backup.sh` 是统一入口（PG + SQLite 卷）。
+
+```bash
+sudo install -m 755 ops/deploy/pg-backup.sh /vol1/1000/microclass-deploy/pg-backup.sh
+sudo install -m 755 ops/deploy/backup.sh    /vol1/1000/microclass-deploy/backup.sh
+sudo /vol1/1000/microclass-deploy/backup.sh      # 先手动跑一次确认
+# 确认无误再加 cron（root）：
+#   30 3 * * * /vol1/1000/microclass-deploy/backup.sh >> /var/log/microclass-backup.log 2>&1
+```
+
+> ⚠️ **同盘风险**：PG 数据与备份都在 `/vol1`（机械盘）。这块盘挂了数据与备份一起没。
+> 当前 `/vol1` 还是「单盘 RAID1（1/1 设备）」、无冗余，`sda`/`sdb` 两块 500G 盘闲置。
+> 建议：① 把 sda/sdb 加进阵列做真镜像；② 或每周把备份同步到外置硬盘/异机（rsync/restic）。
 
 ## 9. 环境备注
 
