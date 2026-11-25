@@ -9,6 +9,7 @@ ops/fpk/
 ├── manifest                 # 应用清单：appname/version/display_name/install_dep_apps
 ├── ICON.PNG, ICON_256.PNG   # 应用中心图标（256 / 64 见 app/ui/images）
 ├── build.sh                 # 组装 staging（可选直接调用 fnpack）
+├── sync-content.sh          # 把 Docker 生产的内容数据单向快照同步到本应用
 ├── cmd/                     # 生命周期脚本，由 fnOS 调用
 │   ├── main                 #   start | stop | status（真正的服务启停逻辑）
 │   ├── install_init         #   安装前
@@ -61,9 +62,39 @@ bash ops/fpk/build.sh --with-fnpack
 
 ```bash
 appcenter-cli install-fpk /tmp/microclass/microclass.fpk   # 首次安装；再次执行即升级
-/vol1/@appcenter/microclass/cmd/main status                # 0=运行中，3=未运行
+appcenter-cli status microclass                            # running / stopped（需 sudo）
+appcenter-cli stop microclass && appcenter-cli start microclass
 appcenter-cli uninstall microclass                         # 卸载（保留 appdata 数据）
 ```
+
+> 生命周期脚本在运行时位于 **`/var/apps/microclass/cmd/`**（fnOS 管理目录），不在 `$TRIM_APPDEST`
+> 下；手动调试需自行注入 `TRIM_APPDEST` / `TRIM_PKGVAR` 环境变量。
+
+## 与 Docker 版共用内容（单向快照）
+
+同一台 NAS 上可以同时跑 Docker 生产（8091，卷 `microclass_data`）和 fnOS 原生应用（8092，
+`/vol1/@appdata/microclass/data`）：**内容共用，账号各自独立**。
+
+| 项目                                                       | 是否同步 | 说明                                                    |
+| ---------------------------------------------------------- | -------- | ------------------------------------------------------- |
+| 课程 / 章节 / 课时 / 知识点                                | ✅       | 内容表整体复制                                          |
+| 题库 / 题目 / 题目配图 / 题组 / 标签 / 公告 / 练习链接     | ✅       | 含 `uploads/`（视频、封面、题图）、`knowledge-media/`   |
+| 账号（`users`）                                            | ❌       | FPK 只保留 `admin`，密码仍取自 `$TRIM_PKGVAR/adminpass` |
+| 学习进度 / 练习 / 考试记录 / 错题 / 笔记 / 收藏 / 审计日志 | ❌       | 同步时清空                                              |
+
+```bash
+sudo bash ops/fpk/sync-content.sh            # 停两边 → 备份 FPK 数据 → 复制 db+媒体 → 剥离账号/行为 → 重启 → 对比计数
+sudo bash ops/fpk/sync-content.sh --compare  # 只对比内容计数，不改数据
+```
+
+注意：
+
+- **不要在两边同时录入内容**：同步是单向覆盖，以最后一次同步为准；Docker 侧永远作为主库。
+- **管理员密码不随内容同步**：复制会带入 Docker 的 `admin` 凭据，脚本在剥离阶段会把 FPK 自己的
+  admin 凭据（即 `$TRIM_PKGVAR/adminpass` 那份）写回去，先用 `dump-admin` 保存、同步后 `restore-admin` 还原。
+- 脚本只读 Docker 卷（`compose stop` / `start`，不 `down`、不删卷），只写 FPK 数据目录；失败会自动把两边拉起来。
+- `media-cache/`（HLS 转码缓存）不复制，FPK 侧播放时按需重建；1.2 GB 的大库首次启动会稍慢。
+- 需把已删账号的行从物理页抹掉时，加 `MC_SYNC_VACUUM=1`（耗时更长）。
 
 ## 运行时约定
 
