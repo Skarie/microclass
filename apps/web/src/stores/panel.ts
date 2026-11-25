@@ -8,11 +8,13 @@
  */
 import { computed, ref } from 'vue';
 import { useAuthStore } from './auth';
+import { IS_STUDENT_EDITION } from '@/config/edition';
 
 const KEY = 'mc.panel';
 export type PanelMode = 'admin' | 'student';
 
 function readMode(): PanelMode {
+  if (IS_STUDENT_EDITION) return 'student';
   try {
     return window.localStorage.getItem(KEY) === 'student' ? 'student' : 'admin';
   } catch {
@@ -24,12 +26,13 @@ const mode = ref<PanelMode>(readMode());
 
 export function usePanelStore() {
   const auth = useAuthStore();
-  /** 有管理权限的人才有双面板 */
-  const canSwitch = computed(() => auth.isTeacher);
-  /** 当前是否处于教学管理面板（没有权限的人永远是学员视图） */
-  const isAdminPanel = computed(() => auth.isTeacher && mode.value === 'admin');
+  /** 有管理权限的人才有双面板；学生端永远只有一个面板 */
+  const canSwitch = computed(() => !IS_STUDENT_EDITION && auth.isTeacher);
+  /** 当前是否处于教学管理面板（没有权限的人、以及学生端，永远是学员视图） */
+  const isAdminPanel = computed(() => !IS_STUDENT_EDITION && auth.isTeacher && mode.value === 'admin');
 
   function setMode(next: PanelMode): void {
+    if (IS_STUDENT_EDITION) return;
     mode.value = next;
     try {
       window.localStorage.setItem(KEY, next);

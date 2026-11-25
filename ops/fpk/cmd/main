@@ -1,30 +1,30 @@
 #!/bin/bash
-# 微课堂 V2 —— fnOS 原生应用生命周期入口（fnpack 会调用 start / stop / status）
+# 微课堂 fnOS 学生端 —— 应用生命周期入口（fnpack / 应用中心调用 start | stop | status）
 #
+# 形态：学生端网关（静态资源 + /api 反代到 Docker 生产），本身不持有数据库。
 # 由 fnOS 注入的变量（实测 fnOS 1.2.1102）：
-#   TRIM_PKGVAR  = /vol1/@appdata/<appname>  （持久化数据目录，升级保留）
+#   TRIM_PKGVAR  = /vol1/@appdata/<appname>  （日志/PID；不再存业务数据）
 #   TRIM_APPDEST = /vol1/@appcenter/<appname>（程序目录，升级会替换）
 # 注意：新版 fnOS 只注入 TRIM_APPDEST，没有 TRIM_PKGDIR；本脚本带 set -u，
-# 引用未定义变量会直接退出，导致应用中心报 10330 启动失败。
+# 引用未定义变量会直接退出，应用中心表现为启动失败（错误码 10330）。
 set -u
 
 LOG_FILE="${TRIM_PKGVAR}/info.log"
 PID_FILE="${TRIM_PKGVAR}/app.pid"
-PASS_FILE="${TRIM_PKGVAR}/adminpass"
-# 端口默认 8092（与 app/ui/config 的桌面入口一致）；
-# 允许用 MC_PORT 覆盖，便于同包换端口共存或做沙箱验证。
+# 端口默认 8092（与 app/ui/config 的桌面入口一致）
 PORT="${MC_PORT:-8092}"
+# 上游：Docker 生产 API（账号/学习记录/题库都在这边）
+UPSTREAM="${MC_UPSTREAM:-http://127.0.0.1:8091}"
 
 # fnpack 把 app/ 的内容直接解包到程序目录根下（config/ server/ ui/），
-# 因此服务目录是 <程序目录>/server；写成 app/server 会 cd 失败、应用起不来。
+# 因此网关目录是 <程序目录>/server；写成 app/server 会 cd 失败、应用起不来。
 PROGRAM_DIR="${TRIM_APPDEST:-${TRIM_PKGDIR:-}}"
 if [ -z "${PROGRAM_DIR}" ]; then
     echo "TRIM_APPDEST/TRIM_PKGDIR 均未设置，无法定位程序目录" >&2
     exit 1
 fi
 APP_DIR="${PROGRAM_DIR}/server"
-# 版本号以 fnOS 注入的 TRIM_APPVER 为准，注入 MC_VERSION 供 /api/v1/version 使用
-# （否则 API 回退到硬编码的 2.0.0，与实际安装版本不一致）；manifest 作为兜底
+# 版本号以 fnOS 注入的 TRIM_APPVER 为准（横幅/日志用），manifest 作为兜底
 APP_VERSION="${TRIM_APPVER:-}"
 if [ -z "${APP_VERSION}" ] && [ -f "${PROGRAM_DIR}/manifest" ]; then
     APP_VERSION="$(sed -n 's/^version[[:space:]]*=[[:space:]]*//p' "${PROGRAM_DIR}/manifest" 2>/dev/null | head -n 1 | tr -d '[:space:]')"
@@ -41,16 +41,17 @@ check_process() {
     [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null
 }
 
-# 健康探针：fnOS 有时会清理 $TRIM_PKGVAR 下的 pid 文件，
-# 此时不能凭 pid 文件判定「未运行」，否则应用中心会报启动失败（10500）。
+# 健康探针：网关把 /api/v1/healthz 反代到 Docker，因此这个探针同时反映上游状态。
+# fnOS 有时会清理 $TRIM_PKGVAR 下的 pid 文件，此时不能凭 pid 文件判定「未运行」，
+# 否则应用中心会报启动失败（10500）。
 health_ok() {
     command -v curl >/dev/null 2>&1 &&
         curl -fsS -m 3 "http://127.0.0.1:${PORT}/api/v1/healthz" >/dev/null 2>&1
 }
 
-# 按进程命令行找回服务 pid（pid 文件丢失时兜底）
+# 按进程命令行找回网关 pid（pid 文件丢失时兜底）
 find_server_pid() {
-    pgrep -f "${APP_DIR}/dist/server.js" 2>/dev/null | head -n 1
+    pgrep -f "${APP_DIR}/proxy.mjs" 2>/dev/null | head -n 1
 }
 
 status() {
@@ -69,46 +70,19 @@ status() {
     return 1
 }
 
-# 首次启动生成管理员初始密码，用户可在日志或该文件中查看
-ensure_admin_pass() {
-    if [ ! -s "${PASS_FILE}" ]; then
-        if command -v openssl >/dev/null 2>&1; then
-            openssl rand -base64 12 | tr -d '/+=' | cut -c1-14 > "${PASS_FILE}"
-        else
-            head -c 32 /dev/urandom | base64 | tr -d '/+=' | cut -c1-14 > "${PASS_FILE}"
-        fi
-        chmod 600 "${PASS_FILE}"
-        log_msg "generated initial admin password at ${PASS_FILE}"
-    fi
-}
-
 start_process() {
     if status; then
         return 0
     fi
 
-    mkdir -p "${TRIM_PKGVAR}/data"
-    ensure_admin_pass
-
-    local admin_pass
-    admin_pass="$(cat "${PASS_FILE}")"
-
-    log_msg "starting microclass on port ${PORT}"
+    log_msg "starting student gateway on port ${PORT} (upstream ${UPSTREAM}, v${APP_VERSION:-unknown})"
     cd "${APP_DIR}" || exit 1
-    MC_ENV=production \
-    MC_VERSION="${APP_VERSION:-unknown}" \
-    MC_HOST=0.0.0.0 \
     MC_PORT="${PORT}" \
-    MC_SITE_NAME="微课堂" \
-    MC_LOG_LEVEL=info \
-    MC_DATA_DIR="${TRIM_PKGVAR}/data" \
-    MC_MIGRATIONS_DIR="${APP_DIR}/migrations" \
+    MC_HOST=0.0.0.0 \
     MC_WEB_DIST="${APP_DIR}/web" \
-    MC_ADMIN_USER=admin \
-    MC_ADMIN_PASS="${admin_pass}" \
-    MC_TRUST_PROXY=1 \
+    MC_UPSTREAM="${UPSTREAM}" \
     TZ=Asia/Shanghai \
-    "${NODE_BIN}" "${APP_DIR}/dist/server.js" >> "${LOG_FILE}" 2>&1 &
+    "${NODE_BIN}" "${APP_DIR}/proxy.mjs" >> "${LOG_FILE}" 2>&1 &
 
     printf "%s" "$!" > "${PID_FILE}"
     sleep 1

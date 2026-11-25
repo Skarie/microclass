@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 #
-# 微课堂 V2 —— 构建 fnOS FPK 应用包
+# 微课堂 V2 —— 构建 fnOS 学生端应用包（.fpk）
 #
-# 产物：build/fpk/microclass.fpk（用 appcenter-cli install-fpk 安装，或上传到
-#       fnOS 应用中心手动安装）。脚本只依赖 node/npm/tar，可在任意机器执行；
-#       真正的打包（fnpack build）需要 fnOS 上的 fnpack，见 README。
+# 形态：**学生端网关**。包里只有
+#   - 学生版前端构建产物（VITE_APP_EDITION=student，隐藏教学/管理界面）
+#   - ops/fpk/server/proxy.mjs（零依赖：托管静态资源 + 把 /api/* 反代到 Docker 生产）
+# 因此应用不持有数据库：账号、学习记录、题库只有 Docker 生产那一份，天然共用。
+#
+# 产物：build/fpk/microclass.fpk（用 appcenter-cli install-fpk 安装）。
+# 真正的打包（fnpack build）只在 fnOS 上有，见 README。
 #
 # 用法：
-#   bash ops/fpk/build.sh              # 组装 staging 目录
-#   bash ops/fpk/build.sh --with-fnpack  # 组装并在本机调用 fnpack build
+#   bash ops/fpk/build.sh                 # 组装 staging 目录
+#   bash ops/fpk/build.sh --with-fnpack   # 组装并在本机调用 fnpack build
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -19,7 +23,7 @@ VERSION="$(cd "${ROOT}" && node -p "require('./package.json').version")"
 STAGE="${ROOT}/build/fpk"
 PKG="${STAGE}/${APP_NAME}"
 
-echo "==> 微课堂 FPK 打包 v${VERSION}"
+echo "==> 微课堂 fnOS 学生端打包 v${VERSION}"
 rm -rf "${STAGE}"
 mkdir -p "${PKG}/app/server"
 
@@ -34,11 +38,11 @@ if [ ! -d "${ROOT}/node_modules" ]; then
   ( cd "${ROOT}" && npm install --no-audit --no-fund ${NPM_REGISTRY:+--registry="${NPM_REGISTRY}"} )
 fi
 
-echo "==> 1/6 构建后端与前端"
+echo "==> 1/5 构建学生版前端（VITE_APP_EDITION=student）"
 cd "${ROOT}"
-npm run build
+VITE_APP_EDITION=student npm run build
 
-echo "==> 2/6 复制清单、生命周期脚本与图标"
+echo "==> 2/5 复制清单、生命周期脚本与图标"
 cp -r "${ROOT}/ops/fpk/cmd" "${PKG}/cmd"
 cp -r "${ROOT}/ops/fpk/config" "${PKG}/config"
 mkdir -p "${PKG}/app/ui"
@@ -49,53 +53,20 @@ cp "${ROOT}/ops/fpk/ICON_256.PNG" "${PKG}/ICON_256.PNG"
 chmod +x "${PKG}/cmd/"*
 sed -i.bak "s/^version .*/version               = ${VERSION}/" "${PKG}/manifest" && rm -f "${PKG}/manifest.bak"
 
-echo "==> 3/6 复制后端产物（dist + 迁移 + 前端静态资源）"
-cp -r "${ROOT}/apps/api/dist" "${PKG}/app/server/dist"
-cp -r "${ROOT}/packages/shared/dist" "${PKG}/app/server/shared-dist"
-cp -r "${ROOT}/db/migrations" "${PKG}/app/server/migrations"
+echo "==> 3/5 复制前端产物与网关"
 cp -r "${ROOT}/apps/web/dist" "${PKG}/app/server/web"
+cp "${ROOT}/ops/fpk/server/proxy.mjs" "${PKG}/app/server/proxy.mjs"
+if [ ! -f "${PKG}/app/server/web/index.html" ]; then
+  echo "✗ 前端产物缺少 index.html" >&2
+  exit 1
+fi
+# 学生端不应把管理端代码之外的产物带进来：确认没有 API dist / 依赖目录
+[ -d "${PKG}/app/server/node_modules" ] && echo "⚠ 意外带入 node_modules" >&2
 
-# 后端以 @microclass/shared 的包名引用共享代码：把编译产物放到 node_modules 下
-mkdir -p "${PKG}/app/server/node_modules/@microclass/shared"
-cp -r "${ROOT}/packages/shared/dist/." "${PKG}/app/server/node_modules/@microclass/shared/"
-cat > "${PKG}/app/server/node_modules/@microclass/shared/package.json" <<'JSON'
-{
-  "name": "@microclass/shared",
-  "version": "2.0.0",
-  "type": "module",
-  "main": "./index.js",
-  "types": "./index.d.ts",
-  "exports": { ".": { "types": "./index.d.ts", "default": "./index.js" } }
-}
-JSON
-rm -rf "${PKG}/app/server/shared-dist"
-
-echo "==> 4/6 安装生产依赖（只装 fastify 运行时依赖，不含开发工具）"
-# 同上：cd 后用相对路径，避免 Windows 版 node 收到 MSYS 风格的绝对路径
-SERVER_DEPS="$(cd "${ROOT}/apps/api" && node -p "JSON.stringify(require('./package.json').dependencies)")"
-cat > "${PKG}/app/server/package.json" <<JSON
-{
-  "name": "${APP_NAME}-server",
-  "version": "${VERSION}",
-  "private": true,
-  "type": "module",
-  "dependencies": ${SERVER_DEPS}
-}
-JSON
-# 用 workspace 的 lockfile 保证版本一致：先装到临时目录再取运行时依赖树
-TMP_DEPS="${STAGE}/deps"
-mkdir -p "${TMP_DEPS}"
-cp "${ROOT}/package-lock.json" "${TMP_DEPS}/package-lock.json" 2>/dev/null || true
-( cd "${PKG}/app/server" && npm install --omit=dev --no-audit --no-fund --ignore-scripts >/dev/null )
-rm -rf "${TMP_DEPS}"
-
-# 体积控制：剔除纯文档与测试目录
-find "${PKG}/app/server/node_modules" -maxdepth 2 -type d \( -name test -o -name tests -o -name docs \) -prune -exec rm -rf {} + 2>/dev/null || true
-
-echo "==> 5/6 生成校验信息"
+echo "==> 4/5 生成校验信息"
 ( cd "${PKG}" && find app cmd config manifest -type f -exec sha256sum {} + > CHECKSUMS.sha256 )
 
-echo "==> 6/6 汇总"
+echo "==> 5/5 汇总"
 du -sh "${PKG}" || true
 echo "staging 已就绪：${PKG}"
 
@@ -107,6 +78,5 @@ else
     echo
     echo "接下来在 fnOS 上打包（fnpack 只随 fnOS 提供）："
     echo "  tar -czf microclass-src.tar.gz -C ${STAGE} ${APP_NAME}"
-    echo "  # 上传并解压到 fnOS 后："
-    echo "  cd <解压目录> && fnpack build ${APP_NAME}"
+    echo "  # 上传并解压到 fnOS 后：cd <解压目录> && fnpack build -d ${APP_NAME}"
 fi

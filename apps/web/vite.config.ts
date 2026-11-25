@@ -15,6 +15,8 @@ export default defineConfig({
   plugins: [vue()],
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
+    /* 学生端构建：VITE_APP_EDITION=student（fnOS 应用用），默认 full */
+    __APP_EDITION__: JSON.stringify(process.env.VITE_APP_EDITION === 'student' ? 'student' : 'full'),
   },
   resolve: {
     alias: {

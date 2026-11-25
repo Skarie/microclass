@@ -5,6 +5,7 @@
  */
 import Icon from '@/components/Icon.vue';
 import LoginFields from './LoginFields.vue';
+import { IS_STUDENT_EDITION } from '@/config/edition';
 
 withDefaults(
   defineProps<{
@@ -102,14 +103,20 @@ const agreed = defineModel<boolean>('agreed', { required: true });
 
       <label class="agree login__agree">
         <input v-model="agreed" type="checkbox" />
-        <span>
+        <span v-if="IS_STUDENT_EDITION">
+          我已了解：本平台是自托管的内部学习系统，学习记录保存在本机服务器；视频与题目内容的版权归各自权利人所有。
+        </span>
+        <span v-else>
           我已了解：本平台是自托管的内部学习系统，账号由管理员创建，学习记录只保存在本机；
           视频与题目内容的版权归各自权利人所有。
         </span>
       </label>
     </form>
 
-    <footer class="card__foot">首次部署的默认管理员账号为 <code>admin</code>，密码由部署时配置决定。</footer>
+    <footer v-if="IS_STUDENT_EDITION" class="card__foot">
+      学生端：没有账号就点上方「新用户注册」，注册后即可开始学习；账号与学习记录和教学端共用。
+    </footer>
+    <footer v-else class="card__foot">首次部署的默认管理员账号为 <code>admin</code>，密码由部署时配置决定。</footer>
   </section>
 </template>
 

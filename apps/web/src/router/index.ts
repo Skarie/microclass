@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { usePanelStore } from '@/stores/panel';
 import { useToastStore } from '@/stores/toast';
+import { IS_STUDENT_EDITION } from '@/config/edition';
 
 /**
  * 懒加载视图（带一次自动重试）。
@@ -211,6 +212,11 @@ router.beforeEach(async (to) => {
   if (to.meta.requiresAdmin && !auth.isAdmin) {
     toast.error('没有权限访问该页面');
     return { name: 'home' };
+  }
+  // 学生端（fnOS 应用）：不提供教学/管理界面，内容与账号管理只在 Docker 版里做
+  if (IS_STUDENT_EDITION && to.path.startsWith('/admin')) {
+    toast.info('学生端不提供教学管理功能，请到管理端操作');
+    return { name: 'hall' };
   }
   // 双面板：处于学员视图时不进管理页（管理员本人也一样）
   if (to.path.startsWith('/admin')) {

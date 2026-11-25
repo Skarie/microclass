@@ -1,7 +1,7 @@
 appname               = microclass
 version               = 2.0.0
 display_name          = 微课堂
-desc                  = 轻量学习平台：课程视频·章节归类·课后刷题·错题本·在线考试
+desc                  = 学生端：课程视频·章节归类·课后刷题·错题本（账号与内容共用管理端）
 platform              = x86
 source                = thirdparty
 maintainer            = microclass

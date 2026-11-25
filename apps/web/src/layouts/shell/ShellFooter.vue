@@ -1,5 +1,7 @@
 <script setup lang="ts">
 /** 页脚：产品说明 / 帮助文档入口 / 版本与版权信息。 */
+import { IS_STUDENT_EDITION } from '@/config/edition';
+
 const appVersion = __APP_VERSION__;
 </script>
 
@@ -20,7 +22,7 @@ const appVersion = __APP_VERSION__;
       </nav>
     </div>
     <div class="footer__bar">
-      <span>微课堂 v{{ appVersion }} · 自托管部署</span>
+      <span>微课堂 v{{ appVersion }} · {{ IS_STUDENT_EDITION ? '学生端' : '自托管部署' }}</span>
       <span>数据仅存于本机；课程内容版权归各自权利人所有。</span>
     </div>
   </footer>
