@@ -1,7 +1,7 @@
 {
     ".url": {
         "microclass.Application": {
-            "title": "{display_name}",
+            "title": "微课堂",
             "icon": "images/icon_{0}.png",
             "type": "url",
             "protocol": "http",
