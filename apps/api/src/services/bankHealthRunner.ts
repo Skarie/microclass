@@ -68,15 +68,25 @@ export function createWorkerHealthRunner(dbFile: string): BankHealthRunner {
   return async (limit) => {
     // 编译产物里本文件在 dist/services/，子进程入口在 dist/workers/
     const childScript = fileURLToPath(new URL('../workers/bankHealthChild.js', import.meta.url));
-    const nice = ['-n', '19', process.execPath, childScript];
-    try {
-      return await runHealthChild('ionice', ['-c3', '-n', '7', 'nice', ...nice], dbFile, limit);
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
-        return runHealthChild('nice', nice, dbFile, limit);
+    const plain = [process.execPath, childScript];
+    // 三级回退：容器里用 ionice（idle IO）+ nice(19)；没有 ionice 就只 nice；
+    // 开发机（Windows/macOS）两者都没有，直接跑 node —— 功能不能因此不可用。
+    const attempts: { bin: string; args: string[] }[] = [
+      { bin: 'ionice', args: ['-c3', '-n', '7', 'nice', '-n', '19', ...plain] },
+      { bin: 'nice', args: ['-n', '19', ...plain] },
+      { bin: plain[0], args: plain.slice(1) },
+    ];
+    let lastError: unknown;
+    for (const attempt of attempts) {
+      try {
+        return await runHealthChild(attempt.bin, attempt.args, dbFile, limit);
+      } catch (e) {
+        lastError = e;
+        // 只有「命令不存在」才继续回退；其它错误（算挂了、超时）直接抛出
+        if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
       }
-      throw e;
     }
+    throw lastError instanceof Error ? lastError : new Error('体检子进程无法启动');
   };
 }
 
