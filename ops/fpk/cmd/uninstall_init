@@ -2,7 +2,9 @@
 # 卸载前：先停服务，避免卸载过程中数据库仍被写入。
 set -u
 
-if [ -x "${TRIM_PKGDIR}/cmd/main" ]; then
-    "${TRIM_PKGDIR}/cmd/main" stop
+# cmd 脚本位于 fnpack 解包目录（不是 TRIM_PKGDIR），用脚本自身所在目录定位 main
+CMD_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -x "${CMD_DIR}/main" ]; then
+    "${CMD_DIR}/main" stop
 fi
 exit 0

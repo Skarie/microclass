@@ -1,9 +1,11 @@
 #!/bin/bash
 # 微课堂 V2 —— fnOS 原生应用生命周期入口（fnpack 会调用 start / stop / status）
 #
-# 由 fnOS 注入的变量：
+# 由 fnOS 注入的变量（实测 fnOS 1.2.1102）：
 #   TRIM_PKGVAR  = /vol1/@appdata/<appname>  （持久化数据目录，升级保留）
-#   TRIM_PKGDIR  = /vol1/@appcenter/<appname>（程序目录，升级会替换）
+#   TRIM_APPDEST = /vol1/@appcenter/<appname>（程序目录，升级会替换）
+# 注意：新版 fnOS 只注入 TRIM_APPDEST，没有 TRIM_PKGDIR；本脚本带 set -u，
+# 引用未定义变量会直接退出，导致应用中心报 10330 启动失败。
 set -u
 
 LOG_FILE="${TRIM_PKGVAR}/info.log"
@@ -13,7 +15,20 @@ PASS_FILE="${TRIM_PKGVAR}/adminpass"
 # 允许用 MC_PORT 覆盖，便于同包换端口共存或做沙箱验证。
 PORT="${MC_PORT:-8092}"
 
-APP_DIR="${TRIM_PKGDIR}/app/server"
+# fnpack 把 app/ 的内容直接解包到程序目录根下（config/ server/ ui/），
+# 因此服务目录是 <程序目录>/server；写成 app/server 会 cd 失败、应用起不来。
+PROGRAM_DIR="${TRIM_APPDEST:-${TRIM_PKGDIR:-}}"
+if [ -z "${PROGRAM_DIR}" ]; then
+    echo "TRIM_APPDEST/TRIM_PKGDIR 均未设置，无法定位程序目录" >&2
+    exit 1
+fi
+APP_DIR="${PROGRAM_DIR}/server"
+# 版本号以 fnOS 注入的 TRIM_APPVER 为准，注入 MC_VERSION 供 /api/v1/version 使用
+# （否则 API 回退到硬编码的 2.0.0，与实际安装版本不一致）；manifest 作为兜底
+APP_VERSION="${TRIM_APPVER:-}"
+if [ -z "${APP_VERSION}" ] && [ -f "${PROGRAM_DIR}/manifest" ]; then
+    APP_VERSION="$(sed -n 's/^version[[:space:]]*=[[:space:]]*//p' "${PROGRAM_DIR}/manifest" 2>/dev/null | head -n 1 | tr -d '[:space:]')"
+fi
 NODE_BIN="/vol1/@appcenter/nodejs_v22/bin/node"
 [ -x "${NODE_BIN}" ] || NODE_BIN="$(command -v node)"
 
@@ -26,6 +41,18 @@ check_process() {
     [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null
 }
 
+# 健康探针：fnOS 有时会清理 $TRIM_PKGVAR 下的 pid 文件，
+# 此时不能凭 pid 文件判定「未运行」，否则应用中心会报启动失败（10500）。
+health_ok() {
+    command -v curl >/dev/null 2>&1 &&
+        curl -fsS -m 3 "http://127.0.0.1:${PORT}/api/v1/healthz" >/dev/null 2>&1
+}
+
+# 按进程命令行找回服务 pid（pid 文件丢失时兜底）
+find_server_pid() {
+    pgrep -f "${APP_DIR}/dist/server.js" 2>/dev/null | head -n 1
+}
+
 status() {
     if [ -f "${PID_FILE}" ]; then
         pid=$(head -n 1 "${PID_FILE}" | tr -d '[:space:]')
@@ -33,6 +60,11 @@ status() {
             return 0
         fi
         rm -f "${PID_FILE}"
+    fi
+    if health_ok; then
+        pid="$(find_server_pid)"
+        [ -n "${pid}" ] && printf "%s" "${pid}" > "${PID_FILE}"
+        return 0
     fi
     return 1
 }
@@ -64,6 +96,7 @@ start_process() {
     log_msg "starting microclass on port ${PORT}"
     cd "${APP_DIR}" || exit 1
     MC_ENV=production \
+    MC_VERSION="${APP_VERSION:-unknown}" \
     MC_HOST=0.0.0.0 \
     MC_PORT="${PORT}" \
     MC_SITE_NAME="微课堂" \
@@ -88,10 +121,14 @@ start_process() {
 }
 
 stop_process() {
-    if [ ! -r "${PID_FILE}" ]; then
-        return 0
+    local pid=""
+    if [ -r "${PID_FILE}" ]; then
+        pid=$(head -n 1 "${PID_FILE}" | tr -d '[:space:]')
     fi
-    pid=$(head -n 1 "${PID_FILE}" | tr -d '[:space:]')
+    # pid 文件缺失但进程仍在（fnOS 清理过 pid 文件）时按命令行兜底
+    if ! check_process "${pid}"; then
+        pid="$(find_server_pid)"
+    fi
     if check_process "${pid}"; then
         log_msg "stopping pid=${pid}"
         kill -TERM "${pid}" >> "${LOG_FILE}" 2>&1

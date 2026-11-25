@@ -46,8 +46,10 @@ bash ops/fpk/build.sh
 # 2. 传输到 NAS 并在 NAS 上打包（fnpack 只随 fnOS 提供）
 tar -czf microclass-fpk-src.tar.gz -C build/fpk microclass
 scp microclass-fpk-src.tar.gz <user>@<NAS-IP>:/tmp/
-ssh <user>@<NAS-IP> 'cd /tmp && tar -xzf microclass-fpk-src.tar.gz && cd microclass && fnpack build microclass'
+ssh <user>@<NAS-IP> 'cd /tmp && mkdir -p fpk && tar -xzf microclass-fpk-src.tar.gz -C fpk && cd fpk && fnpack build -d microclass'
 ```
+
+`fnpack build` 只接受 `-d/--directory`（默认当前目录），没有位置参数；产物落在执行命令的当前目录。
 
 若当前机器本身就有 `fnpack`（例如直接在 NAS 上开发），可一步到位：
 
@@ -65,15 +67,20 @@ appcenter-cli uninstall microclass                         # 卸载（保留 app
 
 ## 运行时约定
 
-| 项目       | 值                                                             |
-| ---------- | -------------------------------------------------------------- |
-| 端口       | `8092`（`app/ui/config` 与 `cmd/main` 需保持一致）             |
-| 数据目录   | `$TRIM_PKGVAR/data` → `/vol1/@appdata/microclass/data`         |
-| 初始管理员 | `admin`，密码首次启动生成于 `$TRIM_PKGVAR/adminpass`（600）    |
-| 日志       | `$TRIM_PKGVAR/info.log`                                        |
-| PID        | `$TRIM_PKGVAR/app.pid`                                         |
-| 升级前备份 | `$TRIM_PKGVAR/backup/pre-upgrade-<时间戳>.tar.gz`（保留 5 份） |
-| 数据库迁移 | 服务启动时自动执行（幂等）                                     |
+| 项目       | 值                                                                                                                        |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------- |
+| 端口       | `8092`（`app/ui/config` 与 `cmd/main` 需保持一致）                                                                        |
+| 程序目录   | `$TRIM_APPDEST` → `/vol1/@appcenter/microclass`（服务在 `$TRIM_APPDEST/server`，`fnpack` 把 `app/` 内容解包到该目录根下） |
+| 数据目录   | `$TRIM_PKGVAR/data` → `/vol1/@appdata/microclass/data`                                                                    |
+| 初始管理员 | `admin`，密码首次启动生成于 `$TRIM_PKGVAR/adminpass`（600）                                                               |
+| 日志       | `$TRIM_PKGVAR/info.log`                                                                                                   |
+| PID        | `$TRIM_PKGVAR/app.pid`（丢失时按进程命令行兜底）                                                                          |
+| 升级前备份 | `$TRIM_PKGVAR/backup/pre-upgrade-<时间戳>.tar.gz`（保留 5 份）                                                            |
+| 数据库迁移 | 服务启动时自动执行（幂等）                                                                                                |
+
+> **注意**：实测 fnOS 1.2.1102 只注入 `TRIM_APPDEST`，**没有 `TRIM_PKGDIR`**；`cmd/main` 带 `set -u`，
+> 引用未定义变量会立刻退出，应用中心表现为启动失败（错误码 10330 / 10500）。脚本已按 `TRIM_APPDEST`
+> 取值并保留 `TRIM_PKGDIR` 回退。版本号由 `cmd/main` 从随包 `manifest` 读取后以 `MC_VERSION` 注入。
 
 ## 排障
 

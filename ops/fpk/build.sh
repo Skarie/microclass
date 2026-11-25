@@ -13,7 +13,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 APP_NAME="microclass"
-VERSION="$(node -p "require('${ROOT}/package.json').version")"
+# 用相对路径读取版本：Git Bash/MSYS 下 ${ROOT} 是 /d/... 形式，Windows 版 node
+# 无法解析，先 cd 再用 ./package.json 才能同时兼容 Linux 与 Windows。
+VERSION="$(cd "${ROOT}" && node -p "require('./package.json').version")"
 STAGE="${ROOT}/build/fpk"
 PKG="${STAGE}/${APP_NAME}"
 
@@ -69,13 +71,15 @@ JSON
 rm -rf "${PKG}/app/server/shared-dist"
 
 echo "==> 4/6 安装生产依赖（只装 fastify 运行时依赖，不含开发工具）"
+# 同上：cd 后用相对路径，避免 Windows 版 node 收到 MSYS 风格的绝对路径
+SERVER_DEPS="$(cd "${ROOT}/apps/api" && node -p "JSON.stringify(require('./package.json').dependencies)")"
 cat > "${PKG}/app/server/package.json" <<JSON
 {
   "name": "${APP_NAME}-server",
   "version": "${VERSION}",
   "private": true,
   "type": "module",
-  "dependencies": $(node -p "JSON.stringify(require('${ROOT}/apps/api/package.json').dependencies)")
+  "dependencies": ${SERVER_DEPS}
 }
 JSON
 # 用 workspace 的 lockfile 保证版本一致：先装到临时目录再取运行时依赖树
