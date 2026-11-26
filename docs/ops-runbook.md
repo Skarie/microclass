@@ -20,6 +20,9 @@
 
 ## 3. 备份与恢复（SQLite）
 
+> 2.4.3 起生产主库是 **PostgreSQL**（见 §7）；本节保留给历史归档与手工快照场景。
+> SQLite 卷仍会由统一备份入口 `backup.sh` 一起打包（历史归档 + `uploads/` 等文件）。
+
 ### 3.1 一键备份 / 恢复（推荐）
 
 仓库自带零依赖脚本，开发机（Windows/Linux）与服务器行为一致：
@@ -239,3 +242,123 @@ sudo docker exec microclass-api node /app/ops/scripts/recompute-difficulty.mjs -
   用 `POST /banks/fix-question-counts` 重算。
 - 长期建议：给 `microclass_data` 数据卷加 SSD 缓存或直接放 SSD；视频库可留在机械盘
   （大文件顺序读受随机 I/O 影响小）。
+
+## 7. PostgreSQL 备份与恢复演练（2.4.3+ 生产）
+
+> 现状：生产 `2.4.3`，数据层为 **PostgreSQL 16.16**（容器 `microclass-db`，数据目录 bind 到
+> `/vol1/1000/microclass-pg`）；SQLite 卷 `microclass_data` 降为历史归档，但 `uploads/` 等文件仍在卷里，
+> 所以统一备份入口会同时打一份卷 tar。**数据与备份同在 `/vol1`（同盘）**，见 §7.4 风险。
+
+### 7.1 安装与 cron（root）
+
+仓库两个脚本：`ops/deploy/pg-backup.sh`（PG 逻辑备份）与 `ops/deploy/backup.sh`（统一入口：PG + SQLite 卷，
+任一失败退出非零）。安装/更新时先备份旧文件再 `install -m 755`：
+
+```bash
+sudo install -m 755 ops/deploy/pg-backup.sh /vol1/1000/microclass-deploy/pg-backup.sh
+sudo install -m 755 ops/deploy/backup.sh    /vol1/1000/microclass-deploy/backup.sh
+sudo bash /vol1/1000/microclass-deploy/backup.sh     # 先手动跑一次确认
+```
+
+root crontab（**保留已有其他行**，只追加这一行）：
+
+```cron
+30 3 * * * /vol1/1000/microclass-deploy/backup.sh >> /var/log/microclass-backup.log 2>&1
+```
+
+验证：
+
+```bash
+crontab -l | grep microclass                          # 应看到 backup.sh + 已有 watchdog.sh
+ls -lh /vol1/1000/microclass-backup/pg/ | tail        # 最近的 microclass-<TS>.dump
+tail -20 /var/log/microclass-backup.log               # cron 次日应有输出
+```
+
+### 7.2 产物、耗时与保留策略
+
+| 产物          | 路径                                                                                      | 实测（2026-11-27）                   |
+| ------------- | ----------------------------------------------------------------------------------------- | ------------------------------------ |
+| PG 逻辑备份   | `/vol1/1000/microclass-backup/pg/microclass-<TS>.dump`（`pg_dump -Fc`）                   | 126,837,387 B（121 MiB）/ 20s        |
+| SQLite 卷归档 | `/vol1/1000/microclass-backup/sqlite-volume-<TS>.tar.gz`（排除 `media-cache`、`backups`） | 2,901,729,866 B（2.7 GiB）/ ~25 分钟 |
+| 运行日志      | `.../backup.log`、`.../pg/backup.log`、`/var/log/microclass-backup.log`（cron 输出）      | —                                    |
+
+- 保留：PG 7 份（`MC_PG_BACKUP_KEEP`，默认 7）；SQLite 卷 7 份（`backup.sh` 内置）。
+- **7 份不会打满，但会逼近告警线**：7×(121 MiB + 2.7 GiB) ≈ **19.7 GiB**；当时 `/vol1` 已用 373G/466G（81%）、
+  剩余 91G，稳态约 **84%**。若只保 3 份 SQLite 卷（PG 仍 7 份），稳态回落到 ~81%。
+- **告警阈值建议**：`/vol1` 使用率 **≥85% 告警、≥90% 严重**（备份与数据同盘，95% 以上备份自己会写失败）；
+  最新 dump **超过 26 小时未更新** → cron 失败告警；dump 大小 **< 50 MB** 或比前一日缩小 >30% → 立即人工检查
+  （脚本自身只拦 <1 MB）；`backup.sh` 退出码非 0 → 查 `.../backup.log`。
+- 慢盘现实：这台 NAS 顺序读 ~1.9 MB/s，SQLite 卷 tar（源 ~5 GB）要跑 ~25 分钟；凌晨 3:30 跑完不影响白天。
+- 清理提示：`microclass-backup/` 里还有历史手工产物（`fpk-data-*.tar.gz` ~0.64 GB、`pg-*.dump` 121 MB、
+  `sqlite-db-vol-*.tar.gz` 311 MB），不在自动轮转范围内，确认无用后可手工删。
+
+### 7.3 恢复演练（每季度一次，默认不碰生产库）
+
+原则：**同一个 PG 实例里建临时库 `microclass_restore_test` → `pg_restore` → 只读校验 → 立即 `DROP`**，
+不 stop 生产容器、不 `down -v`、不碰 NVMe。
+
+```bash
+DB=microclass_restore_test
+DUMP=$(ls -1t /vol1/1000/microclass-backup/pg/microclass-*.dump | head -1)
+sha256sum "$DUMP"                                     # 记录校验和
+
+sudo docker exec microclass-db psql -U microclass -d postgres -c "DROP DATABASE IF EXISTS $DB;"
+sudo docker exec microclass-db psql -U microclass -d postgres -c "CREATE DATABASE $DB OWNER microclass;"
+time sudo docker exec -i microclass-db pg_restore -U microclass -d $DB --no-owner --no-privileges < "$DUMP"
+
+# 只读校验（与生产逐项对比）
+Q="select (select count(*) from information_schema.tables where table_schema='public' and table_type='BASE TABLE') tables,
+          (select count(*) from schema_migrations) migrations,
+          (select count(*) from courses) courses,
+          (select count(*) from banks) banks,
+          (select count(*) from questions) questions,
+          (select count(*) from users) users;"
+sudo docker exec microclass-db psql -U microclass -d microclass -tAc "$Q"   # 生产基线
+sudo docker exec microclass-db psql -U microclass -d $DB -tAc "$Q"          # 恢复库，应与生产一致
+sudo docker exec microclass-db psql -U microclass -d $DB -tAc \
+  "select count(*) from questions where stem is null or btrim(stem)='';"     # 应为 0
+sudo docker exec microclass-db psql -U microclass -d $DB -tAc \
+  "select id||' | '||left(stem,60) from questions order by random() limit 3;" # 抽样 3 题非空
+
+# 清理（必须），并确认生产行数未变
+sudo docker exec microclass-db psql -U microclass -d postgres -c "DROP DATABASE $DB;"
+sudo docker exec microclass-db psql -U microclass -d postgres -tAc \
+  "select count(*) from pg_database where datname='$DB';"                   # 应为 0
+```
+
+**2026-11-27 实测（生产 2.4.3）**：dump `microclass-20261127-045242.dump`（126,837,387 B，
+sha256 `01b0d5a1bf6911d4a8f7077cdc183969ca4caa3c35e83d61802abac5cbe5df39`）；`pg_restore` **68s**、rc=0、
+stderr 0 行；恢复库 **30 表 / 31 迁移 / 53 courses / 13258 banks / 396505 questions / 6 users**，与生产一致，
+`empty_stem=0`、FK 21、`questions_id_seq.last_value=449543`、库大小 622 MB；抽样 3 题 stem 非空；
+`DROP DATABASE` 后临时库不存在，生产行数演练前后一致。
+
+> 演练频率建议：**每季度一次**，以及「大版本升级 / 数据迁移 / 换盘」之后各补一次。
+> 只在临时库验证，生产库上的真实恢复见 §7.5。
+
+### 7.4 风险：数据与备份同盘
+
+PG 数据目录、SQLite 卷、备份都在 `/vol1`（机械盘）。这块盘坏 = 数据与备份一起丢。
+缓解顺序：**每周把 `/vol1/1000/microclass-backup/pg/` + 最新卷 tar `rsync` 到外置盘/异机**
+（`docs/pg-cutover-runbook.md` §8 风险 4），其次才是「多留几份」。
+**不要把备份放回 NVMe/系统盘**：系统盘故障与数据盘故障是两类风险，且 NVMe 空间小。
+
+### 7.5 真实灾难恢复（整库损坏）
+
+```bash
+# 0) 停 api（不要 down -v，不要碰卷/数据目录）
+sudo docker compose -f /vol1/1000/microclass-deploy/compose.evo4.yml stop api
+# 1) 断开残留连接 → 重建空库（db 容器保持运行）
+sudo docker exec microclass-db psql -U microclass -d postgres -c \
+  "select pg_terminate_backend(pid) from pg_stat_activity where datname='microclass' and pid<>pg_backend_pid();"
+sudo docker exec microclass-db psql -U microclass -d postgres -c "DROP DATABASE microclass;"
+sudo docker exec microclass-db psql -U microclass -d postgres -c "CREATE DATABASE microclass OWNER microclass;"
+# 2) 恢复最新 dump
+LATEST=$(ls -1t /vol1/1000/microclass-backup/pg/microclass-*.dump | head -1)
+sudo docker exec -i microclass-db pg_restore -U microclass -d microclass --no-owner --no-privileges < "$LATEST"
+# 3) 起 api 并校验（启动时迁移幂等补齐）
+sudo docker compose -f /vol1/1000/microclass-deploy/compose.evo4.yml up -d api
+curl -fsS http://127.0.0.1:8091/api/v1/readyz
+```
+
+> **不要对运行中的 `microclass` 库直接 `pg_restore` 覆盖**：中途失败会留下半套对象，排查成本远高于重建空库。
+> 恢复用的是同版本 `pg_restore`（PG 16）；跨大版本恢复先用目标版本 `pg_restore` 或 `pg_dump -Fp` 转出 SQL。

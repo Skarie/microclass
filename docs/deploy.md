@@ -600,6 +600,23 @@ docker run --rm -v microclass_data:/data:ro -v /backup:/backup alpine \
   sh -c 'tar -czf /backup/microclass-data-$(date +%Y%m%d-%H%M).tar.gz -C /data .'
 ```
 
+#### 5.3.1 PostgreSQL（2.4.3+ 生产库）
+
+2.4.3 起生产数据层是 **PostgreSQL 16**（容器 `microclass-db`，数据目录 bind 到 `/vol1/1000/microclass-pg`），
+SQLite 卷降为历史归档。完整的备份/保留/演练说明见 [ops-runbook.md](ops-runbook.md) 第 7 节，最小闭环：
+
+```bash
+sudo install -m 755 ops/deploy/pg-backup.sh /vol1/1000/microclass-deploy/pg-backup.sh
+sudo install -m 755 ops/deploy/backup.sh    /vol1/1000/microclass-deploy/backup.sh
+sudo bash /vol1/1000/microclass-deploy/backup.sh      # 手动跑一次：产出 pg/microclass-<TS>.dump
+# root crontab（保留已有其他行，只追加）：
+# 30 3 * * * /vol1/1000/microclass-deploy/backup.sh >> /var/log/microclass-backup.log 2>&1
+ls -lh /vol1/1000/microclass-backup/pg/ | tail         # 7 份，约 121-127MB/份
+```
+
+> `backup.sh` 是统一入口：PG 逻辑备份（`pg_dump -Fc`）+ SQLite 卷 tar，任一失败退出非零。
+> **恢复演练每季度一次**：恢复进临时库 `microclass_restore_test` 校验行数后立即 `DROP`，不碰生产库。
+
 ### 5.4 恢复
 
 ```bash
@@ -611,6 +628,10 @@ curl -s localhost:8091/api/v1/readyz
 ```
 
 > 备份 = `MC_DATA_DIR` 整目录（SQLite + uploads + 会话密钥）。**视频如果走媒体目录挂载，不在这里面**，需要你另行备份那些目录。
+
+> **PostgreSQL 生产库**的恢复流程（停 api → 重建空库 → `pg_restore` → 起 api → 校验 `readyz`）与季度演练命令
+> 见 [ops-runbook.md](ops-runbook.md) 第 7 节。**不要对运行中的 `microclass` 库直接 `pg_restore` 覆盖**：
+> 中途失败会留下半套对象，正确做法是先重建空库再整体恢复。
 
 ### 5.5 同机旧版本清理（先备份卷，再删镜像 / 卷 / 旧目录）
 
