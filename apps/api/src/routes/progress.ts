@@ -13,7 +13,7 @@ import { mergeIntervals } from '../db/repositories/watchIntervalRepository.js';
 export async function registerProgressRoutes(app: FastifyInstance, deps: Deps): Promise<void> {
   app.get('/progress', async (req, reply) => {
     const user = requireUser(req, reply);
-    return { progress: deps.progress.listByUser(user.id) };
+    return { progress: await deps.progress.listByUser(user.id) };
   });
 
   app.post(
@@ -37,7 +37,7 @@ export async function registerProgressRoutes(app: FastifyInstance, deps: Deps): 
       const user = requireUser(req, reply);
       const body = req.body as { lessonId: number; position: number; duration: number; finished?: boolean };
       if (!(await deps.lessons.findById(body.lessonId))) throw AppError.notFound('视频单元不存在');
-      deps.progress.upsert({
+      await deps.progress.upsert({
         userId: user.id,
         lessonId: body.lessonId,
         position: body.position,
@@ -98,16 +98,16 @@ export async function registerProgressRoutes(app: FastifyInstance, deps: Deps): 
         body.intervals.map((i) => ({ start_sec: Math.floor(i.start), end_sec: Math.floor(i.end) })),
       );
       if (segments.length > 0) {
-        deps.watchIntervals.record(user.id, body.lessonId, segments);
+        await deps.watchIntervals.record(user.id, body.lessonId, segments);
       }
 
       // 总时长优先用 ffprobe 抽到的真实时长
       const duration = body.duration ?? lesson.duration ?? 0;
-      const covered = deps.watchIntervals.covered(user.id, body.lessonId);
+      const covered = await deps.watchIntervals.covered(user.id, body.lessonId);
       // 区间覆盖达到总时长 95% 时自动标记完成（与「看完」语义一致）
       const autoFinished = duration > 0 && covered / duration >= 0.95;
 
-      deps.progress.upsert({
+      await deps.progress.upsert({
         userId: user.id,
         lessonId: body.lessonId,
         position: body.position ?? 0,
@@ -130,10 +130,10 @@ export async function registerProgressRoutes(app: FastifyInstance, deps: Deps): 
     const user = requireUser(req, reply);
     const lessonId = Number.parseInt(String((req.query as { lesson?: string }).lesson ?? ''), 10);
     if (Number.isNaN(lessonId)) throw AppError.badRequest('lesson 参数非法');
-    const intervals = deps.watchIntervals.list(user.id, lessonId);
-    const covered = deps.watchIntervals.covered(user.id, lessonId);
+    const intervals = await deps.watchIntervals.list(user.id, lessonId);
+    const covered = await deps.watchIntervals.covered(user.id, lessonId);
     const lesson = await deps.lessons.findById(lessonId);
-    const duration = lesson?.duration ?? deps.progress.get(user.id, lessonId)?.duration ?? 0;
+    const duration = lesson?.duration ?? (await deps.progress.get(user.id, lessonId))?.duration ?? 0;
     return {
       intervals: intervals.map((i) => ({ start: i.start_sec, end: i.end_sec })),
       coveredSeconds: covered,
@@ -145,6 +145,6 @@ export async function registerProgressRoutes(app: FastifyInstance, deps: Deps): 
 
   app.get('/me/summary', async (req, reply) => {
     const user = requireUser(req, reply);
-    return deps.progress.summary(user.id);
+    return await deps.progress.summary(user.id);
   });
 }

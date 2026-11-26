@@ -15,7 +15,7 @@ export class NoteService {
   async list(viewer: User, lessonId: number): Promise<{ notes: LessonNote[]; count: number }> {
     const lesson = await this.lessons.findById(lessonId);
     if (!lesson) throw AppError.notFound('课时不存在');
-    const notes = this.notes.listByLesson(viewer.id, lessonId);
+    const notes = await this.notes.listByLesson(viewer.id, lessonId);
     return { notes, count: notes.length };
   }
 
@@ -30,9 +30,9 @@ export class NoteService {
     return this.notes.create({ userId: viewer.id, lessonId, pos, text });
   }
 
-  remove(viewer: User, id: number): void {
-    const note = this.notes.findById(id, viewer.id);
+  async remove(viewer: User, id: number): Promise<void> {
+    const note = await this.notes.findById(id, viewer.id);
     if (!note) throw AppError.notFound('笔记不存在');
-    this.notes.delete(id, viewer.id);
+    await this.notes.delete(id, viewer.id);
   }
 }

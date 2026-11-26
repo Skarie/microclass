@@ -1,8 +1,12 @@
 /**
  * 课时笔记（lesson_notes）与学习统计所需的聚合查询。
+ *
+ * P0 阶段 2：`NoteRepository` 改走 `AsyncDb`（sqlite / pg 双栈），`create` 用 `INSERT … RETURNING id`。
+ * `StatsRepository` 属于 stats/analytics 域（课时学习统计），本轮未迁移，仍用同步 `Db`。
  */
 import type { LessonNote } from '@microclass/shared';
 import type { Db } from '../client.js';
+import { createSqliteAsyncDb, type AsyncDb } from '../async.js';
 
 export interface StudentOption {
   id: number;
@@ -35,39 +39,44 @@ export interface LessonStatSummary {
 }
 
 export class NoteRepository {
-  constructor(private readonly db: Db) {}
+  constructor(
+    private readonly db: Db,
+    private readonly asyncDb?: AsyncDb,
+  ) {}
 
-  listByLesson(userId: number, lessonId: number): LessonNote[] {
-    return this.db.all<LessonNote>(
+  private adb(): AsyncDb {
+    return this.asyncDb ?? createSqliteAsyncDb(this.db);
+  }
+
+  async listByLesson(userId: number, lessonId: number): Promise<LessonNote[]> {
+    return this.adb().all<LessonNote>(
       'SELECT id, user_id, lesson_id, pos, text, created_at FROM lesson_notes WHERE user_id = ? AND lesson_id = ? ORDER BY pos, id',
       [userId, lessonId],
     );
   }
 
-  findById(id: number, userId: number): LessonNote | undefined {
-    return this.db.get<LessonNote>('SELECT * FROM lesson_notes WHERE id = ? AND user_id = ?', [id, userId]);
+  async findById(id: number, userId: number): Promise<LessonNote | undefined> {
+    return this.adb().get<LessonNote>('SELECT * FROM lesson_notes WHERE id = ? AND user_id = ?', [id, userId]);
   }
 
-  create(input: { userId: number; lessonId: number; pos: number; text: string }): number {
-    return this.db.run('INSERT INTO lesson_notes (user_id, lesson_id, pos, text) VALUES (?,?,?,?)', [
-      input.userId,
-      input.lessonId,
-      input.pos,
-      input.text,
-    ]).lastInsertRowid;
-  }
-
-  delete(id: number, userId: number): void {
-    this.db.run('DELETE FROM lesson_notes WHERE id = ? AND user_id = ?', [id, userId]);
-  }
-
-  countByLesson(userId: number, lessonId: number): number {
-    return (
-      this.db.get<{ c: number }>('SELECT COUNT(*) AS c FROM lesson_notes WHERE user_id = ? AND lesson_id = ?', [
-        userId,
-        lessonId,
-      ])?.c ?? 0
+  async create(input: { userId: number; lessonId: number; pos: number; text: string }): Promise<number> {
+    const row = await this.adb().get<{ id: number | string }>(
+      'INSERT INTO lesson_notes (user_id, lesson_id, pos, text) VALUES (?,?,?,?) RETURNING id',
+      [input.userId, input.lessonId, input.pos, input.text],
     );
+    return Number(row?.id ?? 0);
+  }
+
+  async delete(id: number, userId: number): Promise<void> {
+    await this.adb().run('DELETE FROM lesson_notes WHERE id = ? AND user_id = ?', [id, userId]);
+  }
+
+  async countByLesson(userId: number, lessonId: number): Promise<number> {
+    const row = await this.adb().get<{ c: number | string }>(
+      'SELECT COUNT(*) AS c FROM lesson_notes WHERE user_id = ? AND lesson_id = ?',
+      [userId, lessonId],
+    );
+    return Number(row?.c ?? 0);
   }
 }
 
@@ -76,6 +85,8 @@ export class NoteRepository {
  *
  * 刷题次数优先按 `attempts.user_id` 统计；V1 遗留行（user_id 为空）
  * 回退用 `client_id = 'u<userId>'` 匹配，保证历史数据不丢。
+ *
+ * 迁移状态：属于 stats/analytics 域，尚未迁到 `AsyncDb`（随 analytics 批次一起改）。
  */
 export class StatsRepository {
   constructor(private readonly db: Db) {}

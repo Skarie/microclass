@@ -89,7 +89,8 @@ export async function registerUserRoutes(app: FastifyInstance, deps: Deps): Prom
     const id = Number((req.params as { id: string }).id);
     const changes = await deps.users.deleteStudent(id);
     if (changes === 0) throw AppError.notFound('学生不存在');
-    deps.db.run('DELETE FROM lesson_progress WHERE user_id = ?', [id]);
+    // 进度行属于 progress 域：走仓储删，不再直接拼 SQL（PG 模式下直接写 sqlite 会写错库）
+    await deps.progress.deleteForUser(id);
     deps.audit.write({
       actorId: actor.id,
       actorName: actor.username,

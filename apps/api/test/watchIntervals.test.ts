@@ -82,43 +82,43 @@ describe('观看区间合并', () => {
     ).toBe(60);
   });
 
-  it('多次上报取并集：先 0-270 再 270-1080，应为 0-1080（不能丢前一段）', () => {
+  it('多次上报取并集：先 0-270 再 270-1080，应为 0-1080（不能丢前一段）', async () => {
     const repo = memoryRepo();
-    repo.record(1, 9, [{ start: 0, end: 270 }]);
-    expect(repo.covered(1, 9)).toBe(270);
-    repo.record(1, 9, [{ start: 270, end: 1080 }]);
-    expect(repo.covered(1, 9)).toBe(1080);
-    expect(repo.list(1, 9)).toHaveLength(1);
+    await repo.record(1, 9, [{ start: 0, end: 270 }]);
+    expect(await repo.covered(1, 9)).toBe(270);
+    await repo.record(1, 9, [{ start: 270, end: 1080 }]);
+    expect(await repo.covered(1, 9)).toBe(1080);
+    expect(await repo.list(1, 9)).toHaveLength(1);
   });
 
-  it('分段观看：中间跳过不计时，但已看部分累加', () => {
+  it('分段观看：中间跳过不计时，但已看部分累加', async () => {
     const repo = memoryRepo();
-    repo.record(1, 9, [{ start: 0, end: 30 }]);
-    repo.record(1, 9, [{ start: 900, end: 930 }]);
-    expect(repo.covered(1, 9)).toBe(60);
-    expect(repo.list(1, 9)).toHaveLength(2);
+    await repo.record(1, 9, [{ start: 0, end: 30 }]);
+    await repo.record(1, 9, [{ start: 900, end: 930 }]);
+    expect(await repo.covered(1, 9)).toBe(60);
+    expect(await repo.list(1, 9)).toHaveLength(2);
     // 补看中间 30-900 后合并成一段，总时长 930
-    repo.record(1, 9, [{ start: 30, end: 900 }]);
-    expect(repo.covered(1, 9)).toBe(930);
-    expect(repo.list(1, 9)).toHaveLength(1);
+    await repo.record(1, 9, [{ start: 30, end: 900 }]);
+    expect(await repo.covered(1, 9)).toBe(930);
+    expect(await repo.list(1, 9)).toHaveLength(1);
   });
 
-  it('重复上报同一段不会重复计时', () => {
+  it('重复上报同一段不会重复计时', async () => {
     const repo = memoryRepo();
-    repo.record(1, 9, [{ start: 100, end: 200 }]);
-    repo.record(1, 9, [{ start: 100, end: 200 }]);
-    repo.record(1, 9, [{ start: 150, end: 160 }]);
-    expect(repo.covered(1, 9)).toBe(100);
+    await repo.record(1, 9, [{ start: 100, end: 200 }]);
+    await repo.record(1, 9, [{ start: 100, end: 200 }]);
+    await repo.record(1, 9, [{ start: 150, end: 160 }]);
+    expect(await repo.covered(1, 9)).toBe(100);
   });
 
-  it('不同用户/课时互不影响', () => {
+  it('不同用户/课时互不影响', async () => {
     const repo = memoryRepo();
-    repo.record(1, 9, [{ start: 0, end: 100 }]);
-    repo.record(2, 9, [{ start: 0, end: 50 }]);
-    repo.record(1, 10, [{ start: 0, end: 10 }]);
-    expect(repo.covered(1, 9)).toBe(100);
-    expect(repo.covered(2, 9)).toBe(50);
-    expect(repo.covered(1, 10)).toBe(10);
+    await repo.record(1, 9, [{ start: 0, end: 100 }]);
+    await repo.record(2, 9, [{ start: 0, end: 50 }]);
+    await repo.record(1, 10, [{ start: 0, end: 10 }]);
+    expect(await repo.covered(1, 9)).toBe(100);
+    expect(await repo.covered(2, 9)).toBe(50);
+    expect(await repo.covered(1, 10)).toBe(10);
   });
 
   it('空输入返回 0', () => {

@@ -132,7 +132,7 @@ export class QuizService {
 
     // 刷题完成标记与最佳成绩（仓储内部按 MAX 保留历史最好成绩）
     if (total > 0) {
-      this.progress.markQuizDone(viewer.id, lessonId, Math.round((score / total) * 100));
+      await this.progress.markQuizDone(viewer.id, lessonId, Math.round((score / total) * 100));
     }
 
     return {

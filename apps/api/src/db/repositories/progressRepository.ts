@@ -1,8 +1,16 @@
 /**
  * 学习进度仓储：进度上报（断点续播/看完）、学习概览（时长/等级）。
+ *
+ * P0 阶段 2：改走 `AsyncDb`（sqlite / pg 双栈），方法全部异步。
+ * `upsert` 是高频写路径（播放器每十几秒上报一次），单语句 upsert 不需要外层事务；
+ * 删除用户的进度行（users 路由）也收在这里，避免跨域直接写表。
+ *
+ * ⚠️ 方言 TODO（#19）：`unixepoch()` 是 SQLite 专有函数，PG 侧切流前需换成
+ * `EXTRACT(EPOCH FROM now())::bigint`（见 docs/postgres-migration.md §9）。
  */
 import { LEVELS } from '@microclass/shared';
 import type { Db } from '../client.js';
+import { createSqliteAsyncDb, type AsyncDb } from '../async.js';
 import type { LessonProgress } from '@microclass/shared';
 
 export interface ProgressInput {
@@ -13,25 +21,40 @@ export interface ProgressInput {
   finished: boolean;
 }
 
-export class ProgressRepository {
-  constructor(private readonly db: Db) {}
+export interface ProgressSummary {
+  minutes: number;
+  finishedLessons: number;
+  quizzed: number;
+  level: string;
+  nextMinutes: number | null;
+}
 
-  get(userId: number, lessonId: number): LessonProgress | undefined {
-    return this.db.get<LessonProgress>('SELECT * FROM lesson_progress WHERE user_id = ? AND lesson_id = ?', [
+export class ProgressRepository {
+  constructor(
+    private readonly db: Db,
+    private readonly asyncDb?: AsyncDb,
+  ) {}
+
+  private adb(): AsyncDb {
+    return this.asyncDb ?? createSqliteAsyncDb(this.db);
+  }
+
+  async get(userId: number, lessonId: number): Promise<LessonProgress | undefined> {
+    return this.adb().get<LessonProgress>('SELECT * FROM lesson_progress WHERE user_id = ? AND lesson_id = ?', [
       userId,
       lessonId,
     ]);
   }
 
-  listByUser(userId: number): LessonProgress[] {
-    return this.db.all<LessonProgress>('SELECT * FROM lesson_progress WHERE user_id = ? ORDER BY updated_at DESC', [
+  async listByUser(userId: number): Promise<LessonProgress[]> {
+    return this.adb().all<LessonProgress>('SELECT * FROM lesson_progress WHERE user_id = ? ORDER BY updated_at DESC', [
       userId,
     ]);
   }
 
-  upsert(input: ProgressInput): void {
+  async upsert(input: ProgressInput): Promise<void> {
     const position = input.finished ? input.duration : Math.max(0, input.position);
-    this.db.run(
+    await this.adb().run(
       `INSERT INTO lesson_progress (user_id, lesson_id, position, duration, finished, updated_at)
        VALUES (?,?,?,?,?,unixepoch())
        ON CONFLICT(user_id, lesson_id) DO UPDATE SET
@@ -43,8 +66,8 @@ export class ProgressRepository {
     );
   }
 
-  markQuizDone(userId: number, lessonId: number, score: number): void {
-    this.db.run(
+  async markQuizDone(userId: number, lessonId: number, score: number): Promise<void> {
+    await this.adb().run(
       `INSERT INTO lesson_progress (user_id, lesson_id, quiz_done, quiz_best) VALUES (?,?,1,?)
        ON CONFLICT(user_id, lesson_id) DO UPDATE SET
          quiz_done = 1,
@@ -54,15 +77,15 @@ export class ProgressRepository {
     );
   }
 
+  /** 删除某用户的全部进度（管理员删账号时清理）；返回删除行数 */
+  async deleteForUser(userId: number): Promise<number> {
+    const result = await this.adb().run('DELETE FROM lesson_progress WHERE user_id = ?', [userId]);
+    return result.changes;
+  }
+
   /** 学习概览：累计学习分钟（看完按整段时长、未看完按已看位置）+ 等级 */
-  summary(userId: number): {
-    minutes: number;
-    finishedLessons: number;
-    quizzed: number;
-    level: string;
-    nextMinutes: number | null;
-  } {
-    const rows = this.db.all<{ position: number; duration: number; finished: 0 | 1; quiz_done: 0 | 1 }>(
+  async summary(userId: number): Promise<ProgressSummary> {
+    const rows = await this.adb().all<{ position: number; duration: number; finished: 0 | 1; quiz_done: 0 | 1 }>(
       'SELECT position, duration, finished, quiz_done FROM lesson_progress WHERE user_id = ?',
       [userId],
     );
@@ -70,13 +93,16 @@ export class ProgressRepository {
     let finishedLessons = 0;
     let quizzed = 0;
     for (const r of rows) {
-      if (r.finished === 1) {
+      // PG 的 int8/数值列可能回传字符串，统一 Number() 后再比较
+      const finished = Number(r.finished) === 1;
+      const quizDone = Number(r.quiz_done) === 1;
+      if (finished) {
         finishedLessons++;
-        seconds += r.duration ?? 0;
+        seconds += Number(r.duration ?? 0);
       } else {
-        seconds += Math.min(r.duration ?? 0, r.position ?? 0);
+        seconds += Math.min(Number(r.duration ?? 0), Number(r.position ?? 0));
       }
-      if (r.quiz_done === 1) quizzed++;
+      if (quizDone) quizzed++;
     }
     const minutes = Math.round(seconds / 60);
     let levelIndex = 0;

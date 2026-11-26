@@ -120,16 +120,16 @@ export function buildDeps(config: AppConfig, db: Db, options?: { inlineHealthRun
   const courses = new CourseRepository(db, asyncDb);
   const lessons = new LessonRepository(db, asyncDb);
   const knowledge = new KnowledgeRepository(db);
-  const progress = new ProgressRepository(db);
+  const progress = new ProgressRepository(db, asyncDb);
   const banks = new BankRepository(db, asyncDb);
   const questions = new QuestionRepository(db);
   const questionConflicts = new QuestionConflictRepository(db);
   const attempts = new AttemptRepository(db);
   const wrongs = new WrongQuestionRepository(db);
   const exams = new ExamRepository(db);
-  const notes = new NoteRepository(db);
+  const notes = new NoteRepository(db, asyncDb);
   const stats = new StatsRepository(db);
-  const watchIntervals = new WatchIntervalRepository(db);
+  const watchIntervals = new WatchIntervalRepository(db, asyncDb);
   const probe = new MediaProbeService({
     coversDir: path.join(config.dataDir, 'uploads', 'covers'),
     ...(config.ffprobePath ? { ffprobePath: config.ffprobePath } : {}),

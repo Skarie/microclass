@@ -54,7 +54,7 @@ export async function registerNoteRoutes(app: FastifyInstance, deps: Deps): Prom
 
   app.delete('/notes/:id', async (req, reply) => {
     const user = requireUser(req, reply);
-    deps.noteService.remove(user, Number((req.params as { id: string }).id));
+    await deps.noteService.remove(user, Number((req.params as { id: string }).id));
     return { ok: true };
   });
 }

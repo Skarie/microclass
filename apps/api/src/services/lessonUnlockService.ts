@@ -25,7 +25,7 @@ export class LessonUnlockService {
     if (lesson.video_kind !== 'local') return true;
     if (viewer.role === 'admin' || viewer.role === 'teacher') return true;
 
-    const p = this.progress.get(viewer.id, lessonId);
+    const p = await this.progress.get(viewer.id, lessonId);
     if (p?.finished === 1) return true;
 
     const total = lesson.duration ?? p?.duration ?? 0;
@@ -33,7 +33,7 @@ export class LessonUnlockService {
 
     // 只要上报过观看区间，就只按区间判定（忽略播放位置）：
     // 否则「拖到结尾」会把 position 拉满而误判为看完。
-    const segments = this.intervals.list(viewer.id, lessonId);
+    const segments = await this.intervals.list(viewer.id, lessonId);
     if (segments.length > 0) {
       const covered = coveredSeconds(segments.map((s) => ({ start_sec: s.start_sec, end_sec: s.end_sec })));
       return covered / total >= QUIZ_UNLOCK_RATIO;
