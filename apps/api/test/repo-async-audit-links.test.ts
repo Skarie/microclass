@@ -277,6 +277,12 @@ describe('sqlite 真库：练习链接读写一轮（读后写可见）', () => 
     fs.rmSync(dataDir, { recursive: true, force: true });
   });
 
+  it('readyz 探当前驱动（切流后不能只 ping SQLite）', async () => {
+    const res = await app.app.inject({ method: 'GET', url: '/api/v1/readyz' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ status: 'ready', db: 'ok', driver: 'sqlite' });
+  });
+
   it('create → findById / listByBank 读得到；课时关联幂等', async () => {
     const target = { targetType: 'bank', bankId: 1, questionId: null, chapter: '', section: '' };
     expect(await repo.findByTarget(target)).toBeUndefined();

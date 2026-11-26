@@ -21,7 +21,9 @@ DO NOTHING`、#14 `lastInsertRowid` → `RETURNING id`，id/外键 int8 在仓�
   `get` / `status` / `ensureFresh` 随之异步，`/banks/health` 与 `/banks/health/status` 补 `await`；
 - 新契约测试 `apps/api/test/repo-async-audit-links.test.ts`（13 条）：3 个仓储「返回 Promise 且只经
   `AsyncDb`」（同步 `Db` 桩一碰就抛）、4 个方言表达式、int8 收敛、装配层注入断言、sqlite 真库读写一轮
-  （create → findById、课时关联幂等、覆盖式设置）。
+  （create → findById、课时关联幂等、覆盖式设置）；
+- `/readyz` 改探**当前驱动**（`AsyncDb`）并回报 `driver`：原先只 ping 同步 SQLite，`MC_DB=pg` 之后
+  即使 PG 挂了也永远 200，而 `redeploy.sh` 正是拿 readyz 当部署成功闸门。
 
 **质量**：`vitest 1127 passed / 30 skipped`、E2E **40/40**、typecheck 0 error、eslint 0 error、
 prettier、build、size guard（625 文件 / 技术债 20）。
