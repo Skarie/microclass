@@ -1,46 +1,51 @@
 # PostgreSQL 迁移进度与交接文档
 
-> 目的：换会话/换人也能无损接手。**最后更新：2026-11-27（analytics/stats/activity 只读聚合）**
+> 目的：换会话/换人也能无损接手。**最后更新：2026-11-27（questions 读批次，`ab535fb`）**
 
 ## 0. 一句话现状
 
-数据访问层已抽象出 `AsyncDb`（sqlite / PG 双栈）。已迁移：**公告、题库（banks，读写全量）、题目写入（questions 写）、设置（settings 快照）、课时/课程（lessons/courses，读写全量）、用户/鉴权（users/auth，读写全量）、学习进度/观看区间/笔记（progress/watch/notes，读写全量）、考试（exams，读写全量 + 组卷事务）、刷题记录/错题本（attempts/wrong_questions，读写全量 + 交卷事务）、学情分析/学习统计/学习日历（analytics/stats/activity，只读聚合）**。
-生产仍 `MC_DB=sqlite`（2.4.1），**未切 PG**。剩余：**questions 读（`QuestionRepository` 19 个同步读方法）+ 易错题统计（`QuestionStatsRepository` 的 SQLite JSON 聚合）**，以及方言 #16（自然序）、#20（`MAX(a,b)`）、#17（全局 int8 parser）。
+数据访问层已抽象出 `AsyncDb`（sqlite / PG 双栈）。已迁移：**公告、题库（banks，读写全量）、题目（questions，**读写全量**）、设置（settings 快照）、课时/课程（lessons/courses，读写全量）、用户/鉴权（users/auth，读写全量）、学习进度/观看区间/笔记（progress/watch/notes，读写全量）、考试（exams，读写全量 + 组卷事务）、刷题记录/错题本（attempts/wrong_questions，读写全量 + 交卷事务）、学情分析/学习统计/学习日历（analytics/stats/activity，只读聚合）、易错题挑题（`QuestionStatsRepository`，只读聚合）**。
+生产仍 `MC_DB=sqlite`（2.4.1），**未切 PG**。**代码侧迁移已收口（`ab535fb`）**：questions 的 19 个读方法 + `QuestionStatsRepository` 已迁、方言 #16/#17/#20/#24 已清。
+剩下的是**验证与切流**（不是改代码）：PG 集成测试（需 `MC_PG_TEST_URL`）、切流预演（`docs/postgres-migration.md` §12.2）、以及零散的未迁小仓储（`QuestionConflictRepository` / `QuestionGroupRepository` / `KnowledgeRepository` 仍是同步 `Db`，见 §2）。
 
 ## 1. 已完成域（按 commit）
 
-| commit    | 域                       | 关键点                                                                                                    |
-| --------- | ------------------------ | --------------------------------------------------------------------------------------------------------- |
-| `66e4e8f` | PG 运行形态              | 同机容器 `microclass-db`、数据目录 `/vol1/1000/microclass-pg`、DDL/装载工具链                             |
-| `3779721` | announcements + 地基     | `AsyncDb`、pg 连接池、driver 单例、`settings` 异步写 + 启动快照读                                         |
-| `0e95c6a` | banks 读（A）            | 目录/章节 7 方法                                                                                          |
-| `ed78803` | banks 读（B）            | `listBanks/countBanks/findBankWithStats`                                                                  |
-| `acc72c6` | banks 读（C）            | `findById/findByName/kindStats/questionCount/绑定统计` + 10 个服务 async 化                               |
-| `88f0d48` | banks 写                 | 9 方法；`AsyncDb.transaction` 改造；回滚测试                                                              |
-| `b201ec4` | questions 写             | 16 方法；`RETURNING id`；批量写事务；回滚测试                                                             |
-| `da4a0ad` | lessons/courses 读写     | 36 方法；`RETURNING id`；删除/重排/改绑/收藏/分类走事务；服务与路由补 await                               |
-| `e95226b` | users / auth             | 10 方法；`RETURNING id`；**鉴权链路 `onRequest` 的 `users.findById` 补 await**；authService 全异步        |
-| `8faa2dc` | progress/notes/watch     | 16 方法；区间 record 走事务（中途失败整批回滚）；笔记 `RETURNING id`；路由补 await                        |
-| `0ae37a4` | exams 读（批次 1）       | 读 20 方法 + 题池/选题树/细目表/卷面缓存；写路径 SQL 未动；21 个契约测试                                  |
-| `37fbadd` | exams 写 + attempts      | exam 写 12 方法 + 组卷事务；attempts/错题本读写 + 交卷事务；`RETURNING id`；方言 #19/#22/#23；19 条新测试 |
-| `9be51a7` | analytics/stats/activity | 13 个只读方法 async；方言 #21 `unixDay`；方言 #24 JSON 展开；int8 `Number()`；16 条新测试                 |
-| `a667f09` | 稳定性补丁               | SQLite 页缓存 256 MB / mmap 2 GB / 只读 `query_only`                                                      |
-| `cac6d05` | 部署护栏                 | api healthcheck `start_period` 60 s、`retries` 5                                                          |
-| `0aa7300` | 2.4.0                    | 版本与 CHANGELOG                                                                                          |
+| commit    | 域                       | 关键点                                                                                                            |
+| --------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `66e4e8f` | PG 运行形态              | 同机容器 `microclass-db`、数据目录 `/vol1/1000/microclass-pg`、DDL/装载工具链                                     |
+| `3779721` | announcements + 地基     | `AsyncDb`、pg 连接池、driver 单例、`settings` 异步写 + 启动快照读                                                 |
+| `0e95c6a` | banks 读（A）            | 目录/章节 7 方法                                                                                                  |
+| `ed78803` | banks 读（B）            | `listBanks/countBanks/findBankWithStats`                                                                          |
+| `acc72c6` | banks 读（C）            | `findById/findByName/kindStats/questionCount/绑定统计` + 10 个服务 async 化                                       |
+| `88f0d48` | banks 写                 | 9 方法；`AsyncDb.transaction` 改造；回滚测试                                                                      |
+| `b201ec4` | questions 写             | 16 方法；`RETURNING id`；批量写事务；回滚测试                                                                     |
+| `da4a0ad` | lessons/courses 读写     | 36 方法；`RETURNING id`；删除/重排/改绑/收藏/分类走事务；服务与路由补 await                                       |
+| `e95226b` | users / auth             | 10 方法；`RETURNING id`；**鉴权链路 `onRequest` 的 `users.findById` 补 await**；authService 全异步                |
+| `8faa2dc` | progress/notes/watch     | 16 方法；区间 record 走事务（中途失败整批回滚）；笔记 `RETURNING id`；路由补 await                                |
+| `0ae37a4` | exams 读（批次 1）       | 读 20 方法 + 题池/选题树/细目表/卷面缓存；写路径 SQL 未动；21 个契约测试                                          |
+| `37fbadd` | exams 写 + attempts      | exam 写 12 方法 + 组卷事务；attempts/错题本读写 + 交卷事务；`RETURNING id`；方言 #19/#22/#23；19 条新测试         |
+| `9be51a7` | analytics/stats/activity | 13 个只读方法 async；方言 #21 `unixDay`；方言 #24 JSON 展开；int8 `Number()`；16 条新测试                         |
+| `ab535fb` | questions 读 + 易错题    | 19 个读方法 async + `app.ts` 注入 `asyncDb`；`QuestionStatsRepository` 改方言 JSON；方言 #16/#17/#20；31 条新测试 |
+| `a667f09` | 稳定性补丁               | SQLite 页缓存 256 MB / mmap 2 GB / 只读 `query_only`                                                              |
+| `cac6d05` | 部署护栏                 | api healthcheck `start_period` 60 s、`retries` 5                                                                  |
+| `0aa7300` | 2.4.0                    | 版本与 CHANGELOG                                                                                                  |
 
 ## 2. 剩余域（实测规模）
 
-| 域                                      | 规模                               | 备注                                                                                                                                |
-| --------------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| questions 读（`QuestionRepository`）    | 19 个同步读方法 / 47 个 src 调用点 | 读写仍在同一个仓储：app.ts 未注入 asyncDb，PG 模式下连「写」也退回 SQLite（§7.7 盘点）                                              |
-| 易错题统计（`QuestionStatsRepository`） | 2 个方法 / 3 个 src 调用点         | 用 SQLite 的 `json_each/json_extract` 聚合 `attempts.answers`；PG 模式直接报错，需下一批改用 `db/sql.ts` 的 JSON 方言辅助（§9 #24） |
+| 域                                                                  | 规模                         | 备注                                                                                                                                                     |
+| ------------------------------------------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ~~questions 读（`QuestionRepository`）~~                            | ~~19 方法 / 47 调用点~~      | **已完成（`ab535fb`）**：读写同批走 `AsyncDb`，`app.ts` 注入 `asyncDb`；契约见 `test/question-read-async.test.ts`（含「create → findById 能读到」）      |
+| ~~易错题统计（`QuestionStatsRepository`）~~                         | ~~2 方法 / 3 调用点~~        | **已完成（`ab535fb`）**：`json_each/json_extract` → `jsonArrayJoin/jsonIntField/jsonBoolIntField`（#24）；缓存命中不查库，`cachedAt()` 保持同步快照语义  |
+| `QuestionConflictRepository` / `QuestionGroupRepository`            | 冲突台账 + 题组，仍同步 `Db` | 冲突题核对（`question_conflicts` 台账、全库指纹扫描）与题组成员关系未迁；内部还有 `unixepoch()`（#19）。属于「切流后再说」的小域，PG 模式下会退回 SQLite |
+| `KnowledgeRepository` / `TagRepository` / `BankFolderRepository` 等 | 同步 `Db` 小仓储             | 同上：只读小表、写入低频；未迁不阻塞切流，但要在切流清单里标注「这些表仍读 SQLite」                                                                      |
 
 > exams（读写全量，含组卷事务）与 attempts/错题本（含交卷事务）已在 `37fbadd` 迁完；
-> 收藏（favorites）在 lessons/courses 批次（`da4a0ad`）内已迁；analytics/stats/activity 在 `9be51a7` 迁完。
-> 已迁域牵出的服务（stats/quiz/practiceLink/exam-lifecycle/lessonUnlock/note 等）都 async 化了，
-> 新增读方法时注意调用点仍要 `await`；`reply.send(<Promise>)` 依旧是 tsc 抓不到的坑。
-> ⚠️ **questions 读仍未迁**（且 app.ts 未注入 asyncDb，写也没真正走 PG，见 §7.7）：
-> PG 模式下这些读写会落回 SQLite，属于切流前必须清掉的跨库混合点。
+> 收藏（favorites）在 lessons/courses 批次（`da4a0ad`）内已迁；analytics/stats/activity 在 `9be51a7` 迁完；
+> questions 读与易错题挑题在 `ab535fb` 迁完 —— **`MC_DB=pg` 下主链路（题库/题目/刷题/考试/统计）读写都在 PG**。
+> 已迁域牵出的服务（stats/quiz/practiceLink/exam-lifecycle/lessonUnlock/note/difficulty 等）都 async 化了，
+> 新增读方法时注意调用点仍要 `await`；`reply.send(<Promise>)` 依旧是 tsc 抓不到的坑
+> （本批把 `banks-questions` / `banks-question-media` / `difficulty` / `exams-pool` 的 send 全部补了 await，
+> 现存无 await 的 `reply.send(...)` 都只接受同步值：冲突台账的 list/rescan/detail/ignore/reopen）。
 
 ## 3. 每域改造模板（照抄即可）
 
@@ -84,15 +89,27 @@ await this.adb().transaction(async (tx) => {
 3. 布尔列：`0/1` 整数，PG 侧保持 `bigint`（不做 boolean 化）
 4. 触发器/`IDENTITY` 序列：装载后需 `setval(max(id))`（`ops/scripts/pg/load-pg.sh` 已处理）
 5. `findByIdSync` 已删除；`settings.getSync` 是快照设计的一部分，**不是**过渡函数，保留
-6. `CAST(title AS INTEGER)`（lessons 自然序）：SQLite 非数字前缀 → 0，**PG 会直接报错**；切流前必须按方言生成排序表达式
-7. int8（`COUNT/SUM/MAX`、`RETURNING id`）经 node-postgres 默认返回 **string**；建议在 `pg/pool.ts` 加 `types.setTypeParser(20, Number)`（所有已迁移域共同待办）
+6. **`CAST(title AS INTEGER)`（lessons 自然序，方言 #16）— 已处理（`ab535fb`）**：`db/sql.ts` 新增
+   `naturalNumberPrefix(column, driver)`（sqlite 原样 `CAST(title AS INTEGER)`；pg →
+   `COALESCE(NULLIF(substring(trim(title) from '^[+-]?[0-9]+'), '')::bigint, 0)`），
+   `lessonRepository` 的 `NATURAL_ORDER` 改成按 `adb().driver` 生成（`listAll`/`listByCourse` 两处）。
+   SQLite 侧排序表达式逐字不变；PG 侧不再对「第X课」这类标题报 `invalid input syntax for integer`。
+7. **int8（`COUNT/SUM/MAX`、`RETURNING id`）— 已处理（`ab535fb`）**：`db/pg/pool.ts` 加
+   `types.setTypeParser(20, Number)`（驱动层全局兜底），仓储边界的 `Number()` 保持不动（双保险）。
+   契约见 `test/question-read-async.test.ts` 的 `OID 20 → number` 用例。
 8. 课时扫描的 `findMissingLessons` 判定回调**保持同步**（只做 `fs` 判定、不碰库）；落库步骤已 await —— 不要为了「全 async」把它改成异步，会打乱扫描顺序
-9. **`unixepoch()`（方言 #19）— 已处理（`37fbadd`）**：新增 `db/sql.ts` 的 `nowSeconds(driver)`
+9. **`unixepoch()`（方言 #19）— 已处理（`37fbadd`，`ab535fb` 补漏）**：新增 `db/sql.ts` 的 `nowSeconds(driver)`
    （sqlite → `unixepoch()`，pg → `(EXTRACT(EPOCH FROM now()))::bigint`）。已覆盖
-   `wrong_questions` 的 upsert/掌握标记、`attempts` 相关写、`progressRepository.upsert`/`markQuizDone`；
+   `wrong_questions` 的 upsert/掌握标记、`attempts` 相关写、`progressRepository.upsert`/`markQuizDone`，
+   `ab535fb` 又补上 `question-difficulty` 的 `setDifficulty` / `setManualDifficulty`；
    SQLite 侧文本与迁移前完全一致（行为不变），PG 侧不再出现 SQLite 专有函数。
+   ⚠️ 仍剩 `questionConflictRepository` 的 4 处 `unixepoch()`（该仓储整体未迁）。
    表 DEFAULT 的 `unixepoch()` 仍由生成器负责（§9 #5）。
-10. **`MAX(a, b)` 标量形式（方言 #20）**：`lesson_progress` 的 upsert `DO UPDATE SET finished = MAX(finished, excluded.finished)`、`quiz_best = MAX(...)` —— SQLite 是标量两参 `max()`，PG 里 `MAX` 是聚合会直接报错；切流前改 `GREATEST(a, b)`（PG）或 `CASE WHEN`。**未改**；analytics/stats/activity 的 SQL 里没有两参 `MAX`（只有聚合 `MAX(score)`），本批不涉及
+10. **`MAX(a, b)` 标量形式（方言 #20）— 已处理（`ab535fb`）**：`db/sql.ts` 新增
+    `maxOf(a, b, driver)`（sqlite `MAX(a,b)` / pg `GREATEST(a,b)`），`progressRepository.upsert` 的
+    `finished` 与 `markQuizDone` 的 `quiz_best` 都改用它。NULL 语义差异已写在 `maxOf` 注释里
+    （SQLite 标量 `max()` 遇 NULL 返回 NULL，PG `GREATEST` 忽略 NULL；写路径保证这两列非 NULL）。
+    analytics/stats/activity 的 SQL 里没有两参 `MAX`（只有聚合 `MAX(score)`）。
 11. **`date(col,'unixepoch','localtime')`（方言 #21）— 已处理（analytics 批次）**：新增 `db/sql.ts` 的
     `unixDay(column, driver, { local })`：sqlite 原样 `date(..., 'unixepoch'[,'localtime'])`；pg →
     `to_char(to_timestamp(col) AT TIME ZONE 'UTC' | 'Asia/Shanghai','YYYY-MM-DD')`。
@@ -104,24 +121,33 @@ await this.adb().transaction(async (tx) => {
     `replaceQuestion` 先 `DELETE` 旧题再 `INSERT … ON CONFLICT (exam_id, question_id) DO UPDATE`（等价原 `REPLACE`，
     保持卷内位置/分值/大题）；组卷 `applyComposition` 同事务内复用同一句。契约见 `test/exam-write-async.test.ts`
 13. **int8 字符串在读层的收敛（方言 #17 的落地）**：`COUNT/SUM/MAX(sort)` 在 PG 回传字符串。所有已迁移读方法
-    （含批次 1 的 exams 读、错题本 `count`/`list`、本批 analytics/activity/stats 的计数与 id）已在仓储边界统一 `Number()`；写路径的 `RETURNING id`
-    （`exams.create`、`exam_attempts.createAttempt`、`attempts.create`）同样 `Number()`。全局 `types.setTypeParser(20)` 仍是切流前待办
+    （含批次 1 的 exams 读、错题本 `count`/`list`、analytics/activity/stats 的计数与 id、`ab535fb` 的 questions 读
+    `countByBank/countAll/countByMeta/health/pointStats/duplicateGroups/duplicateSummary`）已在仓储边界统一 `Number()`；
+    写路径的 `RETURNING id`（`exams.create`、`exam_attempts.createAttempt`、`attempts.create`）同样 `Number()`；
+    全局 `types.setTypeParser(20)` 已在 `ab535fb` 落到 `pg/pool.ts`（驱动层兜底）。
 14. **`LIKE` 大小写（方言 #23）— 已处理（`37fbadd`）**：`exam-pool-filter` 的 `keyword`/`point`/`chapter`
     与 `exam-stats.pointStats.point` 全部改用 `likeCI`（`LOWER(列) LIKE LOWER(?)`），
     SQLite 侧行为不变（中文不受影响、ASCII 仍大小写不敏感），PG 侧不再依赖 SQLite 默认语义
-15. **`json_each` / `json_extract`（方言 #24）— 已处理（analytics 批次）**：`db/sql.ts` 新增
+15. **`json_each` / `json_extract`（方言 #24）— 已全部处理（analytics 批次 + `ab535fb`）**：`db/sql.ts` 新增
     `jsonArrayJoin`（sqlite `, json_each(col) alias` / pg `CROSS JOIN LATERAL jsonb_array_elements(col::jsonb) AS alias(value)`）、
     `jsonIntField`（`CAST(json_extract(...) AS INTEGER)` / `CAST(alias.value->>'field' AS INTEGER)`）、
     `jsonBoolIntField`（sqlite 原 `json_extract` 的 1/0/NULL；pg 用 `CASE ... ->> 'true'/'false'`，**保住 NULL 主观题**）。
-    已覆盖 `analyticsRepository` 的练习 + 考试作答展开；`QuestionStatsRepository`（易错题统计）**仍是 SQLite 专有 JSON**，待迁
+    已覆盖 `analyticsRepository` 的练习 + 考试作答展开，`ab535fb` 又覆盖 `QuestionStatsRepository.errorByQuestion`
+    （易错题挑题）：SQLite 侧 SQL 文本与迁移前一致，PG 侧不再出现 `json_each`/`json_extract`。
+16. **`SUM(布尔表达式)`（新发现，`ab535fb`）**：`duplicateSummary` 的 `SUM(a > 1)` 在 SQLite 里能求和布尔值，
+    PG 没有 `sum(boolean)`（`function sum(boolean) does not exist`），改成 `SUM(CASE WHEN a > 1 THEN 1 ELSE 0 END)`
+    （两库语义一致）。写新的聚合 SQL 时**不要**把比较表达式直接塞进 `SUM`。
 
 ## 5. 测试基线
 
-- `npx vitest run`：**1022 passed / 7 skipped**（基线 939/6 → +lessons/courses 14 → +users/auth 4 → +progress/notes/watch 9 → +exams 只读 21 → +exams 写/交卷 19 → +analytics/stats/activity 16；
-  analytics 批次新增 `test/analytics-async.test.ts` 14 条（只经 AsyncDb、方言 #21/#24、stats int8）与
-  `test/analytics-date-parity.test.ts` 2 条（int8 收敛 + 真 SQLite 的本地日/UTC 日分桶对照）；
-  批次 2 的 `test/exam-write-async.test.ts` 10 条与 `test/exam-write-transaction.test.ts` 9 条保持；
-  `test/exam-read-async.test.ts` 的 21 条是「读写都只经 AsyncDb」契约；skip 里含 PG 集成测试，需 `MC_PG_TEST_URL`）
+- `npx vitest run`：**1053 passed / 7 skipped**（基线 939/6 → +lessons/courses 14 → +users/auth 4 → +progress/notes/watch 9 → +exams 只读 21 → +exams 写/交卷 19 → +analytics/stats/activity 16 → +questions 读 31；
+  本批新增 `test/question-read-async.test.ts` 31 条：19 个读方法「返回 Promise 且不碰同步 Db」逐条钉、
+  int8 收敛（count/health/pointStats/duplicateGroups）、**真 SQLite 的 create → findById 读后写可见**、
+  「同步 Db 被打死时读方法仍工作」（证明只经 AsyncDb）、`app.ts` 注入 `asyncDb` 的结构断言、
+  易错题 JSON 方言（sqlite 文本不变 / pg 无 `json_each`）、方言 #16/#17/#20 表达式契约；
+  analytics 批次的 `test/analytics-async.test.ts` 14 条与 `test/analytics-date-parity.test.ts` 2 条、
+  批次 2 的 `test/exam-write-async.test.ts` 10 条与 `test/exam-write-transaction.test.ts` 9 条、
+  `test/exam-read-async.test.ts` 的 21 条均保持；skip 里含 PG 集成测试，需 `MC_PG_TEST_URL`）
 - `npx playwright test`：**40/40**
 - `npm run typecheck`、`npx eslint .`：0 error（4 warning 为既有 console）
 - `npm run build`、`npx prettier --check .`、`node tools/check-file-size.mjs`（624 个文件）
@@ -289,9 +315,10 @@ await this.adb().transaction(async (tx) => {
 - **#16 自然序**：`lessons` 的 `CAST(title AS INTEGER)` 与本批无关，仍未处理；
 - **`QuestionStatsRepository`**：同样是「作答 JSON 聚合」，但属易错题挑题（exams 域），仍同步 `Db` + SQLite JSON，下一批必须迁。
 
-## 7.7 `QuestionRepository` 读方法盘点（本批未改，切流前必须清）
+## 7.7 `QuestionRepository` 读方法盘点（**已完成，`ab535fb`**；下面是当时的盘点原文）
 
-> 结论：**19 个同步读方法 / 47 个 src 调用点**。而且 `app.ts` 是 `new QuestionRepository(db)`，
+> ✅ **状态：已在 `ab535fb` 清零**，本条保留作「为什么必须读写同批改」的项目记忆。
+> 当时的结论：**19 个同步读方法 / 47 个 src 调用点**，而且 `app.ts` 是 `new QuestionRepository(db)`，
 > **没有注入 `asyncDb`** —— 仓储里 16 个 `async` 写方法的 `adb()` 会退回 `createSqliteAsyncDb(this.db)`，
 > 所以 PG 模式下 questions 是「**读写都落 SQLite**」，比原文档写的「写已 AsyncDb」更严重。
 > 当前生产 `MC_DB=sqlite`，且切流前禁止 `MC_DB=pg`，因此暂无生产影响；但必须与读方法一起修，
@@ -336,25 +363,58 @@ await this.adb().transaction(async (tx) => {
 worker 也走 `AsyncDb`（只读连接）；新增 `question-read-async.test.ts` 钉「只经 AsyncDb + int8 收敛」，
 并补一条「create 后立即 findById 能读到」的读后写用例（SQLite 下即可验证调用链）。
 
+## 7.8 questions 读 + 易错题挑题迁移记录（2026-11-27，`ab535fb`）
+
+### 7.8.1 本批做了什么
+
+| 项                 | 内容                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 仓储读方法（19）   | `question-query`：`listByBank`/`countByBank`/`listAll`/`countAll`/`findById`/`findByIds`/`listByLesson`/`searchByMeta`/`stemsByIds`；`question-stats`：`questionHealth`/`countByMeta`/`pointStats`/`difficultyStats`；`question-difficulty`：`difficultyFeatures`/`allDifficultyScores`/`difficultyScoreOf`/`answerStats`；`question-dedupe`：`duplicateGroups`/`duplicateSummary`/`duplicateIdsInBank` —— 全部 `AsyncDb` + `async`，`QuestionRepository` 门面同步改 `Promise`                                                                                                                                                                          |
+| **DI（读写同批）** | `app.ts`：`new QuestionRepository(db)` → `new QuestionRepository(db, asyncDb)`；`new QuestionStatsRepository(db)` → `new QuestionStatsRepository(asyncDb)`。**只补 DI 不改读 = 写 PG 读 SQLite；只改读不补 DI = 写 SQLite 读 PG**，两者必须同一批                                                                                                                                                                                                                                                                                                                                                                                                       |
+| 体检 worker        | `bankHealthPayload.computeGlobalHealthPayload` 里的 `new QuestionRepository(db)` 改成 `(db, asyncDb)`，`difficultyStats` 也改收 `AsyncDb`；worker 侧（`workers/bankHealthChild`）本来就按 `MC_DB` 建了 PG/sqlite 的 `AsyncDb`，现在题目聚合也走它（PG 模式不再从 SQLite 算体检）                                                                                                                                                                                                                                                                                                                                                                        |
+| 易错题挑题         | `QuestionStatsRepository.errorByQuestion` 改 `async` + `AsyncDb`；`json_each`/`json_extract` 换 `jsonArrayJoin`/`jsonIntField`/`jsonBoolIntField`（#24）；`cachedAt()` **保持同步**（纯内存快照，与 `settings.getSync` 同类，不碰库）                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| 调用点 await       | 10 个 service + 4 个路由：`bankQuestionService`（含 `listQuestionsGlobal`/`findQuestion`/`searchQuestions` 改 async）、`bankHealthService`（体检 + 去重，样例题干由逐组 `findById` 合并成一次 `findByIds`）、`bankCatalogService`、`bankExportService`×3、`bankService.detail`、`bankQuestionImageService.attachImage`、`difficultyService`（`stats`/`preview`/`apply`/`calibrate` + 私有 `scoreBatch`/`bankName`/`stemOf`/`allScores`/`question`/`answerStats` 全 async）、`quizService`×3、`paperReplace`、`practiceLinkService`、`questionConflictService.resolve`；路由 `banks-questions`×3、`banks-question-media`、`difficulty`×2、`exams-pool`×2 |
+| `reply.send` 扫描  | 全量扫过 `reply.send(`：现存不带 `await` 的都只接受**同步值**（冲突台账 `list`/`rescan`/`detail`/`ignore`/`reopen`、`buildPoolQuestions` 已 await）；本批改动的 4 个路由全部补了 `await`                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 方言 #16           | `db/sql.ts` 新增 `naturalNumberPrefix`：sqlite 原样 `CAST(title AS INTEGER)`；pg `COALESCE(NULLIF(substring(trim(title) from '^[+-]?[0-9]+'), '')::bigint, 0)`。`lessonRepository` 的 `NATURAL_ORDER` 改成按 `adb().driver` 生成（只在 lessons 排序处用）                                                                                                                                                                                                                                                                                                                                                                                               |
+| 方言 #17           | `db/pg/pool.ts` 加 `types.setTypeParser(20, Number)`（驱动层全局兜底）；questions 读的计数/聚合仍在仓储边界 `Number()`（双保险）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| 方言 #20           | `db/sql.ts` 新增 `maxOf(a, b, driver)`：sqlite `MAX(a,b)` / pg `GREATEST(a,b)`；`progressRepository.upsert` 的 `finished`、`markQuizDone` 的 `quiz_best` 改用（NULL 语义差异写在注释里）                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 方言 #19 补漏      | `question-difficulty` 的 `setDifficulty` / `setManualDifficulty` 里 2 处 `unixepoch()` 改 `nowSeconds(driver)`（原先漏在难度写路径）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 方言 #25（新发现） | `duplicateSummary` 的 `SUM(a > 1)` 在 PG 不存在（`sum(boolean)` 报错），改 `SUM(CASE WHEN a > 1 THEN 1 ELSE 0 END)`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 测试               | 新增 `test/question-read-async.test.ts` 31 条（见 §5）；`question-write-transaction.test.ts` 的 4 处同步读补 `await`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 门禁               | vitest **1053 passed / 7 skipped**（+31）、E2E 40/40、typecheck 0、eslint 0（4 既有 warning）、prettier、build、size guard（624 文件，app.ts 未增长，仍 382）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+
+### 7.8.2 本批没有做的事（切流前清单）
+
+- **PG 集成测试**：本批所有断言都在 SQLite 上跑（硬规则：只用 SQLite 验证）。`MC_PG_TEST_URL` 分支
+  （`pg-announcements.test.ts` 等）仍需在非生产机、非 NVMe 的窗口里实跑一次；
+- **切流预演**：`docs/postgres-migration.md` §12.2（停 API → 备份 SQLite → `MC_DB=pg` → 起新镜像 → 冒烟 → 回滚），
+  需要用户确认窗口，本批**没有**执行；
+- **未迁的小仓储**：`QuestionConflictRepository`（台账 + 全库指纹扫描，内部 4 处 `unixepoch()`）、
+  `QuestionGroupRepository`、`KnowledgeRepository`、`TagRepository`、`BankFolderRepository` 仍是同步 `Db`。
+  PG 模式下这些读写会落回 SQLite（切流清单里要标注），但不阻塞主链路（题库/题目/刷题/考试/统计）；
+- **难度 `preview`/`calibrate` 的 PG 行为**：SQL 文本未变（无新方言），但 `calibrate` 现在逐题 `await`，
+  PG 下是 N 次小查询（原先同步同数量）—— 若真机上候选人很多，切流后再评估批量取。
+
 ## 8. 关键文件索引
 
-| 主题                                               | 文件                                                              |
-| -------------------------------------------------- | ----------------------------------------------------------------- |
-| 异步数据端口                                       | `apps/api/src/db/async.ts`                                        |
-| 驱动选择 / 单例                                    | `apps/api/src/db/driver.ts`                                       |
-| PG 连接池                                          | `apps/api/src/db/pg/pool.ts`                                      |
-| 方言小工具（likeCI / nowSeconds / unixDay / JSON） | `apps/api/src/db/sql.ts`                                          |
-| PG DDL 生成                                        | `ops/scripts/pg/gen-schema.mjs`、`post-schema.pg.sql`             |
-| 装载/校验                                          | `ops/scripts/pg/load-pg.sh`、`verify-parity.sh`、`export-tsv.mjs` |
-| 备份                                               | `ops/deploy/pg-backup.sh`、`ops/deploy/backup.sh`                 |
-| 预发 IO 门槛                                       | `ops/scripts/pg/guard-io.sh`                                      |
-| 迁移总文档                                         | `docs/postgres-migration.md`                                      |
-| lessons/courses 事务                               | `apps/api/test/lesson-course-write-transaction.test.ts`           |
-| users/auth 鉴权链路                                | `apps/api/test/auth-async.test.ts`                                |
-| progress/notes/watch 事务                          | `apps/api/test/progress-write-transaction.test.ts`                |
-| exams 读写契约                                     | `apps/api/test/exam-read-async.test.ts`                           |
-| exams 写方言契约（批次 2）                         | `apps/api/test/exam-write-async.test.ts`                          |
-| exams/attempts 事务与回滚                          | `apps/api/test/exam-write-transaction.test.ts`                    |
-| 卷面缓存口径                                       | `apps/api/test/exam-paper-cache.test.ts`                          |
-| analytics 只经 AsyncDb + 方言                      | `apps/api/test/analytics-async.test.ts`                           |
-| analytics/activity 日期与 int8 对照                | `apps/api/test/analytics-date-parity.test.ts`                     |
+| 主题                                                                             | 文件                                                              |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| 异步数据端口                                                                     | `apps/api/src/db/async.ts`                                        |
+| 驱动选择 / 单例                                                                  | `apps/api/src/db/driver.ts`                                       |
+| PG 连接池                                                                        | `apps/api/src/db/pg/pool.ts`                                      |
+| 方言小工具（likeCI / nowSeconds / unixDay / JSON / naturalNumberPrefix / maxOf） | `apps/api/src/db/sql.ts`                                          |
+| PG DDL 生成                                                                      | `ops/scripts/pg/gen-schema.mjs`、`post-schema.pg.sql`             |
+| 装载/校验                                                                        | `ops/scripts/pg/load-pg.sh`、`verify-parity.sh`、`export-tsv.mjs` |
+| 备份                                                                             | `ops/deploy/pg-backup.sh`、`ops/deploy/backup.sh`                 |
+| 预发 IO 门槛                                                                     | `ops/scripts/pg/guard-io.sh`                                      |
+| 迁移总文档                                                                       | `docs/postgres-migration.md`                                      |
+| lessons/courses 事务                                                             | `apps/api/test/lesson-course-write-transaction.test.ts`           |
+| users/auth 鉴权链路                                                              | `apps/api/test/auth-async.test.ts`                                |
+| progress/notes/watch 事务                                                        | `apps/api/test/progress-write-transaction.test.ts`                |
+| exams 读写契约                                                                   | `apps/api/test/exam-read-async.test.ts`                           |
+| exams 写方言契约（批次 2）                                                       | `apps/api/test/exam-write-async.test.ts`                          |
+| exams/attempts 事务与回滚                                                        | `apps/api/test/exam-write-transaction.test.ts`                    |
+| 卷面缓存口径                                                                     | `apps/api/test/exam-paper-cache.test.ts`                          |
+| analytics 只经 AsyncDb + 方言                                                    | `apps/api/test/analytics-async.test.ts`                           |
+| analytics/activity 日期与 int8 对照                                              | `apps/api/test/analytics-date-parity.test.ts`                     |
+| questions 读只经 AsyncDb + 读后写可见 + 方言 16/17/20                            | `apps/api/test/question-read-async.test.ts`                       |
