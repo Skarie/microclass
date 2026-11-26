@@ -41,7 +41,9 @@ export class Db {
       // 只读连接（体检子进程）：缓存/mmap 与主连接一致，并显式禁止写
       this.handle.exec('PRAGMA cache_size = -262144;'); // ≈256MB 页缓存
       try {
-        this.handle.exec('PRAGMA mmap_size = 2147483648;'); // 2GB：1.2GB 库基本可全映射
+        // 同主连接：mmap 保持 256MB（大 mmap 在机械盘上会让冷页逐页同步读盘）
+        const mmapMb = Number(process.env.MC_SQLITE_MMAP_MB ?? 256);
+        this.handle.exec(`PRAGMA mmap_size = ${Math.max(0, Math.trunc(mmapMb)) * 1024 * 1024};`);
       } catch {
         /* 某些平台不支持 mmap，忽略 */
       }
@@ -61,14 +63,19 @@ export class Db {
     // 题库全量导入后库有几百 MB，且常常落在 NAS 机械盘上：
     // 把排序/分组用的临时表放进内存、缓存与 mmap 调大，避免体检这类聚合查询把磁盘打满。
     //
-    // 稳定性补丁（2026-11-26）：生产两次卡顿都是「同步 SQLite 在机械盘上读页」阻塞事件循环。
-    // 把页缓存提到 256MB、mmap 提到 2GB 后，1.2GB 的库在内存里基本能装下热页，
-    // 打到盘上的随机读显著减少（内存上限 2GiB 下实测 RSS 仍 < 300MB，见 docs/deploy.md §9）。
+    // 稳定性补丁（2026-11-26）：生产多次卡顿都是「同步 SQLite 在机械盘上读页」阻塞事件循环。
+    // 页缓存提到 256MB 可减少热路径读盘（内存上限 2GiB 下实测 RSS 仍 < 300MB）。
+    //
+    // ⚠️ mmap 不要设大（2.4.0 的教训）：`mmap_size` 很大时，**冷页是按页同步缺页**（每页一次随机读），
+    // 机械盘上一次大聚合（如 /banks/catalog 扫 1.2GB 库）会变成逐页 12ms 的读盘风暴，
+    // 把事件循环卡住几十秒（2.4.0 上线后实测 >25s）。256MB 时大扫描会退回常规 read() 路径，
+    // 由内核预读（readahead）处理，顺序扫描反而快得多。需要时可 `MC_SQLITE_MMAP_MB` 覆盖。
     this.handle.exec('PRAGMA temp_store = MEMORY;');
     this.handle.exec('PRAGMA cache_size = -262144;'); // ≈256MB 页缓存（原 64MB）
     if (file !== ':memory:') {
+      const mmapMb = Number(process.env.MC_SQLITE_MMAP_MB ?? 256);
       try {
-        this.handle.exec('PRAGMA mmap_size = 2147483648;'); // 2GB（原 256MB）
+        this.handle.exec(`PRAGMA mmap_size = ${Math.max(0, Math.trunc(mmapMb)) * 1024 * 1024};`);
       } catch {
         /* 某些平台不支持 mmap，忽略 */
       }

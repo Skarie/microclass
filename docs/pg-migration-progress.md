@@ -103,23 +103,35 @@ await this.adb().transaction(async (tx) => {
 | 22:42       | 回滚后全部接口 200（含 catalog / settings / announcements / 8092），healthy                                                                                            |
 | 22:45       | 版本字符串修回 `2.3.3`（`2.3.3` 与 `2.3.3-stable` 同一 sha）；重复抽检 3 次均正常（未登录返回 401 属预期）                                                             |
 
-**现象特征**（供后续定位）：2.4.0 下 `courses`、`banks?limit=5` 正常且很快，但**一旦请求 `banks/catalog` 等接口，
+**现象特征**：2.4.0 下 `courses`、`banks?limit=5` 正常且很快，但**一旦请求 `banks/catalog` 等接口，
 后续所有请求（含纯内存的 `/settings`、8092 代理）全部超时** → 事件循环被同步操作卡死，不是单接口慢。
 
-**最可疑点**（按 C 批改动推断）：
+### 7.1.1 定位结论（2026-11-26 22:45，NVMe 副本隔离复现，已修）
 
-1. `bankCatalogService.catalog()` 里 `courseBindingStats` 已改 async，若某处仍按同步用（或反之），
-   可能拿到 Promise 而未消费，配合 sqlite 同步查询放大了阻塞；
-2. `banks/catalog` 的 `catalogCourses/catalogUnbound/catalogUnboundBooks` 三条聚合在 1.2 GB 库 + 机械盘上冷页读取，
-   若在**主线程同步**执行会阻塞事件循环（2.3.3 同样有这些查询，但 2.4.0 的 `settings.load()` 预热/顺序变化可能改变了冷页分布）；
-3. 需在**本地 sqlite 副本**上逐条计时与 `EXPLAIN QUERY PLAN`，不要在 NAS 起预发。
+**同一份 NVMe 副本上，2.3.3 与 2.4.0 性能完全一致**：
 
-**复现建议（本地，安全）**：用 `build/e2e-data/*` 或生产库副本，`node --experimental-sqlite` 直接跑
-`catalogCourses` 等三条 SQL 并计时；再起本地 API（`MC_DATA_DIR` 指向副本）打 `/banks/catalog` 复现卡死。
+| 镜像               | `/banks/catalog` | `/banks/catalog-sections` | `/settings` | `/announcements` |
+| ------------------ | ---------------- | ------------------------- | ----------- | ---------------- |
+| `microclass:2.3.3` | 11 ms            | 28 ms                     | 1.9 ms      | 2.4 ms           |
+| `microclass:2.4.0` | 11 ms            | 28 ms                     | 1.6 ms      | 1.8 ms           |
+
+隔离复现（8097 / sqlite / NVMe 副本）里 `/banks/catalog` 仅 **217 ms**，随后 `/settings` 2.8 ms、`/healthz` 2.1 ms —— **不卡**。
+说明 2.4.0 代码路径没有缺陷；生产卡死是「**新容器冷页 + 机械盘 + 大聚合同步执行**」的组合。
+
+**根因**：`a667f09` 把 `PRAGMA mmap_size` 提到 **2 GB**。mmap 很大时冷页是**按页同步缺页**（每页一次随机读，机械盘 ~12 ms/页）；
+2.4.0 是新容器、页缓存全冷，`/banks/catalog` 这类扫大表的聚合就触发逐页读盘风暴，把事件循环卡住数十秒（生产实测 >25 s）。
+2.3.3 容器已运行 18 小时、OS 页缓存是热的，所以看不出问题。
+
+**修复**：`mmap_size` 回退 **256 MB**（`MC_SQLITE_MMAP_MB` 可覆盖），256 MB 时大扫描退回常规 `read()` 路径、由内核预读处理；
+`cache_size` 保留 256 MB。文件：`apps/api/src/db/client.ts`。
+
+**验证**：`tsc` 0、`vitest 939 passed / 6 skipped`、eslint 0、prettier、size guard 全绿。
+**发布前还差**：在 NVMe 副本上跑 10 分钟混合请求（catalog + settings + courses）确认不卡，再构建 2.4.1；
+上线保留 `2.3.3-stable`，失败立即回滚。
 
 ## 7.2 下次会话的起点
 
-1. 先本地定位 2.4.0 卡死（见上），修复后重发 2.4.x
+1. 构建 2.4.1（mmap 256 MB）→ NVMe 副本 10 分钟混合压测 → 低峰部署 + 10 分钟观察
 2. 再继续剩余域：lessons/courses → users/auth/progress/notes/favorites/watch → exams/analytics/attempts
 3. 全部域迁完 + 本地复测通过，才安排 PG 切流窗口（01:00–06:00）
 
