@@ -258,7 +258,7 @@ export class DifficultyService {
     }
     const updated = await this.questions.setDifficulty(items);
     if (bankId === undefined) await this.settings.set(CUTS_KEY, JSON.stringify(cuts));
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'question.difficulty.apply',
@@ -327,7 +327,7 @@ export class DifficultyService {
     }
     if (!dryRun && items.length > 0) {
       await this.questions.setDifficulty(items);
-      this.audit.write({
+      await this.audit.write({
         actorId: actor.id,
         actorName: actor.username,
         action: 'question.difficulty.calibrate',

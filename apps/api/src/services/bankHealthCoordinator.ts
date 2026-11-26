@@ -83,8 +83,8 @@ export class BankHealthCoordinator {
   }
 
   /** 接口主入口：ready 直接返回结果；否则触发后台计算并返回 202 契约 */
-  get(options?: { refresh?: boolean }): HealthResponse {
-    const snapshot = this.snapshot();
+  async get(options?: { refresh?: boolean }): Promise<HealthResponse> {
+    const snapshot = await this.snapshot();
     if (!options?.refresh && snapshot && this.isFresh(snapshot)) {
       return { status: 'ready', ...snapshot.payload, cachedAt: snapshot.computedAtMs };
     }
@@ -97,8 +97,8 @@ export class BankHealthCoordinator {
   }
 
   /** 轻量状态查询（不扫库）：ready / computing / stale */
-  status(): HealthStatusResponse {
-    const snapshot = this.snapshot();
+  async status(): Promise<HealthStatusResponse> {
+    const snapshot = await this.snapshot();
     if (this.running) {
       return {
         status: 'computing',
@@ -118,9 +118,9 @@ export class BankHealthCoordinator {
   }
 
   /** 启动预热用：缓存过期才在后台算一次（绝不阻塞启动）；自动体检关闭时什么都不做 */
-  ensureFresh(): void {
+  async ensureFresh(): Promise<void> {
     if (!this.auto) return;
-    const snapshot = this.snapshot();
+    const snapshot = await this.snapshot();
     if (snapshot && this.isFresh(snapshot)) return;
     this.start();
   }
@@ -145,10 +145,10 @@ export class BankHealthCoordinator {
     this.startedAt = this.now();
     this.lastError = null;
     const run = this.runner(HEALTH_WORKER_LIMIT)
-      .then((payload) => {
-        this.cache.save(new Date(this.now()).toISOString(), JSON.stringify(payload));
-        // 体检期间 worker 长期只读，checkpoint 推不动；算完主动收一次 WAL
-        this.cache.checkpoint();
+      .then(async (payload) => {
+        await this.cache.save(new Date(this.now()).toISOString(), JSON.stringify(payload));
+        // 体检期间 worker 长期只读，checkpoint 推不动；算完主动收一次 WAL（PG 模式为空操作）
+        await this.cache.checkpoint();
       })
       .catch((e: unknown) => {
         this.lastError = e instanceof Error ? e.message : String(e);
@@ -160,9 +160,9 @@ export class BankHealthCoordinator {
     this.current = run;
   }
 
-  private snapshot(): CacheSnapshot | null {
+  private async snapshot(): Promise<CacheSnapshot | null> {
     try {
-      const row = this.cache.get();
+      const row = await this.cache.get();
       if (!row) return null;
       const ms = Date.parse(row.computed_at);
       return {

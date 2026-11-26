@@ -87,7 +87,7 @@ export class BankQuestionImageService {
       imagesOnly: true,
     });
     await this.questions.setImage(id, saved.relPath);
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'question.create_image',
@@ -109,7 +109,7 @@ export class BankQuestionImageService {
       imagesOnly: true,
     });
     await this.questions.setImage(id, saved.relPath);
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'question.image',

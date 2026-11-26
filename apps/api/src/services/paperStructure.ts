@@ -90,7 +90,7 @@ export async function setStructure(
       );
     }
   }
-  writeAudit(deps, actor, 'exam.structure', examId, {
+  await writeAudit(deps, actor, 'exam.structure', examId, {
     sections: sections.length,
     difficultyTarget: difficultyTarget ?? {},
     totalScore,

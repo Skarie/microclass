@@ -127,7 +127,7 @@ export class QuestionGroupService {
     const title = normalizeTitle(input.title);
     const note = normalizeNote(input.note);
     const id = await this.groups.create(title, note, actor.id);
-    this.writeAudit(actor, 'question_group.create', id, { title, note });
+    await this.writeAudit(actor, 'question_group.create', id, { title, note });
     return id;
   }
 
@@ -136,14 +136,14 @@ export class QuestionGroupService {
     const title = input.title === undefined ? row.title : normalizeTitle(input.title);
     const note = input.note === undefined ? row.note : normalizeNote(input.note);
     await this.groups.update(id, title, note);
-    this.writeAudit(actor, 'question_group.update', id, { title, note });
+    await this.writeAudit(actor, 'question_group.update', id, { title, note });
   }
 
   async remove(actor: User, id: number): Promise<void> {
     const row = await this.requireRow(id);
     const total = await this.groups.countItems(id);
     await this.groups.remove(id);
-    this.writeAudit(actor, 'question_group.delete', id, { title: row.title, items: total });
+    await this.writeAudit(actor, 'question_group.delete', id, { title: row.title, items: total });
   }
 
   /**
@@ -174,7 +174,7 @@ export class QuestionGroupService {
     // 组内成员变了：刷新 updated_at（列表按它倒序）
     await this.groups.touch(id);
     const updated = ids.length - fresh.length;
-    this.writeAudit(actor, 'question_group.items.add', id, { count: ids.length, role, added: fresh.length });
+    await this.writeAudit(actor, 'question_group.items.add', id, { count: ids.length, role, added: fresh.length });
     return { added: fresh.length, updated, total: await this.groups.countItems(id) };
   }
 
@@ -184,7 +184,7 @@ export class QuestionGroupService {
     const changes = await this.groups.removeItem(id, questionId);
     if (changes === 0) throw AppError.notFound('这道题不在该题组里');
     await this.groups.touch(id);
-    this.writeAudit(actor, 'question_group.items.remove', id, { questionId });
+    await this.writeAudit(actor, 'question_group.items.remove', id, { questionId });
   }
 
   /** 题目 → 所属题组（题目详情弹窗）；题目不存在直接 404，避免前端把「无题组」当空态 */
@@ -199,8 +199,8 @@ export class QuestionGroupService {
     return row;
   }
 
-  private writeAudit(actor: User, action: string, id: number, detail: unknown): void {
-    this.audit.write({
+  private async writeAudit(actor: User, action: string, id: number, detail: unknown): Promise<void> {
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action,

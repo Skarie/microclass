@@ -107,7 +107,7 @@ export class BankService {
       ...(input.subject ? { subject: String(input.subject) } : {}),
       ...(input.book ? { book: String(input.book) } : {}),
     });
-    this.auditWrite(actor, 'bank.create', 'bank', id, { name, lessonId, courseId, folderId });
+    await this.auditWrite(actor, 'bank.create', 'bank', id, { name, lessonId, courseId, folderId });
     return id;
   }
 
@@ -144,7 +144,7 @@ export class BankService {
       ...(input.book === undefined ? {} : { book: String(input.book) }),
       ...(input.kind ? { kind: input.kind as BankKind } : {}),
     });
-    this.auditWrite(actor, 'bank.update', 'bank', id, { folderId });
+    await this.auditWrite(actor, 'bank.update', 'bank', id, { folderId });
   }
 
   async remove(actor: User, id: number): Promise<void> {
@@ -152,12 +152,18 @@ export class BankService {
     if (!bank) throw AppError.notFound('题库不存在');
     // 题目随题库级联删除（ON DELETE CASCADE）
     await this.banks.delete(id);
-    this.auditWrite(actor, 'bank.delete', 'bank', id, { name: bank.name });
+    await this.auditWrite(actor, 'bank.delete', 'bank', id, { name: bank.name });
   }
 
   /** 统一写审计：让 CRUD 方法只保留业务差异 */
-  private auditWrite(actor: User, action: string, targetType: string, targetId: number, detail?: unknown): void {
-    this.audit.write({
+  private async auditWrite(
+    actor: User,
+    action: string,
+    targetType: string,
+    targetId: number,
+    detail?: unknown,
+  ): Promise<void> {
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action,

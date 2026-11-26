@@ -23,7 +23,7 @@ export class LessonKnowledgeService {
     if (!title) throw AppError.badRequest('标题不能为空');
     if (input.kind === 'link' && !isHttpUrl(input.url ?? '')) throw AppError.badRequest('链接必须以 http(s):// 开头');
     const id = await this.knowledge.create({ ...input, title });
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'knowledge.create',
@@ -38,7 +38,7 @@ export class LessonKnowledgeService {
     const row = await this.knowledge.findById(id);
     if (!row) throw AppError.notFound('知识点不存在');
     await this.knowledge.delete(id);
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'knowledge.delete',
@@ -64,7 +64,7 @@ export class LessonKnowledgeService {
     } else {
       await this.knowledge.update(id, { title, content: String(input.content ?? row.content) });
     }
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'knowledge.update',
@@ -92,7 +92,7 @@ export class LessonKnowledgeService {
       fileName,
       filePath: saved.relPath,
     });
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'knowledge.upload',

@@ -45,7 +45,7 @@ export class CourseKnowledgeService {
       url: input.kind === 'link' ? (input.url ?? '') : '',
       sort,
     });
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'knowledge.create',

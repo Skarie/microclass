@@ -103,7 +103,7 @@ export class LessonScanService {
 
     const newLessonIds = await this.createScannedLessons(courseId, folder.rootId, plan.planned);
     await this.courses.markScanned(courseId);
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'course.folder_scan',

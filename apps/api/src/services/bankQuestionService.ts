@@ -88,7 +88,7 @@ export class BankQuestionService {
     const prepared = await prepareQuestionInput(this.inputContext, input);
     const id = await this.questions.create(prepared);
     await this.markManualDifficulty(id, prepared);
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'question.create',
@@ -109,7 +109,7 @@ export class BankQuestionService {
     });
     await this.questions.update(id, prepared);
     await this.markManualDifficulty(id, prepared);
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'question.update',
@@ -147,7 +147,7 @@ export class BankQuestionService {
     const existing = await this.questions.findById(id);
     if (!existing) throw AppError.notFound('题目不存在');
     await this.questions.delete(id);
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'question.delete',
@@ -163,7 +163,7 @@ export class BankQuestionService {
   async removeQuestions(actor: User, bankId: number, ids: number[]): Promise<{ deleted: number; skipped: number }> {
     const inBank = (await this.questions.findByIds(ids)).filter((q) => q.bank_id === bankId).map((q) => q.id);
     const deleted = await this.questions.deleteMany(inBank);
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'question.bulkDelete',
@@ -190,7 +190,7 @@ export class BankQuestionService {
       ...(chapter === undefined ? {} : { chapter }),
       ...(section === undefined ? {} : { section }),
     });
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'question.updateSections',

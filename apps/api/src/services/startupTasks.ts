@@ -65,7 +65,7 @@ export function warmBankHealth(app: FastifyInstance, coordinator: BankHealthCoor
   }
   const timer = setTimeout(() => {
     try {
-      coordinator.ensureFresh();
+      void coordinator.ensureFresh();
       app.log.info('题库体检缓存检查完成（过期则在后台 worker 重算，不阻塞服务）');
     } catch (e) {
       app.log.warn({ err: e instanceof Error ? e.message : String(e) }, '题库体检缓存预热失败（忽略）');

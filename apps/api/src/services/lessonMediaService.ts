@@ -47,7 +47,7 @@ export class LessonMediaService {
       courseId: await this.resolveCourse(input.courseId ?? null),
       sort: Number.isInteger(input.sort) ? Number(input.sort) : 0,
     });
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'lesson.upload',
@@ -85,7 +85,7 @@ export class LessonMediaService {
       mediaType: result.mediaType,
       coverPath,
     });
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'lesson.probe',

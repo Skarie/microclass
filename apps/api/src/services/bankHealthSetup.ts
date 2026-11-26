@@ -8,6 +8,7 @@
 import path from 'node:path';
 import type { AppConfig } from '../config/env.js';
 import type { Db } from '../db/client.js';
+import { getAsyncDb } from '../db/driver.js';
 import type { SettingsRepository } from '../db/repositories/settingsRepository.js';
 import { BankHealthCacheRepository } from '../db/repositories/bankHealthCacheRepository.js';
 import { BankHealthCoordinator } from './bankHealthCoordinator.js';
@@ -24,15 +25,17 @@ export interface CreateBankHealthOptions {
  */
 export function createBankHealthCoordinator(
   db: Db,
-  config: Pick<AppConfig, 'dataDir' | 'autoBankHealth'>,
+  config: AppConfig,
   settings: SettingsRepository,
   options?: CreateBankHealthOptions,
 ): BankHealthCoordinator {
   const runner = options?.inline
     ? createInlineHealthRunner(db, settings)
     : createWorkerHealthRunner(path.join(config.dataDir, 'microclass.db'));
+  // 与业务域共用进程级 asyncDb（PG 模式必须走连接池，不能退回 SQLite）
+  const asyncDb = getAsyncDb(config, db);
   return new BankHealthCoordinator(
-    new BankHealthCacheRepository(db),
+    new BankHealthCacheRepository(asyncDb),
     runner,
     undefined,
     undefined,

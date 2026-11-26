@@ -82,7 +82,7 @@ export class BankSectionService {
     }
     const filled = dryRun ? plan.length : await this.banks.applyBankSections(plan);
     if (!dryRun) {
-      this.audit.write({
+      await this.audit.write({
         actorId: actor.id,
         actorName: actor.username,
         action: 'bank.backfill_sections',

@@ -143,7 +143,7 @@ export class AnnouncementService {
       true,
     );
     const id = await this.repo.create(write);
-    this.writeAudit(actor, 'announcement.create', id, write);
+    await this.writeAudit(actor, 'announcement.create', id, write);
     return id;
   }
 
@@ -151,13 +151,13 @@ export class AnnouncementService {
     const existing = await this.requireRow(id);
     const write = this.merge(input, baseOf(existing));
     await this.repo.update(id, write);
-    this.writeAudit(actor, 'announcement.update', id, write);
+    await this.writeAudit(actor, 'announcement.update', id, write);
   }
 
   async remove(actor: User, id: number): Promise<void> {
     const existing = await this.requireRow(id);
     await this.repo.remove(id);
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'announcement.delete',
@@ -185,8 +185,8 @@ export class AnnouncementService {
     };
   }
 
-  private writeAudit(actor: User, action: string, id: number, write: AnnouncementWrite): void {
-    this.audit.write({
+  private async writeAudit(actor: User, action: string, id: number, write: AnnouncementWrite): Promise<void> {
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action,

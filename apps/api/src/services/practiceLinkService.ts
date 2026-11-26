@@ -95,8 +95,9 @@ export class PracticeLinkService {
     private readonly audit: AuditRepository,
   ) {}
 
-  list(bankId: number): PracticeLinkDto[] {
-    return this.links.listByBank(bankId).map((row) => this.dto(row));
+  async list(bankId: number): Promise<PracticeLinkDto[]> {
+    const rows = await this.links.listByBank(bankId);
+    return Promise.all(rows.map((row) => this.dto(row)));
   }
 
   async create(actor: User, input: PracticeLinkInput): Promise<PracticeLinkDto> {
@@ -104,29 +105,29 @@ export class PracticeLinkService {
     const lessonIds = this.normalizeLessonIds(input.lessonIds);
     await this.assertLessons(lessonIds);
     // 同目标重复关联：不报错，复用已有 link 并补上缺少的课时
-    const existing = this.links.findByTarget(target);
-    const link = existing ?? this.links.insert(target);
-    if (existing) this.links.addLessonIds(link.id, lessonIds);
-    else this.links.setLessonIds(link.id, lessonIds);
-    this.writeAudit(actor, 'practice_link.create', link.id, { ...target, lessonIds });
-    return this.dto(link);
+    const existing = await this.links.findByTarget(target);
+    const link = existing ?? (await this.links.insert(target));
+    if (existing) await this.links.addLessonIds(link.id, lessonIds);
+    else await this.links.setLessonIds(link.id, lessonIds);
+    await this.writeAudit(actor, 'practice_link.create', link.id, { ...target, lessonIds });
+    return await this.dto(link);
   }
 
   async update(actor: User, id: number, lessonIds: number[]): Promise<PracticeLinkDto> {
-    const row = this.links.findById(id);
+    const row = await this.links.findById(id);
     if (!row) throw AppError.notFound('实践关联不存在');
     const normalized = this.normalizeLessonIds(lessonIds);
     await this.assertLessons(normalized);
-    this.links.setLessonIds(id, normalized);
-    this.writeAudit(actor, 'practice_link.update', id, { lessonIds: normalized });
-    return this.dto(row);
+    await this.links.setLessonIds(id, normalized);
+    await this.writeAudit(actor, 'practice_link.update', id, { lessonIds: normalized });
+    return await this.dto(row);
   }
 
-  remove(actor: User, id: number): void {
-    const row = this.links.findById(id);
+  async remove(actor: User, id: number): Promise<void> {
+    const row = await this.links.findById(id);
     if (!row) throw AppError.notFound('实践关联不存在');
-    this.links.delete(id);
-    this.writeAudit(actor, 'practice_link.delete', id, {
+    await this.links.delete(id);
+    await this.writeAudit(actor, 'practice_link.delete', id, {
       targetType: row.target_type,
       bankId: row.bank_id,
       questionId: row.question_id,
@@ -136,7 +137,7 @@ export class PracticeLinkService {
   /** 某课时关联的练习内容：题库/章节/小节进 banks，单题进 questions */
   async lessonPractice(lessonId: number): Promise<LessonPracticeResult> {
     if (!(await this.lessons.findById(lessonId))) throw AppError.notFound('课时不存在');
-    const rows = this.links.listByLesson(lessonId);
+    const rows = await this.links.listByLesson(lessonId);
     const banks: LessonPracticeBank[] = [];
     const seenBank = new Set<string>();
     for (const row of rows) {
@@ -149,7 +150,8 @@ export class PracticeLinkService {
       banks.push({ bankId: bank.id, name: bank.name, chapter: row.chapter, section: row.section });
     }
     const questionLinks = rows.filter((row) => row.target_type === 'question');
-    const questions = this.links.questionsFor(questionLinks.map((row) => row.id)).map((row) => ({
+    const questionRows = await this.links.questionsFor(questionLinks.map((row) => row.id));
+    const questions = questionRows.map((row) => ({
       linkId: row.link_id,
       bankId: row.bank_id,
       bankName: row.bank_name,
@@ -201,8 +203,8 @@ export class PracticeLinkService {
     }
   }
 
-  private dto(row: PracticeLinkRow): PracticeLinkDto {
-    const lessonRows: LessonLinkRow[] = this.links.lessonsFor([row.id]);
+  private async dto(row: PracticeLinkRow): Promise<PracticeLinkDto> {
+    const lessonRows: LessonLinkRow[] = await this.links.lessonsFor([row.id]);
     return {
       id: row.id,
       targetType: row.target_type as PracticeTargetType,
@@ -222,8 +224,8 @@ export class PracticeLinkService {
     };
   }
 
-  private writeAudit(actor: User, action: string, targetId: number, detail: unknown): void {
-    this.audit.write({
+  private async writeAudit(actor: User, action: string, targetId: number, detail: unknown): Promise<void> {
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action,

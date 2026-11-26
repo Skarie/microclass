@@ -73,7 +73,7 @@ export class BankFolderService {
     }
     const sort = await this.folders.nextSort(parentId);
     const row = await this.folders.insert(parentId, name, sort);
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'bank.folder.create',
@@ -105,7 +105,7 @@ export class BankFolderService {
     if (duplicate && duplicate.id !== id) throw AppError.conflict('同级已存在同名文件夹');
 
     await this.folders.update(id, { name, parentId, sort });
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'bank.folder.update',
@@ -123,7 +123,7 @@ export class BankFolderService {
       throw AppError.conflict('请先移走其中的题库或子文件夹');
     }
     await this.folders.remove(id);
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'bank.folder.delete',

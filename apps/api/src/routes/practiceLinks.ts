@@ -11,6 +11,7 @@ import { AppError } from '@microclass/shared';
 import { requireTeacherOrAdmin, requireUser } from '../http/guards.js';
 import type { Deps } from '../app.js';
 import { PracticeLinkRepository } from '../db/repositories/practiceLinkQueries.js';
+import { getAsyncDb } from '../db/driver.js';
 import { PracticeLinkService, type PracticeLinkInput } from '../services/practiceLinkService.js';
 
 const targetTypeSchema = { type: 'string', enum: ['bank', 'chapter', 'section', 'question'] } as const;
@@ -55,7 +56,7 @@ function idOf(req: FastifyRequest): number {
 
 export async function registerPracticeLinkRoutes(app: FastifyInstance, deps: Deps): Promise<void> {
   const service = new PracticeLinkService(
-    new PracticeLinkRepository(deps.db),
+    new PracticeLinkRepository(deps.db, getAsyncDb(deps.config, deps.db)),
     deps.banks,
     deps.questions,
     deps.lessons,
@@ -64,7 +65,7 @@ export async function registerPracticeLinkRoutes(app: FastifyInstance, deps: Dep
 
   app.get('/practice-links', async (req, reply) => {
     requireUser(req, reply);
-    return service.list(bankIdOfQuery(req));
+    return await service.list(bankIdOfQuery(req));
   });
 
   app.post('/practice-links', { schema: { body: createBodySchema } }, async (req, reply) => {
@@ -81,7 +82,7 @@ export async function registerPracticeLinkRoutes(app: FastifyInstance, deps: Dep
 
   app.delete('/practice-links/:id', async (req, reply) => {
     const actor = requireTeacherOrAdmin(req, reply);
-    service.remove(actor, idOf(req));
+    await service.remove(actor, idOf(req));
     return { ok: true };
   });
 

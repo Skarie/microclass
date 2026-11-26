@@ -63,7 +63,7 @@ export class BankCatalogService {
       courseName = course.name;
     }
     const updated = await this.banks.bindUnboundByBook(name, courseId);
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'bank.bindByBook',
@@ -115,7 +115,7 @@ export class BankCatalogService {
     const unmatchedBooks = [...grouped.entries()]
       .map(([book, banks]) => ({ book, banks }))
       .sort((a, b) => b.banks - a.banks);
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'bank.rebind_courses',
@@ -163,7 +163,7 @@ export class BankCatalogService {
       examId,
       rows.map((q) => q.id),
     );
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'bank.create_exam',

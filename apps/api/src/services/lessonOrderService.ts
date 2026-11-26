@@ -46,7 +46,7 @@ export class LessonOrderService {
     const updated = await this.lessons.batchAssign(ids, courseId, groupName);
     if (updated === 0) throw AppError.notFound('没有找到可改绑的课时');
 
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'lesson.batch_assign',
@@ -65,7 +65,7 @@ export class LessonOrderService {
     if (current.length === 0) throw AppError.badRequest('该课程还没有课时');
     const unique = validateReorderIds(ids, current);
     const updated = await this.lessons.reorder(unique);
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'lesson.reorder',

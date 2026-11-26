@@ -4,6 +4,32 @@
 
 ## [Unreleased]
 
+### 2.4.2：PG 切流准备（最后 3 处同步仓储迁 AsyncDb + 切流动作）（2026-11-27）
+
+**主题**：把最后 3 处仍用同步 `Db` 的仓储迁到 `AsyncDb`，让 `MC_DB=pg` 下审计/练习链接/体检缓存
+不再落回 SQLite；本版只做「切流准备」，默认行为仍是 `MC_DB=sqlite`。
+
+**代码**
+
+- `auditRepository`：`write` / `flush` / `recent` 全异步（71 个调用点补 `await`，`onClose` 优雅关闭时
+  `await flush()`）；`writeBuffered` 仍是「攒 200 ms 或 50 条一次事务」，审计失败不影响主流程；
+- `practiceLinkQueries`（`PracticeLinkRepository`）：10 个方法异步；方言 #27 `question_id IS ?` →
+  `nullSafeEq`（PG 用 `IS NOT DISTINCT FROM`）、#22 `INSERT OR IGNORE` → `ON CONFLICT (link_id, lesson_id)
+DO NOTHING`、#14 `lastInsertRowid` → `RETURNING id`，id/外键 int8 在仓储边界收敛（#17）；
+- `bankHealthCacheRepository`：`get` / `save` / `checkpoint` 异步；`checkpoint()` 在 PG 模式是空操作
+  （`PRAGMA wal_checkpoint` 是 SQLite 专有，PG 没有 WAL 文件回收语义）；`BankHealthCoordinator` 的
+  `get` / `status` / `ensureFresh` 随之异步，`/banks/health` 与 `/banks/health/status` 补 `await`；
+- 新契约测试 `apps/api/test/repo-async-audit-links.test.ts`（13 条）：3 个仓储「返回 Promise 且只经
+  `AsyncDb`」（同步 `Db` 桩一碰就抛）、4 个方言表达式、int8 收敛、装配层注入断言、sqlite 真库读写一轮
+  （create → findById、课时关联幂等、覆盖式设置）。
+
+**质量**：`vitest 1127 passed / 30 skipped`、E2E **40/40**、typecheck 0 error、eslint 0 error、
+prettier、build、size guard（625 文件 / 技术债 20）。
+
+**切流准备（同批次一起交付，详见 `docs/pg-migration-progress.md` §7.11）**：`microclass:2.4.2` 镜像、
+`verify-parity.sh`（30 表行数 + 10 组指纹）、备份（SQLite 卷 tar + `pg_dump -Fc` + sha256）、
+最终 Runbook（步骤 / 时间 / 验证清单 / 回滚命令）。
+
 ### 2.4.1：修复 SQLite `mmap_size` 过大导致的请求阻塞（2026-11-27）
 
 2.4.0 上线后 `/banks/catalog` 等大聚合接口把事件循环卡住 25 s+：mmap 设成 2 GB 时，机械盘上的冷页是

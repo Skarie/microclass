@@ -108,7 +108,10 @@ export class LessonService {
     const normalized = normalizeLessonInput(input);
     this.validate(normalized);
     const id = await this.lessons.create(normalized);
-    this.auditWrite(actor, 'lesson.create', 'lesson', id, { title: normalized.title, videoKind: normalized.videoKind });
+    await this.auditWrite(actor, 'lesson.create', 'lesson', id, {
+      title: normalized.title,
+      videoKind: normalized.videoKind,
+    });
     return id;
   }
   async update(actor: User, id: number, input: LessonInputDto): Promise<void> {
@@ -117,18 +120,24 @@ export class LessonService {
     const normalized = normalizeLessonInput(input);
     this.validate(normalized);
     await this.lessons.update(id, normalized);
-    this.auditWrite(actor, 'lesson.update', 'lesson', id);
+    await this.auditWrite(actor, 'lesson.update', 'lesson', id);
   }
 
   async remove(actor: User, id: number): Promise<void> {
     const existing = await this.lessons.findById(id);
     if (!existing) throw AppError.notFound('视频单元不存在');
     await this.lessons.delete(id);
-    this.auditWrite(actor, 'lesson.delete', 'lesson', id, { title: existing.title });
+    await this.auditWrite(actor, 'lesson.delete', 'lesson', id, { title: existing.title });
   }
 
-  private auditWrite(actor: User, action: string, targetType: string, targetId: number, detail?: unknown): void {
-    this.audit.write({
+  private async auditWrite(
+    actor: User,
+    action: string,
+    targetType: string,
+    targetId: number,
+    detail?: unknown,
+  ): Promise<void> {
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action,

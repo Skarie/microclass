@@ -63,7 +63,7 @@ export class KnowledgeImportService {
 
     const inputs = planner.inputs();
     await this.knowledge.createMany(inputs);
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'knowledge.import',

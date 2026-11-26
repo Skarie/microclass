@@ -50,7 +50,7 @@ export class CourseService {
     if (!name) throw AppError.badRequest('课程名称不能为空');
     if (input.categoryId) await this.assertCategory(input.categoryId);
     const id = await this.courses.create({ ...input, name });
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'course.create',
@@ -72,7 +72,7 @@ export class CourseService {
     if (!name) throw AppError.badRequest('课程名称不能为空');
     if (input.categoryId) await this.assertCategory(input.categoryId);
     await this.courses.update(id, { ...input, name });
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'course.update',
@@ -85,7 +85,7 @@ export class CourseService {
     const course = await this.courses.findById(id);
     if (!course) throw AppError.notFound('课程不存在');
     await this.courses.delete(id);
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'course.delete',
@@ -99,7 +99,7 @@ export class CourseService {
     const course = await this.courses.findById(id);
     if (!course) throw AppError.notFound('课程不存在');
     await this.courses.setCover(id, relPath);
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'course.cover',
@@ -119,7 +119,7 @@ export class CourseService {
     if (!clean) throw AppError.badRequest('分类名称不能为空');
     if (await this.courses.findCategoryByName(clean)) throw AppError.conflict('分类已存在');
     const id = await this.courses.createCategory(clean);
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'category.create',
@@ -132,7 +132,7 @@ export class CourseService {
 
   async deleteCategory(actor: User, id: number): Promise<void> {
     await this.courses.deleteCategory(id);
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'category.delete',

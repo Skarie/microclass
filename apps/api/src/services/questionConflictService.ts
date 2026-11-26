@@ -188,7 +188,7 @@ export class QuestionConflictService {
         sampleStem: group.group.stem,
       },
     );
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'question_conflict.resolve',
@@ -205,7 +205,7 @@ export class QuestionConflictService {
       id: actor.id,
       name: actor.username,
     });
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'question_conflict.ignore',

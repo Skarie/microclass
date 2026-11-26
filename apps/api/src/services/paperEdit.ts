@@ -19,7 +19,7 @@ export async function addQuestions(
 ): Promise<number> {
   await findExam(deps.exams, examId);
   const added = await deps.exams.addQuestions(examId, questionIds);
-  writeAudit(deps, actor, 'exam.add_questions', examId, { added });
+  await writeAudit(deps, actor, 'exam.add_questions', examId, { added });
   return added;
 }
 
@@ -32,7 +32,7 @@ export async function addRandom(deps: ExamPaperDeps, actor: User, examId: number
     .slice(0, Math.max(1, count))
     .map((q) => q.id);
   const added = await deps.exams.addQuestions(examId, picked);
-  writeAudit(deps, actor, 'exam.add_random', examId, { requested: count, added });
+  await writeAudit(deps, actor, 'exam.add_random', examId, { requested: count, added });
   return added;
 }
 
@@ -47,14 +47,14 @@ export async function setQuestionMeta(
   await findExam(deps.exams, examId);
   if (!(await deps.exams.questionInExam(examId, questionId))) throw AppError.notFound('这道题不在试卷里');
   await deps.exams.setQuestionMeta(examId, questionId, meta);
-  writeAudit(deps, actor, 'exam.question_meta', examId, { questionId, ...meta });
+  await writeAudit(deps, actor, 'exam.question_meta', examId, { questionId, ...meta });
 }
 
 /** 重排卷内顺序（拖拽排序） */
 export async function reorder(deps: ExamPaperDeps, actor: User, examId: number, questionIds: number[]): Promise<void> {
   await findExam(deps.exams, examId);
   await deps.exams.reorder(examId, questionIds);
-  writeAudit(deps, actor, 'exam.reorder', examId, { count: questionIds.length });
+  await writeAudit(deps, actor, 'exam.reorder', examId, { count: questionIds.length });
 }
 
 export async function removeQuestion(
@@ -65,5 +65,5 @@ export async function removeQuestion(
 ): Promise<void> {
   await findExam(deps.exams, examId);
   await deps.exams.removeQuestion(examId, questionId);
-  writeAudit(deps, actor, 'exam.remove_question', examId, { questionId });
+  await writeAudit(deps, actor, 'exam.remove_question', examId, { questionId });
 }

@@ -35,7 +35,7 @@ export class AuthService {
       role: 'admin',
       displayName: '管理员',
     });
-    this.audit.write({
+    await this.audit.write({
       actorId: id,
       actorName: username,
       action: 'user.bootstrap_admin',
@@ -54,7 +54,12 @@ export class AuthService {
     const username = (input.username ?? '').trim().toLowerCase();
     const row = await this.users.findByUsername(username);
     if (!row || !verifyPassword(input.password ?? '', row.pass_salt, row.pass_hash)) {
-      this.audit.write({ action: 'auth.login_failed', actorName: username, ip: input.ip, requestId: input.requestId });
+      await this.audit.write({
+        action: 'auth.login_failed',
+        actorName: username,
+        ip: input.ip,
+        requestId: input.requestId,
+      });
       throw AppError.unauthorized('用户名或密码错误');
     }
     const user: User = {
@@ -65,7 +70,7 @@ export class AuthService {
       created_at: row.created_at,
     };
     const token = this.signer.sign({ uid: user.id, role: user.role });
-    this.audit.write({
+    await this.audit.write({
       actorId: user.id,
       actorName: user.username,
       action: 'auth.login',
@@ -104,7 +109,13 @@ export class AuthService {
       display_name: user.display_name,
       created_at: user.created_at,
     };
-    this.audit.write({ actorId: id, actorName: username, action: 'auth.register', targetType: 'user', targetId: id });
+    await this.audit.write({
+      actorId: id,
+      actorName: username,
+      action: 'auth.register',
+      targetType: 'user',
+      targetId: id,
+    });
     return { user: publicUser, token: this.signer.sign({ uid: id, role: 'student' }) };
   }
 
@@ -117,7 +128,7 @@ export class AuthService {
     assertPasswordPolicy(input.newPassword ?? '');
     const salt = newSalt();
     await this.users.updatePassword(row.id, salt, hashPassword(input.newPassword, salt));
-    this.audit.write({
+    await this.audit.write({
       actorId: row.id,
       actorName: row.username,
       action: 'auth.change_password',
@@ -144,7 +155,7 @@ export class AuthService {
       role,
       displayName: input.displayName?.trim() || username,
     });
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'user.create',
@@ -161,7 +172,7 @@ export class AuthService {
     assertPasswordPolicy(newPassword);
     const salt = newSalt();
     await this.users.updatePassword(userId, salt, hashPassword(newPassword, salt));
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'user.reset_password',

@@ -113,7 +113,7 @@ export class BankManifestImportService {
       }
     }
 
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'question.import_batch',

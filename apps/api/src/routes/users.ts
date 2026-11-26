@@ -72,7 +72,7 @@ export async function registerUserRoutes(app: FastifyInstance, deps: Deps): Prom
           body.username?.trim().toLowerCase() || existing.username,
           body.displayName ?? existing.display_name,
         );
-        deps.audit.write({
+        await deps.audit.write({
           actorId: actor.id,
           actorName: actor.username,
           action: 'user.update_profile',
@@ -91,7 +91,7 @@ export async function registerUserRoutes(app: FastifyInstance, deps: Deps): Prom
     if (changes === 0) throw AppError.notFound('学生不存在');
     // 进度行属于 progress 域：走仓储删，不再直接拼 SQL（PG 模式下直接写 sqlite 会写错库）
     await deps.progress.deleteForUser(id);
-    deps.audit.write({
+    await deps.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'user.delete',
@@ -107,7 +107,7 @@ export async function registerUserRoutes(app: FastifyInstance, deps: Deps): Prom
       500,
       Math.max(1, Number.parseInt(((req.query as { limit?: string }).limit ?? '100').toString(), 10) || 100),
     );
-    return { logs: deps.audit.recent(limit) };
+    return { logs: await deps.audit.recent(limit) };
   });
 
   app.get('/settings', async (req, reply) => {
@@ -122,7 +122,7 @@ export async function registerUserRoutes(app: FastifyInstance, deps: Deps): Prom
     const body = req.body as { allowRegister?: boolean };
     if (body.allowRegister !== undefined) {
       await deps.settings.setBool('allow_register', body.allowRegister);
-      deps.audit.write({
+      await deps.audit.write({
         actorId: actor.id,
         actorName: actor.username,
         action: 'settings.update',

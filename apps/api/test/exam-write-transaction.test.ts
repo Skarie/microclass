@@ -88,7 +88,7 @@ async function dropTrigger(name: string): Promise<void> {
 
 async function auditCount(action: string, targetId: number): Promise<number> {
   // 审计是缓冲写：先 flush，再按 action + target 精确数（别的用例也会写 exam.submit）
-  built.deps.audit.flush();
+  await built.deps.audit.flush();
   const row = await asyncDb.get<{ n: number | string }>(
     'SELECT COUNT(*) AS n FROM audit_logs WHERE action = ? AND target_id = ?',
     [action, String(targetId)],

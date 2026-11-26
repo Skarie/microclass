@@ -58,8 +58,14 @@ export function paperView(rows: PaperRow[]): QuestionForViewer[] {
 }
 
 /** 统一写审计：各领域动作只保留业务差异（action/detail） */
-export function writeAudit(deps: ExamPaperDeps, actor: User, action: string, examId: number, detail?: unknown): void {
-  deps.audit.write({
+export async function writeAudit(
+  deps: ExamPaperDeps,
+  actor: User,
+  action: string,
+  examId: number,
+  detail?: unknown,
+): Promise<void> {
+  await deps.audit.write({
     actorId: actor.id,
     actorName: actor.username,
     action,

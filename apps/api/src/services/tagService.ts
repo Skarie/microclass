@@ -110,7 +110,7 @@ export class TagService {
     const note = normalizeNote(input.note);
     if (await this.tags.findByName(name)) throw AppError.conflict('已存在同名标签');
     const id = await this.tags.create({ name, note, createdBy: actor.id });
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'tag.create',
@@ -128,7 +128,7 @@ export class TagService {
     const duplicate = await this.tags.findByName(name);
     if (duplicate && duplicate.id !== id) throw AppError.conflict('已存在同名标签');
     await this.tags.update(id, { name, note, createdBy: row.created_by });
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'tag.update',
@@ -142,7 +142,7 @@ export class TagService {
     const row = await this.requireRow(id);
     const questions = await this.tags.countQuestions(id);
     await this.tags.remove(id);
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'tag.delete',
@@ -166,7 +166,7 @@ export class TagService {
     const tagIds = parseTagIds(rawTagIds);
     await this.requireTags(tagIds);
     await this.tags.setQuestionTags(questionId, tagIds);
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'question.tags.set',
@@ -198,7 +198,7 @@ export class TagService {
     if (mode !== 'replace' && tagIds.length === 0) throw AppError.badRequest('请至少选择一个标签');
     await this.requireTags(tagIds);
     const affected = await this.tags.batch(questionIds, tagIds, mode);
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'question.tags.batch',

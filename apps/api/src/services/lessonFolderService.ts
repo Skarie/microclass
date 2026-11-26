@@ -59,7 +59,7 @@ export class LessonFolderService {
 
     if (input.rootId === null || input.rootId === undefined) {
       await this.courses.setFolder(courseId, null, null);
-      this.audit.write({
+      await this.audit.write({
         actorId: actor.id,
         actorName: actor.username,
         action: 'course.folder_unbind',
@@ -86,7 +86,7 @@ export class LessonFolderService {
     if (owner) throw AppError.conflict(`该文件夹已绑定到课程「${owner.name}」，一个文件夹只能对应一门课程`);
 
     await this.courses.setFolder(courseId, root.id, rel);
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'course.folder_bind',
@@ -148,7 +148,7 @@ export class LessonFolderService {
         added++;
       }
     }
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'lesson.import_folder',

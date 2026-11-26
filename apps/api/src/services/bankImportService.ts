@@ -77,7 +77,7 @@ export class BankImportService {
       images,
     );
     const warnings = [...parsed.warnings, ...imageWarnings];
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'bank.import_text',
@@ -102,7 +102,7 @@ export class BankImportService {
     if (rows.length === 0) throw AppError.badRequest('CSV 内容为空');
     const { drafts, errors } = parseCsvQuestionRows(rows);
     const { inserted } = await this.insertDrafts(bankId, bank.lesson_id, drafts);
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'bank.import_csv',

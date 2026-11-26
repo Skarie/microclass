@@ -112,7 +112,7 @@ export async function replaceWith(
   const exists = await deps.questions.findById(withId);
   if (!exists) throw AppError.notFound('要换上的题目不存在');
   await deps.exams.replaceQuestion(examId, questionId, withId);
-  writeAudit(deps, actor, 'exam.replace_question', examId, {
+  await writeAudit(deps, actor, 'exam.replace_question', examId, {
     from: questionId,
     to: withId,
     match: '手工挑选候选',
@@ -156,7 +156,7 @@ export async function replaceQuestion(
     const next = rows[Math.floor(Math.random() * rows.length)];
     if (!next) continue;
     await deps.exams.replaceQuestion(examId, questionId, next.id);
-    writeAudit(deps, actor, 'exam.replace_question', examId, {
+    await writeAudit(deps, actor, 'exam.replace_question', examId, {
       from: questionId,
       to: next.id,
       match: attempt.label,

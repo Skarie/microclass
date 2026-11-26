@@ -52,7 +52,7 @@ export async function registerBankQuestionMediaRoutes(app: FastifyInstance, deps
     const data = await file.toBuffer();
     const saved = deps.questionMedia.save(data);
     if (!saved) throw AppError.badRequest('只支持 PNG / JPEG / GIF / WebP 图片');
-    deps.audit.write({
+    await deps.audit.write({
       actorId: user.id,
       actorName: user.username,
       action: 'question_media.upload',

@@ -116,7 +116,7 @@ export function buildDeps(config: AppConfig, db: Db, options?: { inlineHealthRun
   const asyncDb = getAsyncDb(config, db); // 已迁移域统一走异步端口（PG 模式必须用它）
   const users = new UserRepository(db, asyncDb);
   const settings = new SettingsRepository(asyncDb);
-  const audit = new AuditRepository(db);
+  const audit = new AuditRepository(db, asyncDb);
   const courses = new CourseRepository(db, asyncDb);
   const lessons = new LessonRepository(db, asyncDb);
   const knowledge = new KnowledgeRepository(asyncDb);
@@ -363,7 +363,7 @@ export async function buildApp(config: AppConfig, options?: { db?: Db }): Promis
     if (faststartTimer) clearInterval(faststartTimer);
     // 刷掉缓冲中的审计日志，避免关服务时丢最后一批
     try {
-      deps.audit.flush();
+      await deps.audit.flush();
     } catch {
       /* ignore */
     }

@@ -28,7 +28,7 @@ export async function registerBankHealthRoutes(app: FastifyInstance, deps: Deps)
       return await deps.bankService.health(bankId, limit, { refresh });
     }
     if (refresh) {
-      deps.audit.write({
+      await deps.audit.write({
         actorId: actor.id,
         actorName: actor.username,
         action: 'bank.health.refresh',
@@ -37,7 +37,7 @@ export async function registerBankHealthRoutes(app: FastifyInstance, deps: Deps)
         detail: { limit },
       });
     }
-    const result = deps.bankHealth.get({ refresh });
+    const result = await deps.bankHealth.get({ refresh });
     if (result.status === 'computing') return reply.code(202).send(result);
     return result;
   });
@@ -48,7 +48,7 @@ export async function registerBankHealthRoutes(app: FastifyInstance, deps: Deps)
    */
   app.get('/banks/health/status', async (req, reply) => {
     requireTeacherOrAdmin(req, reply);
-    return deps.bankHealth.status();
+    return await deps.bankHealth.status();
   });
 
   /**

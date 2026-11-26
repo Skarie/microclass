@@ -141,7 +141,7 @@ export class BankHealthService {
       return { dryRun: true, groups: plan.groups, removable: plan.removable, removed: 0, samples: plan.samples };
     }
     const removed = await this.questions.deleteMany(groups.flatMap((g) => g.removeIds));
-    this.audit.write({
+    await this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
       action: 'bank.dedupe',

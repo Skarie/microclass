@@ -166,7 +166,7 @@ export async function autoCompose(
       meta,
     });
   }
-  writeAudit(deps, actor, 'exam.auto_compose', examId, {
+  await writeAudit(deps, actor, 'exam.auto_compose', examId, {
     requested,
     added: inserted,
     detail,
