@@ -14,10 +14,18 @@
 #     echo '*/2 * * * * /vol1/1000/microclass-deploy/watchdog.sh >> /var/log/microclass-watchdog.log 2>&1' \
 #   ) | crontab -
 #
+# 维护锁：切库 / 迁移 / 手工停服等维护窗口里，健康检查必然失败，
+# 看门狗若照常重启就会把维护动作打断（甚至把刚停的容器又拉起来）。
+#   touch /vol1/1000/microclass-deploy/.maintenance     # 进入维护
+#   rm    /vol1/1000/microclass-deploy/.maintenance     # 结束维护
+# 维护期间脚本**只记一行日志并退出**：不动容器，并清空失败计数（结束后重新累积）。
+#
 # 可调环境变量（写进 crontab 行即可）：
 #   MC_WATCHDOG_URL        健康检查地址，默认 http://127.0.0.1:8091/api/v1/healthz
 #   MC_WATCHDOG_CONTAINER  容器名，默认 microclass-api
 #   MC_WATCHDOG_TIMEOUT    curl 超时秒数，默认 5
+#   MC_MAINTENANCE=1       等价于维护锁文件存在（临时手工跑时用）
+#   MC_MAINTENANCE_FILE    维护锁路径，默认 <部署目录>/.maintenance
 set -u
 
 URL="${MC_WATCHDOG_URL:-http://127.0.0.1:8091/api/v1/healthz}"
@@ -25,13 +33,28 @@ CONTAINER="${MC_WATCHDOG_CONTAINER:-microclass-api}"
 TIMEOUT="${MC_WATCHDOG_TIMEOUT:-5}"
 STATE="${MC_WATCHDOG_STATE:-/tmp/microclass-watchdog.state}"
 LOCK=/tmp/microclass-watchdog.lock
+MAINT="${MC_MAINTENANCE_FILE:-/vol1/1000/microclass-deploy/.maintenance}"
 
 log() { echo "[$(date '+%F %T')] $*"; }
+
+# 维护中？（环境变量开关优先，其次锁文件）
+maintenance() {
+    [ "${MC_MAINTENANCE:-0}" = "1" ] && return 0
+    [ -f "${MAINT}" ] && return 0
+    return 1
+}
 
 # 同一时刻只允许一个实例（cron 2 分钟一次，重启期间可能重叠）
 exec 9>"${LOCK}" || exit 0
 if command -v flock >/dev/null 2>&1; then
     flock -n 9 || { log "上一轮仍在运行，跳过"; exit 0; }
+fi
+
+# 维护锁：健康检查在维护窗口内必然失败，直接退出（不计数、不重启）
+if maintenance; then
+    log "维护中（${MAINT} 存在或 MC_MAINTENANCE=1），跳过重启"
+    rm -f "${STATE}"
+    exit 0
 fi
 
 check() { curl -fsS -m "${TIMEOUT}" -o /dev/null "${URL}"; }
@@ -51,6 +74,13 @@ printf '%s' "${fails}" > "${STATE}"
 log "健康检查失败（连续 ${fails} 次，超时 ${TIMEOUT}s）：${URL}"
 
 if [ "${fails}" -lt 2 ]; then
+    exit 0
+fi
+
+# 重启前再确认一次：维护窗口可能在「连续失败」与「真要重启」之间刚开始
+if maintenance; then
+    log "维护中（${MAINT} 存在或 MC_MAINTENANCE=1），跳过重启"
+    rm -f "${STATE}"
     exit 0
 fi
 

@@ -7,8 +7,8 @@
 ## 0. 一句话流程
 
 ```text
-预检(只读) → 停 api(只停 api，PG 不动) → 备份(SQLite 库 tar + pg_dump) → 全量同步(export+load)
-→ 一致性校验(行数+10 组指纹) → .env 切 MC_DB=pg + redeploy → 24 项验证 → 观察 20 min → 收尾
+预检(只读) → 上维护锁 + 停 watchdog cron → 停 api(只停 api，PG 不动) → 备份(SQLite 库 tar + pg_dump) → 全量同步(export+load)
+→ 一致性校验(行数+10 组指纹) → .env 切 MC_DB=pg + redeploy → 24 项验证 → 观察 20 min → 删维护锁 + 恢复 cron → 收尾
 失败判据：任一验证项失败 → 10 分钟内 `MC_DB=sqlite` + 回滚镜像 + redeploy（SQLite 卷全程不动）
 ```
 
@@ -61,10 +61,17 @@ docker inspect microclass-api --format '{{.Config.Image}} {{.State.Health.Status
 ### 3.2 停写（只停 api，PG 保持）
 
 ```bash
+# 0) 先上维护锁并停 watchdog cron：否则 api 停下后 2 分钟内会被看门狗 docker restart 拉起
+sudo touch /vol1/1000/microclass-deploy/.maintenance
+sudo crontab -l | grep -v microclass-deploy/watchdog.sh | sudo crontab -
+# 停 api（只停 api，db 保持 Up）
 sudo docker compose -p microclass-prod -f compose.evo4.yml stop api
 ss -ltnp | grep 8091 || echo '8091 已释放'
 docker ps --filter name=microclass --format '{{.Names}} {{.Status}}'   # api=Exited(0)，db=Up
 ```
+
+> 收尾（验证与观察全部通过后）务必删锁 + 恢复 cron 行，否则看门狗永久静默：
+> `sudo rm -f /vol1/1000/microclass-deploy/.maintenance`，再按 `docs/deploy.md` 第 9 节恢复 crontab。
 
 > 为什么只停 api：体检 worker 是 api 的子进程，随 api 退出；PG 容器保持运行，同步期间不再有写入。
 

@@ -482,6 +482,9 @@ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8091/api/v1/healthz
 **执行顺序**
 
 ```bash
+# 0) 先上维护锁并停 watchdog cron（否则停 api 后 2 分钟内会被看门狗拉起来）
+sudo touch /vol1/1000/microclass-deploy/.maintenance
+sudo crontab -l | grep -v microclass-deploy/watchdog.sh | sudo crontab -
 # 1) 停 API（避免切流期间的写入落到 SQLite）
 sudo docker compose -f /vol1/1000/microclass-deploy/compose.evo4.yml stop api
 # 2) 备份 SQLite（停写后的一份干净副本）
@@ -490,7 +493,17 @@ sudo bash /vol1/1000/microclass-deploy/backup.sh
 sudo sed -i 's/^MC_DB=.*/MC_DB=pg/' /vol1/1000/microclass-deploy/.env
 # 4) 起 API（新镜像需已构建：microclass:<版本>）
 sudo bash /vol1/1000/microclass-deploy/redeploy.sh
+# 5) 验收通过、观察结束后解除维护：删锁 + 恢复 cron 行
+sudo rm -f /vol1/1000/microclass-deploy/.maintenance
+( sudo crontab -l 2>/dev/null; \
+  echo '*/2 * * * * /vol1/1000/microclass-deploy/watchdog.sh >> /var/log/microclass-watchdog.log 2>&1' \
+) | sudo crontab -
 ```
+
+> **维护锁**：锁文件 `/vol1/1000/microclass-deploy/.maintenance` 存在（或环境变量
+> `MC_MAINTENANCE=1`）时，看门狗只记 `维护中（...），跳过重启` 并退出，不探测、不重启。
+> 在维护窗口里能避免「停 api → 看门狗 2 分钟内又把它拉起来」打断同步；
+> 结束时务必删锁（漏删 = 看门狗永久静默）。细节见 `docs/deploy.md` 第 9 节。
 
 **验证清单（每条都要记录结果）**
 

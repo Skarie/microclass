@@ -16,6 +16,14 @@ import type { PgPoolLike } from '../async.js';
  */
 types.setTypeParser(20, (value: string) => Number(value));
 
+/**
+ * 方言 #17 续（2.4.3，真 PG 套件发现）：`SUM(bigint)` / `AVG(...)` 在 PG 里返回 **numeric（OID 1700）**，
+ * node-postgres 默认同样回传 string —— `/banks/catalog` 的 `questionCount` 实测是 `"2068"` 而不是 `2068`，
+ * 前端累加会变字符串拼接。本库没有 `numeric` 列（INTEGER→bigint、REAL→double precision、TEXT→text），
+ * numeric 只来自这些聚合（题量/观看秒数/得分等，远小于 2^53），因此统一转 number 与 SQLite 语义对齐。
+ */
+types.setTypeParser(1700, (value: string) => Number(value));
+
 export interface PgPoolConfig {
   /** postgres://user:pass@host:port/db（**含密码，禁止打日志**） */
   url: string;

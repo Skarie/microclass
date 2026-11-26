@@ -15,6 +15,7 @@
 #     bash ops/scripts/pg/run-pg-tests.sh
 #
 # 说明：首次跑会 `npm ci`（约 20–60s，取决于网络）；之后可复用同一源码目录。
+# 容器内会先编译 `@microclass/shared`（workspace 包以 `dist` 为入口，源码包默认不含 dist）。
 set -euo pipefail
 
 NETWORK="${MC_PG_NETWORK:-microclass-prod_default}"
@@ -41,4 +42,4 @@ docker run --rm \
     -e "MC_PG_TEST_URL=$DSN" \
     -e CI=true \
     node:22-alpine \
-    sh -c "mkdir -p /app && cp -a /src/. /app/ && cd /app && npm ci --no-audit --no-fund >/dev/null && npx vitest run $PATTERN"
+    sh -c "mkdir -p /app && cp -a /src/. /app/ && cd /app && npm ci --no-audit --no-fund >/dev/null && npm run build -w @microclass/shared >/dev/null && npx vitest run $PATTERN"

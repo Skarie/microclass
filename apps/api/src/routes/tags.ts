@@ -13,8 +13,8 @@
  * 标签筛选（`tagIds` / `tagMode`）在题目列表与组卷题池的查询参数里，见 bankQuery / examPoolQuery。
  */
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { AppError } from '@microclass/shared';
 import { requireTeacherOrAdmin, requireUser } from '../http/guards.js';
+import { parseIntegerId } from '../http/idParams.js';
 import type { Deps } from '../app.js';
 import { getAsyncDb } from '../db/driver.js';
 import { TagRepository } from '../db/repositories/tagRepository.js';
@@ -48,15 +48,11 @@ const batchTagsSchema = {
 } as const;
 
 function tagIdOf(req: FastifyRequest): number {
-  const id = Number((req.params as { id: string }).id);
-  if (!Number.isInteger(id) || id <= 0) throw AppError.badRequest('标签 id 非法');
-  return id;
+  return parseIntegerId((req.params as { id: string }).id, '标签 id');
 }
 
 function questionIdOf(req: FastifyRequest): number {
-  const id = Number((req.params as { id: string }).id);
-  if (!Number.isInteger(id) || id <= 0) throw AppError.badRequest('题目 id 非法');
-  return id;
+  return parseIntegerId((req.params as { id: string }).id, '题目 id');
 }
 
 export async function registerTagRoutes(app: FastifyInstance, deps: Deps): Promise<void> {

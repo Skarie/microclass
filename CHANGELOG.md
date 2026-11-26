@@ -4,6 +4,60 @@
 
 ## [Unreleased]
 
+### 2.4.3：非法 id 返回 400（不再 500）+ 看门狗维护锁（2026-11-27）
+
+**主题**：修 2.4.2 切 PG 后暴露的两个小问题 —— ① 路径里的非数字 id 被 PG 当 bigint 绑参，
+抛 `invalid input syntax for type bigint`（22P02）变成 **500**；② 维护窗口里看门狗会把
+刚停下的 api 又 `docker restart` 拉起来。两处都只动边界，业务语义不变。
+
+**修复**
+
+- **非数字 `:id` → 400**：新增 `apps/api/src/http/idParams.ts`
+  - `parseIntegerId(raw, label)`：只接受正的安全整数，否则抛 `AppError.badRequest`；
+  - `registerIntegerIdGuard(v1)`：在 `/api/v1` 插件作用域挂 `preValidation`，统一校验所有路由的
+    `id` / `qid` / `questionId` 路径参数 —— **新增 `:id` 路由自动受保护**，不需要每个 handler 记得写；
+    `:hash` / `:file` 等非主键参数不受影响；
+  - 鉴权钩子是根级 `preValidation`、先执行：未登录访问 `/questions/abc` 仍是 **401**，登录后才是 **400**；
+  - 错误信封与项目一致：`{error:{code:'BAD_REQUEST',message:'id 非法（必须是正整数）',requestId}}`；
+  - `banks-folders` / `tags` 里原有的手写 id 校验改为复用 `parseIntegerId`（单一实现）。
+  - 覆盖清单（全部 `:id` / `:qid` / `:questionId` 路由）：questions、banks、banks/folders、
+    banks/:id/questions、questions/:id/{tags,groups,image}、exams（含 paper/paper.html/paper.docx/pool/
+    facets/points/taxonomy/blueprint/compose/parallel/structure/take/submit/result/scores/scores.csv）、
+    exams/:id/questions/:qid（candidates/replace/PUT/DELETE）、courses、categories、lessons（含 knowledge/
+    video/video-sources/hls/notes/quiz/practice/probe）、knowledge、media-roots、lesson-covers、course-cover、
+    stats/lessons|courses、notes、tags、practice-links、question-groups（含 items/:questionId）、
+    admin/announcements、question-images、users。
+- **PG 的 `SUM(bigint)` 聚合回 string（真 PG 套件发现，顺带修）**：`SUM(bigint)` / `AVG(...)` 在 PG 里是
+  numeric（OID 1700），node-postgres 默认回 string —— 生产 `/banks/catalog` 实测
+  `"questionCount":"2068"`（不是 `2068`），前端累加会变字符串拼接。`db/pg/pool.ts` 把 1700 也解析成
+  number（本库没有 numeric 列，聚合值远小于 2^53），与 SQLite 语义对齐。
+- **看门狗维护锁**：`ops/deploy/watchdog.sh`
+  - 重启前检查 `/vol1/1000/microclass-deploy/.maintenance`（或用 `MC_MAINTENANCE=1`）；
+    存在时只记一行 `维护中（...），跳过重启` 并退出：不探测、不计数、不重启，同时清空失败计数；
+  - 在「健康检查」前与「真要 docker restart」前各查一次 —— 维护窗口刚好开在两次失败之间也不会误重启；
+  - 锁路径可用 `MC_MAINTENANCE_FILE` 覆盖；`docs/deploy.md` §9、`docs/postgres-migration.md` §12.2、
+    `docs/pg-cutover-runbook.md` §3.2 补「先 `touch .maintenance` 并停 watchdog cron，结束后删除」。
+
+**测试**
+
+- 新增 `apps/api/test/id-params.test.ts`（10 条）：`/questions/abc`、`/banks/abc`、`/exams/abc` → 400（含
+  统一错误信封断言）、嵌套 `:id` 路由 → 400、`0/-1/1.5/1e3/超长数字` → 400、未登录仍 401、
+  合法 id 仍 200/404、`parseIntegerId` 与 `assertIntegerIdParams` 边界；
+- 新增 `apps/api/test/pg-http-id.test.ts`（3 条，`MC_PG_TEST_URL` 下运行）：第一个**以 `MC_DB=pg` 装配整站**
+  的测试 —— 真 PG 上 `/questions/abc`、`/banks/abc`、`/exams/abc` → 400，合法数字 id 仍 404；
+- 基线：`vitest 1145 passed / 35 skipped`（改前 1134 / 31，只增不减：+11 通过、+4 条 PG 用例默认
+  skip）、E2E 40/40、typecheck 0 error、eslint 0 error、prettier、build、size guard（626 文件 / 技术债 20）。
+
+**发布与回滚**
+
+- 镜像 `microclass:2.4.3`（sha `04fc99e56cfa`）；保留 `2.4.2`、`2.3.3-stable`；`.env` 保持 `MC_DB=pg`；
+- 线上验证（2026-11-27 04:27 低峰 redeploy，带维护锁）：`version=2.4.3`、`readyz {db:ok,driver:pg}`、
+  登录、课程（53 门）、题库（13,258 库）、题目详情、刷题（课时 38 / 3 题）、组卷（建考试→抽 2 题→
+  细目表→试卷→删）、公告（建改删）、8092 全部 200；`/questions/abc`、`/banks/abc`、`/exams/abc`
+  均 400 `BAD_REQUEST`；观察 10 分钟（20 次采样）healthz/readyz/courses/announcements 全 200、
+  `restarts=0`；维护锁按时删除、watchdog cron 保持原样；
+- 失败回滚：`printf '2.4.2' > .image-tag && bash redeploy.sh`（数据层不变，PG 数据不受影响）。
+
 ### 2.4.2：PG 切流（生产已切 `MC_DB=pg`）（2026-11-27）
 
 **主题**：把最后 3 处仍用同步 `Db` 的仓储迁到 `AsyncDb`（`MC_DB=pg` 下审计/练习链接/体检缓存

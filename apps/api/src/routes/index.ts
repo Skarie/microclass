@@ -27,10 +27,13 @@ import { registerQuizRoutes } from './quiz.js';
 import { registerExamRoutes } from './exams.js';
 import { registerNoteRoutes, registerStatsRoutes } from './stats.js';
 import { registerAnalyticsRoutes } from './analytics.js';
+import { registerIntegerIdGuard } from '../http/idParams.js';
 
 export async function registerRoutes(app: FastifyInstance, deps: Deps): Promise<void> {
   await app.register(
     async (v1) => {
+      // 非整数 :id / :qid / :questionId 统一在这里 400（PG 下否则会变成 bigint 语法错误 500）
+      registerIntegerIdGuard(v1);
       await registerHealthRoutes(v1, deps);
       await registerAuthRoutes(v1, deps);
       await registerCourseRoutes(v1, deps);

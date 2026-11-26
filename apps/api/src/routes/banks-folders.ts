@@ -10,8 +10,8 @@
  *   DELETE /banks/folders/:id          只能删空文件夹
  */
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { AppError } from '@microclass/shared';
 import { requireTeacherOrAdmin, requireUser } from '../http/guards.js';
+import { parseIntegerId } from '../http/idParams.js';
 import type { Deps } from '../app.js';
 import type { FolderCreateInput, FolderUpdateInput } from '../services/bankFolderService.js';
 
@@ -38,9 +38,7 @@ const folderUpdateBodySchema = {
 
 /** `/banks/folders/:id` 的 id：非整数直接 400（而不是落到 SQL 里查不到变 404） */
 function folderIdOf(req: FastifyRequest): number {
-  const id = Number((req.params as { id: string }).id);
-  if (!Number.isInteger(id) || id <= 0) throw AppError.badRequest('文件夹 id 非法');
-  return id;
+  return parseIntegerId((req.params as { id: string }).id, '文件夹 id');
 }
 
 export async function registerBankFolderRoutes(app: FastifyInstance, deps: Deps): Promise<void> {

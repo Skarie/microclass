@@ -973,6 +973,33 @@ tail -f /var/log/microclass-watchdog.log
 - 重启后 20s 复查：恢复则记一行日志；仍失败则只记日志、**停止自动重启**（防重启风暴，等人工）；
 - 用 `flock` 防重叠执行；状态文件 `/tmp/microclass-watchdog.state`。
 
+### 维护锁（切库 / 迁移 / 手工停服必做）
+
+维护窗口里 8091 本来就不健康，看门狗如果照常重启，会把 `compose stop api` 刚停下的
+容器又拉起来、把数据同步打断。所以**先上锁，再动服务**：
+
+```bash
+# 1) 进入维护：上锁 + 停 watchdog cron（双保险，锁生效后 cron 留着也只会跳过）
+sudo touch /vol1/1000/microclass-deploy/.maintenance
+sudo crontab -l | grep -v microclass-deploy/watchdog.sh | sudo crontab -
+
+# 2) 做维护：停 api / 备份 / 同步 / 切库 / redeploy ……
+
+# 3) 结束维护：删锁 + 恢复 cron 行
+sudo rm -f /vol1/1000/microclass-deploy/.maintenance
+( sudo crontab -l 2>/dev/null; \
+  echo '*/2 * * * * /vol1/1000/microclass-deploy/watchdog.sh >> /var/log/microclass-watchdog.log 2>&1' \
+) | sudo crontab -
+```
+
+- 锁存在（或 `MC_MAINTENANCE=1`）时，脚本只记一行
+  `维护中（...），跳过重启` 并退出：**不探测、不计数、不重启**，同时清空失败计数；
+- 重启前还会**再查一次锁**，防止维护窗口刚好在「连续失败」和「真要重启」之间打开；
+- 维护锁路径可用 `MC_MAINTENANCE_FILE` 覆盖，默认
+  `/vol1/1000/microclass-deploy/.maintenance`；
+- 漏删锁的后果是看门狗**永久静默**（站点真挂时没人兜底），所以维护结束的验收项里
+  必须包含 `ls /vol1/1000/microclass-deploy/.maintenance`（应报不存在）和 `crontab -l | grep watchdog`。
+
 替代方案：`willfarrell/autoheal`（需挂载 docker.sock，会按 `autoheal=true` 标签自动重启 unhealthy 容器）。
 内网/离线环境优先用上面的 cron 脚本，不引入新镜像。
 

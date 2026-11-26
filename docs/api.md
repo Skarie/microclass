@@ -8,6 +8,11 @@
 
 错误码：`BAD_REQUEST` 400 · `UNAUTHORIZED` 401 · `FORBIDDEN` 403 · `NOT_FOUND` 404 · `CONFLICT` 409 · `RATE_LIMITED` 429 · `INTERNAL` 500。
 
+**路径参数**：`/…/:id`（以及 `:qid` / `:questionId`）必须是**正整数**，否则直接 400
+`{"error":{"code":"BAD_REQUEST","message":"id 非法（必须是正整数）"}}`；合法但不存在的数字 id 仍是 404。
+例外：`/media-roots/:id` 的 id 是字符串 slug（如 `site-uploads`），`/question-conflicts/:hash`、
+`/question-media/:file` 等不是主键。实现见 `apps/api/src/http/idParams.ts`（2.4.3 起全局 `preValidation` 守卫）。
+
 ## 健康与元信息
 
 | 方法 | 路径       | 权限 | 说明                           |
