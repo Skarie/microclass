@@ -7,8 +7,14 @@
  *
  * 性能取舍：这是一次全表 JSON 展开聚合。真机作答量很小（几十条 attempt），
  * 但仍然加 5 分钟缓存 —— 挑题是连续点击的高频操作，不该每次都扫。
+ *
+ * P0 阶段 2（questions 读批次）：改走 `AsyncDb` + `async`；JSON 展开不再用 SQLite 专有的
+ * `json_each` / `json_extract`，改用 `db/sql.ts` 的方言辅助（#24）：
+ * `jsonArrayJoin` / `jsonIntField` / `jsonBoolIntField`。SQLite 侧 SQL 文本与迁移前一致，
+ * PG 侧走 `jsonb_array_elements` + `->>`（`correct:null` 仍是 NULL，被 `IN (1,0)` 排除）。
  */
-import type { Db } from '../client.js';
+import type { AsyncDb } from '../async.js';
+import { jsonArrayJoin, jsonBoolIntField, jsonIntField } from '../sql.js';
 import { wilsonLowerBound } from '../../domain/errorRate.js';
 
 export interface QuestionErrorStat {
@@ -32,23 +38,24 @@ const CACHE_MS = 5 * 60 * 1000;
 export class QuestionStatsRepository {
   private cache: { at: number; value: Map<number, QuestionErrorStat> } | null = null;
 
-  constructor(private readonly db: Db) {}
+  constructor(private readonly asyncDb: AsyncDb) {}
 
-  /** 每题错误率（全库）；`refresh` 强制重算 */
-  errorByQuestion(options?: { refresh?: boolean }): Map<number, QuestionErrorStat> {
+  /** 每题错误率（全库）；`refresh` 强制重算。命中缓存时不查库，但签名统一是 Promise */
+  async errorByQuestion(options?: { refresh?: boolean }): Promise<Map<number, QuestionErrorStat>> {
     if (!options?.refresh && this.cache && Date.now() - this.cache.at < CACHE_MS) return this.cache.value;
 
-    const rows = this.db.all<{ qid: number; n: number; wrong: number }>(
+    const driver = this.asyncDb.driver;
+    const qid = jsonIntField('je', 'qid', driver);
+    const correct = jsonBoolIntField('je', 'correct', driver);
+    const rows = await this.asyncDb.all<{ qid: number; n: number; wrong: number }>(
       `WITH graded AS (
-         SELECT json_extract(je.value, '$.qid') AS qid,
-                json_extract(je.value, '$.correct') AS correct
-         FROM attempts a, json_each(a.answers) je
-         WHERE json_extract(je.value, '$.correct') IN (1, 0)
+         SELECT ${qid} AS qid, ${correct} AS correct
+         FROM attempts a ${jsonArrayJoin('a.answers', 'je', driver)}
+         WHERE ${correct} IN (1, 0)
          UNION ALL
-         SELECT json_extract(je.value, '$.qid') AS qid,
-                json_extract(je.value, '$.correct') AS correct
-         FROM exam_attempts ea, json_each(ea.answers) je
-         WHERE json_extract(je.value, '$.correct') IN (1, 0)
+         SELECT ${qid} AS qid, ${correct} AS correct
+         FROM exam_attempts ea ${jsonArrayJoin('ea.answers', 'je', driver)}
+         WHERE ${correct} IN (1, 0)
        )
        SELECT CAST(qid AS INTEGER) AS qid, COUNT(*) AS n, SUM(CASE WHEN correct = 0 THEN 1 ELSE 0 END) AS wrong
        FROM graded
@@ -72,7 +79,10 @@ export class QuestionStatsRepository {
     return value;
   }
 
-  /** 缓存时间（供界面显示"数据统计于 …"） */
+  /**
+   * 缓存时间（供界面显示"数据统计于 …"）。
+   * 纯内存读取、不碰数据库，因此保持同步 —— 与 `settings.getSync` 同一类快照语义。
+   */
   cachedAt(): number | null {
     return this.cache?.at ?? null;
   }

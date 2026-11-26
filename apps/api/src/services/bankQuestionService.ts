@@ -47,21 +47,21 @@ export class BankQuestionService {
       ...(filter?.tagIds && filter.tagIds.length > 0 ? { tagIds: filter.tagIds, tagMode: filter.tagMode } : {}),
       ...(filter?.points && filter.points.length > 0 ? { points: filter.points, pointMode: filter.pointMode } : {}),
     };
-    const rows = this.questions.listByBank(bankId, where, {
+    const rows = await this.questions.listByBank(bankId, where, {
       limit: pageSize,
       offset: (page - 1) * pageSize,
     });
-    const total = this.questions.countByBank(bankId, where);
+    const total = await this.questions.countByBank(bankId, where);
     return { total, page, pageSize, questions: rows.map((q) => toViewer(q, true)) };
   }
 
   /** 跨题库列表（高级检索：按标签 / 知识点 / 关键词找题，不限题库） */
-  listQuestionsGlobal(filter?: QuestionFilter & { page?: number; pageSize?: number }): {
+  async listQuestionsGlobal(filter?: QuestionFilter & { page?: number; pageSize?: number }): Promise<{
     total: number;
     page: number;
     pageSize: number;
     questions: QuestionForViewer[];
-  } {
+  }> {
     const page = Math.max(1, filter?.page ?? 1);
     const pageSize = Math.min(200, Math.max(1, filter?.pageSize ?? 20));
     const where: QuestionFilter = {
@@ -75,11 +75,12 @@ export class BankQuestionService {
       ...(filter?.tagIds && filter.tagIds.length > 0 ? { tagIds: filter.tagIds, tagMode: filter.tagMode } : {}),
       ...(filter?.points && filter.points.length > 0 ? { points: filter.points, pointMode: filter.pointMode } : {}),
     };
-    const rows = this.questions.listAll(where, { limit: pageSize, offset: (page - 1) * pageSize });
-    return { total: this.questions.countAll(where), page, pageSize, questions: rows.map((q) => toViewer(q, true)) };
+    const rows = await this.questions.listAll(where, { limit: pageSize, offset: (page - 1) * pageSize });
+    const total = await this.questions.countAll(where);
+    return { total, page, pageSize, questions: rows.map((q) => toViewer(q, true)) };
   }
 
-  findQuestion(id: number) {
+  async findQuestion(id: number) {
     return this.questions.findById(id);
   }
 
@@ -99,7 +100,7 @@ export class BankQuestionService {
   }
 
   async updateQuestion(actor: User, id: number, input: QuestionDto): Promise<void> {
-    const existing = this.questions.findById(id);
+    const existing = await this.questions.findById(id);
     if (!existing) throw AppError.notFound('题目不存在');
     // 未提交图片路径时保留原图
     const prepared = await prepareQuestionInput(this.inputContext, {
@@ -143,7 +144,7 @@ export class BankQuestionService {
   }
 
   async removeQuestion(actor: User, id: number): Promise<void> {
-    const existing = this.questions.findById(id);
+    const existing = await this.questions.findById(id);
     if (!existing) throw AppError.notFound('题目不存在');
     await this.questions.delete(id);
     this.audit.write({
@@ -160,10 +161,7 @@ export class BankQuestionService {
    * 只删**属于该题库**的 id，其它一律跳过（防止误传 id 跨库删除）。
    */
   async removeQuestions(actor: User, bankId: number, ids: number[]): Promise<{ deleted: number; skipped: number }> {
-    const inBank = this.questions
-      .findByIds(ids)
-      .filter((q) => q.bank_id === bankId)
-      .map((q) => q.id);
+    const inBank = (await this.questions.findByIds(ids)).filter((q) => q.bank_id === bankId).map((q) => q.id);
     const deleted = await this.questions.deleteMany(inBank);
     this.audit.write({
       actorId: actor.id,
@@ -213,7 +211,7 @@ export class BankQuestionService {
     let updated = 0;
     let skipped = 0;
     for (const id of ids) {
-      const existing = this.questions.findById(id);
+      const existing = await this.questions.findById(id);
       if (!existing || existing.bank_id !== bankId) {
         skipped += 1;
         continue;
@@ -225,7 +223,7 @@ export class BankQuestionService {
   }
 
   /** 跨题库按知识点/书册/难度找题（组卷与聚合浏览用） */
-  searchQuestions(options: {
+  async searchQuestions(options: {
     subject?: string;
     book?: string;
     chapter?: string;
@@ -234,14 +232,14 @@ export class BankQuestionService {
     type?: string;
     page?: number;
     pageSize?: number;
-  }): { page: number; pageSize: number; questions: unknown[]; points: unknown[] } {
+  }): Promise<{ page: number; pageSize: number; questions: unknown[]; points: unknown[] }> {
     const pageSize = Math.min(200, Math.max(1, options.pageSize ?? 30));
     const page = Math.max(1, options.page ?? 1);
     return {
       page,
       pageSize,
-      questions: this.questions.searchByMeta({ ...options, limit: pageSize, offset: (page - 1) * pageSize }),
-      points: this.questions.pointStats({
+      questions: await this.questions.searchByMeta({ ...options, limit: pageSize, offset: (page - 1) * pageSize }),
+      points: await this.questions.pointStats({
         ...(options.subject ? { subject: options.subject } : {}),
         ...(options.book ? { book: options.book } : {}),
         ...(options.point ? { point: options.point } : {}),

@@ -71,7 +71,7 @@ export async function countMissingContentHash(db: AsyncDb): Promise<number> {
   const row = await db.get<{ c: number }>(
     "SELECT COUNT(*) AS c FROM questions WHERE content_hash IS NULL OR content_hash = ''",
   );
-  return row?.c ?? 0;
+  return Number(row?.c ?? 0); // int8 → number（方言 #17）
 }
 
 /**

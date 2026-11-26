@@ -7,15 +7,23 @@
 import type { Lesson, LessonSource } from '@microclass/shared';
 import type { Db } from '../client.js';
 import { createSqliteAsyncDb, type AsyncDb } from '../async.js';
+import { naturalNumberPrefix } from '../sql.js';
 
 /**
  * 课时查询：标题按 SQLite 的自然序排列（`2.` 排在 `10.` 前面），
  * 与轻课堂的 sort_order 思路一致 —— 素材文件名普遍带序号，字典序会明显错乱。
+ *
+ * P0 阶段 2（方言 #16）：`CAST(title AS INTEGER)` 在 SQLite 里「非数字前缀 → 0」，
+ * 但 PostgreSQL 遇到「第X课」会直接报错，所以排序表达式必须按驱动生成
+ * （`db/sql.ts` 的 `naturalNumberPrefix`：sqlite 原样 CAST / pg 取前导数字再 COALESCE 0）。
  */
 const LESSON_SELECT = `
   SELECT * FROM lessons
 `;
-const NATURAL_ORDER = 'sort, CAST(title AS INTEGER), title, id';
+
+function naturalOrder(driver: AsyncDb['driver']): string {
+  return `sort, ${naturalNumberPrefix('title', driver)}, title, id`;
+}
 
 export interface LessonWithProgress extends Lesson {
   progress: {
@@ -52,14 +60,18 @@ export class LessonRepository {
   }
 
   async listAll(): Promise<Lesson[]> {
-    return this.adb().all<Lesson>(`${LESSON_SELECT} ORDER BY ${NATURAL_ORDER}`);
+    return this.adb().all<Lesson>(`${LESSON_SELECT} ORDER BY ${naturalOrder(this.adb().driver)}`);
   }
 
   async listByCourse(courseId: number | null): Promise<Lesson[]> {
     if (courseId === null) {
-      return this.adb().all<Lesson>(`${LESSON_SELECT} WHERE course_id IS NULL ORDER BY ${NATURAL_ORDER}`);
+      return this.adb().all<Lesson>(
+        `${LESSON_SELECT} WHERE course_id IS NULL ORDER BY ${naturalOrder(this.adb().driver)}`,
+      );
     }
-    return this.adb().all<Lesson>(`${LESSON_SELECT} WHERE course_id = ? ORDER BY ${NATURAL_ORDER}`, [courseId]);
+    return this.adb().all<Lesson>(`${LESSON_SELECT} WHERE course_id = ? ORDER BY ${naturalOrder(this.adb().driver)}`, [
+      courseId,
+    ]);
   }
 
   async findById(id: number): Promise<Lesson | undefined> {

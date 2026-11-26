@@ -109,7 +109,7 @@ export async function replaceWith(
   if (!rows.some((q) => q.id === questionId)) throw AppError.notFound('这道题不在试卷里');
   if (rows.some((q) => q.id === withId)) throw AppError.badRequest('这道题已经在试卷里了');
   // 目标题必须真实存在于题库（避免前端传来任意 id）
-  const exists = deps.questions.findById(withId);
+  const exists = await deps.questions.findById(withId);
   if (!exists) throw AppError.notFound('要换上的题目不存在');
   await deps.exams.replaceQuestion(examId, questionId, withId);
   writeAudit(deps, actor, 'exam.replace_question', examId, {

@@ -122,7 +122,7 @@ export function buildDeps(config: AppConfig, db: Db, options?: { inlineHealthRun
   const knowledge = new KnowledgeRepository(db);
   const progress = new ProgressRepository(db, asyncDb);
   const banks = new BankRepository(db, asyncDb);
-  const questions = new QuestionRepository(db);
+  const questions = new QuestionRepository(db, asyncDb); // 读写同批（§7.7）：只补 asyncDb 不迁读方法 = 写 PG 读 SQLite
   const questionConflicts = new QuestionConflictRepository(db);
   const attempts = new AttemptRepository(db, asyncDb);
   const wrongs = new WrongQuestionRepository(db, asyncDb);
@@ -170,7 +170,7 @@ export function buildDeps(config: AppConfig, db: Db, options?: { inlineHealthRun
    * 装配细节见 services/bankHealthSetup（app.ts 受行数守卫约束，只保留一行创建）。
    */
   const bankHealth = createBankHealthCoordinator(db, config, settings, { inline: options?.inlineHealthRunner });
-  const questionStats = new QuestionStatsRepository(db);
+  const questionStats = new QuestionStatsRepository(asyncDb);
   const analyticsService = new AnalyticsService(new AnalyticsRepository(db, asyncDb));
   const examService = new ExamService(exams, courses, audit, questions, questionMedia);
   const statsService = new StatsService(stats, lessons, courses, exams);

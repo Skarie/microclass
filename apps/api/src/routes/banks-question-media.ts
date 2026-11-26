@@ -33,7 +33,7 @@ export async function registerBankQuestionMediaRoutes(app: FastifyInstance, deps
   /** 题目配图访问（内联）：支持 Range，供 Word / 打印导出复用 */
   app.get('/question-images/:id', async (req, reply) => {
     requireUser(req, reply);
-    const question = deps.bankService.findQuestion(questionIdOf(req));
+    const question = await deps.bankService.findQuestion(questionIdOf(req));
     if (!question) throw AppError.notFound('题目不存在');
     const abs = deps.bankService.resolveImage(question);
     if (!abs) throw AppError.notFound('配图不存在');

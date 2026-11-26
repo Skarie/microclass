@@ -7,6 +7,10 @@
  * 两处必须产生**完全相同**的 JSON，否则「worker 结果落库」和「接口返回」会不一致。
  *
  * 只依赖 `Db` 与仓储，不依赖 Fastify / 配置 / 审计，因此 worker 里可以直接 import。
+ *
+ * P0 阶段 2（questions 读批次）：questions 的读写统一走注入的 `AsyncDb`
+ * （worker 里按 `MC_DB` 建只读 PG 连接 / sqlite 包装）——「只补 DI 不改读方法」或反之
+ * 都会造成跨库混合读写，所以这里的仓储必须拿到同一个 `asyncDb`。
  */
 import type { Db } from '../client.js';
 import type { AsyncDb } from '../async.js';
@@ -27,21 +31,21 @@ export async function computeGlobalHealthPayload(
   settings: SettingsRepository,
   limit: number,
 ): Promise<BankHealthPayload> {
-  const questions = new QuestionRepository(db);
+  const questions = new QuestionRepository(db, asyncDb);
   const banks = new BankRepository(db, asyncDb);
 
-  const stats = questions.health(undefined);
+  const stats = await questions.health(undefined);
   return {
     scope: { bankId: null, name: '全库' },
     stats,
     metadata: {
-      withSubject: questions.countByMeta(undefined, 'subject', stats.total),
-      withBook: questions.countByMeta(undefined, 'book', stats.total),
-      withPoint: questions.countByMeta(undefined, 'point', stats.total),
-      withHash: questions.countByMeta(undefined, 'content_hash', stats.total),
+      withSubject: await questions.countByMeta(undefined, 'subject', stats.total),
+      withBook: await questions.countByMeta(undefined, 'book', stats.total),
+      withPoint: await questions.countByMeta(undefined, 'point', stats.total),
+      withHash: await questions.countByMeta(undefined, 'content_hash', stats.total),
     },
-    duplicates: questions.duplicateGroups(limit),
+    duplicates: await questions.duplicateGroups(limit),
     kinds: await banks.kindStats(),
-    difficulty: difficultyStats(db, undefined, parseDifficultyCuts(settings.getSync(DIFFICULTY_CUTS_KEY))),
+    difficulty: await difficultyStats(asyncDb, undefined, parseDifficultyCuts(settings.getSync(DIFFICULTY_CUTS_KEY))),
   };
 }

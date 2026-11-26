@@ -5,9 +5,12 @@
  * - 题库列表 `ORDER BY sort, id`，只有传了 page 才追加 LIMIT/OFFSET；
  * - 跨题库检索 `ORDER BY q.id`，limit 默认 30、上限 200；
  * - 筛选构造是**纯函数**（只产出 SQL 片段与参数），LIKE / IN 的值全部走占位符。
+ *
+ * P0 阶段 2（questions 读批次）：全部改走 `AsyncDb` + `async`，
+ * `COUNT(*)` 这类 int8 在边界统一 `Number()`（PG 驱动默认回传字符串，方言 #17）。
  */
 import type { Question } from '@microclass/shared';
-import type { Db } from '../client.js';
+import type { AsyncDb } from '../async.js';
 import type {
   QuestionFilter,
   QuestionPage,
@@ -139,7 +142,12 @@ export function buildSearchClauses(options: SearchMetaOptions): { sql: string; p
 }
 
 /** 某题库的题目（可按题型/难度/关键字/元数据筛选） */
-export function listByBank(db: Db, bankId: number, filter?: QuestionFilter, page?: QuestionPage): Question[] {
+export async function listByBank(
+  db: AsyncDb,
+  bankId: number,
+  filter?: QuestionFilter,
+  page?: QuestionPage,
+): Promise<Question[]> {
   const { sql, params } = buildQuestionFilter(filter);
   const paging = page ? ' LIMIT ? OFFSET ?' : '';
   const pagingParams = page ? [page.limit, page.offset] : [];
@@ -151,14 +159,16 @@ export function listByBank(db: Db, bankId: number, filter?: QuestionFilter, page
 }
 
 /** 当前筛选条件下的题目总数（分页用） */
-export function countByBank(db: Db, bankId: number, filter?: QuestionFilter): number {
+export async function countByBank(db: AsyncDb, bankId: number, filter?: QuestionFilter): Promise<number> {
   const { sql, params } = buildQuestionFilter(filter);
-  return (
-    db.get<{ c: number }>(`SELECT COUNT(*) AS c FROM questions WHERE bank_id = ?${sql}`, [bankId, ...params])?.c ?? 0
-  );
+  const row = await db.get<{ c: number }>(`SELECT COUNT(*) AS c FROM questions WHERE bank_id = ?${sql}`, [
+    bankId,
+    ...params,
+  ]);
+  return Number(row?.c ?? 0);
 }
 
-export function findById(db: Db, id: number): Question | undefined {
+export async function findById(db: AsyncDb, id: number): Promise<Question | undefined> {
   return db.get<Question>('SELECT * FROM questions WHERE id = ?', [id]);
 }
 
@@ -167,7 +177,11 @@ export function findById(db: Db, id: number): Question | undefined {
  * 条件与题库内列表完全同一套（`buildQuestionFilter`），只是不限 bank_id。
  * 没有条件时会扫全表，因此调用方必须带分页（路由层默认 20/页，上限 200）。
  */
-export function listAll(db: Db, filter: QuestionFilter | undefined, page: QuestionPage): Question[] {
+export async function listAll(
+  db: AsyncDb,
+  filter: QuestionFilter | undefined,
+  page: QuestionPage,
+): Promise<Question[]> {
   const { sql, params } = buildQuestionFilter(filter);
   return db.all<Question>(`SELECT * FROM questions WHERE 1 = 1${sql} ORDER BY id LIMIT ? OFFSET ?`, [
     ...params,
@@ -177,18 +191,19 @@ export function listAll(db: Db, filter: QuestionFilter | undefined, page: Questi
 }
 
 /** 跨题库题目总数（与 listAll 条件完全一致） */
-export function countAll(db: Db, filter?: QuestionFilter): number {
+export async function countAll(db: AsyncDb, filter?: QuestionFilter): Promise<number> {
   const { sql, params } = buildQuestionFilter(filter);
-  return db.get<{ c: number }>(`SELECT COUNT(*) AS c FROM questions WHERE 1 = 1${sql}`, params)?.c ?? 0;
+  const row = await db.get<{ c: number }>(`SELECT COUNT(*) AS c FROM questions WHERE 1 = 1${sql}`, params);
+  return Number(row?.c ?? 0);
 }
 
-export function findByIds(db: Db, ids: number[]): Question[] {
+export async function findByIds(db: AsyncDb, ids: number[]): Promise<Question[]> {
   if (ids.length === 0) return [];
   return db.all<Question>(`SELECT * FROM questions WHERE id IN (${placeholders(ids.length)})`, ids);
 }
 
 /** 课时可刷的题：题目直接挂课时，或题目所属题库挂课时 */
-export function listByLesson(db: Db, lessonId: number): Question[] {
+export async function listByLesson(db: AsyncDb, lessonId: number): Promise<Question[]> {
   return db.all<Question>(
     `SELECT q.* FROM questions q
      LEFT JOIN banks b ON b.id = q.bank_id
@@ -199,7 +214,7 @@ export function listByLesson(db: Db, lessonId: number): Question[] {
 }
 
 /** 跨题库检索（按知识点/书册/难度），带题库名便于展示 */
-export function searchByMeta(db: Db, options: SearchMetaOptions): QuestionWithBankName[] {
+export async function searchByMeta(db: AsyncDb, options: SearchMetaOptions): Promise<QuestionWithBankName[]> {
   const { sql: where, params } = buildSearchClauses(options);
   const limit = clampLimit(options.limit, 30, 200);
   const offset = clampOffset(options.offset);
@@ -212,7 +227,7 @@ export function searchByMeta(db: Db, options: SearchMetaOptions): QuestionWithBa
 }
 
 /** 取几道题的题干与题库名（难度预览的样例题用，避免全量读大字段） */
-export function stemsByIds(db: Db, ids: number[]): QuestionStemRow[] {
+export async function stemsByIds(db: AsyncDb, ids: number[]): Promise<QuestionStemRow[]> {
   if (ids.length === 0) return [];
   return db.all<QuestionStemRow>(
     `SELECT q.id, q.stem, COALESCE(b.name, '') AS bank_name FROM questions q

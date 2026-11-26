@@ -51,7 +51,7 @@ export function planDedupe(groups: DuplicateIdGroup[], stemOf: (keepId: number) 
 /** 题库体检结果（缓存与接口共用） */
 export interface BankHealthResult {
   scope: { bankId: number | null; name: string };
-  stats: ReturnType<QuestionRepository['health']>;
+  stats: Awaited<ReturnType<QuestionRepository['health']>>;
   metadata: { withSubject: number; withBook: number; withPoint: number; withHash: number };
   duplicates: { content_hash: string; n: number; answers: number; stem: string }[];
   kinds: { kind: string; banks: number; questions: number }[];
@@ -96,20 +96,20 @@ export class BankHealthService {
       name = bank.name;
     }
     /** 体检的核心统计（全表扫描集中在这里，尽量只算一次） */
-    const stats = this.questions.health(bankId);
+    const stats = await this.questions.health(bankId);
     const value = {
       scope: { bankId: bankId ?? null, name },
       stats,
       metadata: {
         // 总数已由 stats 算出，传下去避免每个字段再来一次全表 COUNT(*)
-        withSubject: this.questions.countByMeta(bankId, 'subject', stats.total),
-        withBook: this.questions.countByMeta(bankId, 'book', stats.total),
-        withPoint: this.questions.countByMeta(bankId, 'point', stats.total),
-        withHash: this.questions.countByMeta(bankId, 'content_hash', stats.total),
+        withSubject: await this.questions.countByMeta(bankId, 'subject', stats.total),
+        withBook: await this.questions.countByMeta(bankId, 'book', stats.total),
+        withPoint: await this.questions.countByMeta(bankId, 'point', stats.total),
+        withHash: await this.questions.countByMeta(bankId, 'content_hash', stats.total),
       },
-      duplicates: this.questions.duplicateGroups(limit, bankId),
+      duplicates: await this.questions.duplicateGroups(limit, bankId),
       kinds: await this.banks.kindStats(),
-      difficulty: this.difficulty.stats(bankId),
+      difficulty: await this.difficulty.stats(bankId),
     };
     const at = Date.now();
     this.healthCache.set(cacheKey, { at, value });
@@ -133,8 +133,10 @@ export class BankHealthService {
   }> {
     const bank = await this.banks.findById(bankId);
     if (!bank) throw AppError.notFound('题库不存在');
-    const groups = this.questions.duplicateIdsInBank(bankId);
-    const plan = planDedupe(groups, (keepId) => String(this.questions.findById(keepId)?.stem ?? ''));
+    const groups = await this.questions.duplicateIdsInBank(bankId);
+    // 样例题干一次批量取（原来是逐组一次 findById；async 化后合并成一条 IN 查询）
+    const stems = new Map((await this.questions.findByIds(groups.map((g) => g.keepId))).map((q) => [q.id, q.stem]));
+    const plan = planDedupe(groups, (keepId) => String(stems.get(keepId) ?? ''));
     if (options?.dryRun !== false || plan.removable === 0) {
       return { dryRun: true, groups: plan.groups, removable: plan.removable, removed: 0, samples: plan.samples };
     }

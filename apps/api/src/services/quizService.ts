@@ -63,7 +63,7 @@ export class QuizService {
   async quiz(viewer: User, lessonId: number, options?: { count?: number }): Promise<QuizPayload> {
     const lesson = await this.lessonsRepo.findById(lessonId);
     if (!lesson) throw AppError.notFound('视频单元不存在');
-    const all = this.questions.listByLesson(lessonId);
+    const all = await this.questions.listByLesson(lessonId);
     const count = Number(options?.count ?? 0);
     let picked = shuffle(all);
     let mode = 'all';
@@ -89,7 +89,7 @@ export class QuizService {
       throw AppError.forbidden('请先看完本视频（≥80%）再开始刷题');
     }
 
-    const all = this.questions.listByLesson(lessonId);
+    const all = await this.questions.listByLesson(lessonId);
     const byId = new Map(all.map((q) => [String(q.id), q]));
     const results: GradedItem[] = [];
     let score = 0;
@@ -230,7 +230,7 @@ export class QuizService {
 
   /** 标记/取消掌握 */
   async setMastered(viewer: User, questionId: number, mastered: boolean): Promise<void> {
-    const q = this.questions.findById(questionId);
+    const q = await this.questions.findById(questionId);
     if (!q) throw AppError.notFound('题目不存在');
     await this.wrongs.setMastered(viewer.id, questionId, mastered);
   }

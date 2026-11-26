@@ -99,7 +99,7 @@ export class BankQuestionImageService {
   }
 
   async attachImage(actor: User, id: number, file: ImageUpload): Promise<string> {
-    const question = this.questions.findById(id);
+    const question = await this.questions.findById(id);
     if (!question) throw AppError.notFound('题目不存在');
     const saved = this.storage.save({
       subdir: 'question-images',

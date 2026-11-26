@@ -172,7 +172,7 @@ export class PracticeLinkService {
     if (targetType === 'question') {
       const parsed = Number(input.questionId);
       if (!Number.isInteger(parsed) || parsed <= 0) throw AppError.badRequest('题目 id 非法');
-      const question = this.questions.findById(parsed);
+      const question = await this.questions.findById(parsed);
       if (!question) throw AppError.badRequest('题目不存在');
       if (question.bank_id !== bankId) throw AppError.badRequest('题目不属于该题库');
       questionId = parsed;

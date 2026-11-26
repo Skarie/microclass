@@ -38,7 +38,7 @@ export async function registerExamPoolRoutes(app: FastifyInstance, deps: Deps): 
      *   - 默认只保留**至少作答 2 次**的题（minAttempts 可调）。
      */
     if (parsed.orderBy === 'error_desc') {
-      const stats = deps.questionStats.errorByQuestion();
+      const stats = await deps.questionStats.errorByQuestion();
       const window = await deps.exams.pick({ ...parsed.picks, limit: 200 });
       const page = buildErrorPoolPage(window, stats, {
         minAttempts: parsed.minAttempts,
@@ -66,7 +66,7 @@ export async function registerExamPoolRoutes(app: FastifyInstance, deps: Deps): 
       page: parsed.page,
       pageSize: parsed.pageSize,
       // 普通模式也带上错率，界面可以直接显示「错率 50%（2 次作答）」
-      questions: buildPoolQuestions(items, deps.questionStats.errorByQuestion()),
+      questions: buildPoolQuestions(items, await deps.questionStats.errorByQuestion()),
     };
   });
 

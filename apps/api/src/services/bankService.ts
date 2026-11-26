@@ -73,7 +73,7 @@ export class BankService {
   async detail(id: number): Promise<{ bank: BankWithStats; questions: QuestionForViewer[] }> {
     const bank = await this.banks.findWithStats(id);
     if (!bank) throw AppError.notFound('题库不存在');
-    const rows = this.questions.listByBank(id);
+    const rows = await this.questions.listByBank(id);
     return {
       bank,
       // 教师视角保留答案与解析

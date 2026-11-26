@@ -22,7 +22,7 @@ export async function registerBankQuestionRoutes(app: FastifyInstance, deps: Dep
   /** 跨题库按知识点/书册/难度找题（聚合浏览、组卷选题用） */
   app.get('/questions/search', async (req, reply) => {
     requireTeacherOrAdmin(req, reply);
-    return deps.bankService.searchQuestions(parseQuestionSearchQuery(req.query as QuestionSearchQuery));
+    return await deps.bankService.searchQuestions(parseQuestionSearchQuery(req.query as QuestionSearchQuery));
   });
 
   /**
@@ -31,7 +31,7 @@ export async function registerBankQuestionRoutes(app: FastifyInstance, deps: Dep
    */
   app.get('/questions', async (req, reply) => {
     requireUser(req, reply);
-    return deps.bankService.listQuestionsGlobal(parseBankQuestionListQuery(req.query as BankQuestionListQuery));
+    return await deps.bankService.listQuestionsGlobal(parseBankQuestionListQuery(req.query as BankQuestionListQuery));
   });
 
   /** 题库内题目列表（支持题型/难度筛选、关键词搜索、分页） */
@@ -53,7 +53,7 @@ export async function registerBankQuestionRoutes(app: FastifyInstance, deps: Dep
 
   app.get('/questions/:id', async (req, reply) => {
     requireUser(req, reply);
-    const question = deps.bankService.findQuestion(questionIdOf(req));
+    const question = await deps.bankService.findQuestion(questionIdOf(req));
     if (!question) throw AppError.notFound('题目不存在');
     return { question };
   });

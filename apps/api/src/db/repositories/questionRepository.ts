@@ -12,6 +12,11 @@
  *
  * 对外方法签名、SQL 语义与返回结构保持不变；类型从原路径 re-export，
  * 服务层 / 运维脚本 / 测试无需改动。
+ *
+ * P0 阶段 2（questions 读批次，2026-11-27）：**读写全部走 `AsyncDb`**，
+ * 19 个读方法改为 `async`。`app.ts` 必须注入 `asyncDb`（`new QuestionRepository(db, asyncDb)`）——
+ * 只注 DI 不改读方法会变成「写 PG、读 SQLite」，只改读方法不注 DI 会变成「写 SQLite、读 PG」，
+ * 两者都必须在同一批里改（见 `docs/pg-migration-progress.md` §7.7）。
  */
 import type { Question } from '@microclass/shared';
 import type { Db } from '../client.js';
@@ -46,44 +51,43 @@ export type * from './question-types.js';
 export type { DuplicateGroupRow, DuplicateIdGroup } from './question-dedupe.js';
 
 export class QuestionRepository {
-  /** 读方法继续用同步 Db；写方法走 asyncDb（P0 阶段 2，B3b） */
+  /** 读写都走 asyncDb（P0 阶段 2，questions 读批次）；没注入时退回 sqlite 包装（测试） */
   constructor(
     private readonly db: Db,
     private readonly asyncDb?: AsyncDb,
   ) {}
 
-  /** 已迁移的写方法要求注入 asyncDb；测试里没注入时退回 sqlite 包装 */
   private adb(): AsyncDb {
     return this.asyncDb ?? createSqliteAsyncDb(this.db);
   }
 
-  listByBank(bankId: number, filter?: QuestionFilter, page?: QuestionPage): Question[] {
-    return query.listByBank(this.db, bankId, filter, page);
+  async listByBank(bankId: number, filter?: QuestionFilter, page?: QuestionPage): Promise<Question[]> {
+    return query.listByBank(this.adb(), bankId, filter, page);
   }
 
-  countByBank(bankId: number, filter?: QuestionFilter): number {
-    return query.countByBank(this.db, bankId, filter);
+  async countByBank(bankId: number, filter?: QuestionFilter): Promise<number> {
+    return query.countByBank(this.adb(), bankId, filter);
   }
 
   /** 跨题库列表（高级检索：按标签 / 知识点 / 关键词找题） */
-  listAll(filter: QuestionFilter | undefined, page: QuestionPage): Question[] {
-    return query.listAll(this.db, filter, page);
+  async listAll(filter: QuestionFilter | undefined, page: QuestionPage): Promise<Question[]> {
+    return query.listAll(this.adb(), filter, page);
   }
 
-  countAll(filter?: QuestionFilter): number {
-    return query.countAll(this.db, filter);
+  async countAll(filter?: QuestionFilter): Promise<number> {
+    return query.countAll(this.adb(), filter);
   }
 
-  findById(id: number): Question | undefined {
-    return query.findById(this.db, id);
+  async findById(id: number): Promise<Question | undefined> {
+    return query.findById(this.adb(), id);
   }
 
-  findByIds(ids: number[]): Question[] {
-    return query.findByIds(this.db, ids);
+  async findByIds(ids: number[]): Promise<Question[]> {
+    return query.findByIds(this.adb(), ids);
   }
 
-  listByLesson(lessonId: number): Question[] {
-    return query.listByLesson(this.db, lessonId);
+  async listByLesson(lessonId: number): Promise<Question[]> {
+    return query.listByLesson(this.adb(), lessonId);
   }
 
   async create(input: QuestionInput): Promise<number> {
@@ -110,24 +114,24 @@ export class QuestionRepository {
   /* ---------------- 难度模型（迁移 0016） ---------------- */
 
   /** 取一批题的难度判定特征（分页，只读判定需要的列） */
-  difficultyFeatures(options: DifficultyFeatureOptions = {}): DifficultyFeatureRow[] {
-    return difficultyRepo.difficultyFeatures(this.db, options);
+  async difficultyFeatures(options: DifficultyFeatureOptions = {}): Promise<DifficultyFeatureRow[]> {
+    return difficultyRepo.difficultyFeatures(this.adb(), options);
   }
 
-  stemsByIds(ids: number[]): QuestionStemRow[] {
-    return query.stemsByIds(this.db, ids);
+  async stemsByIds(ids: number[]): Promise<QuestionStemRow[]> {
+    return query.stemsByIds(this.adb(), ids);
   }
 
-  allDifficultyScores(): number[] {
-    return difficultyRepo.allDifficultyScores(this.db);
+  async allDifficultyScores(): Promise<number[]> {
+    return difficultyRepo.allDifficultyScores(this.adb());
   }
 
-  difficultyScoreOf(id: number): DifficultyScoreRow | undefined {
-    return difficultyRepo.difficultyScoreOf(this.db, id);
+  async difficultyScoreOf(id: number): Promise<DifficultyScoreRow | undefined> {
+    return difficultyRepo.difficultyScoreOf(this.adb(), id);
   }
 
-  answerStats(): Map<number, AnswerStat> {
-    return difficultyRepo.answerStats(this.db);
+  async answerStats(): Promise<Map<number, AnswerStat>> {
+    return difficultyRepo.answerStats(this.adb());
   }
 
   async setDifficulty(items: DifficultyUpdateItem[]): Promise<number> {
@@ -140,8 +144,8 @@ export class QuestionRepository {
   }
 
   /** 难度分布与来源统计（体检 / 重算预览用） */
-  difficultyStats(bankId: number | undefined, cuts: DifficultyStatsCuts): DifficultyStatsResult {
-    return stats.difficultyStats(this.db, bankId, cuts);
+  async difficultyStats(bankId: number | undefined, cuts: DifficultyStatsCuts): Promise<DifficultyStatsResult> {
+    return stats.difficultyStats(this.adb(), bankId, cuts);
   }
 
   async setImage(id: number, imagePath: string): Promise<void> {
@@ -159,16 +163,16 @@ export class QuestionRepository {
 
   /* ---------------- 体检 / 统计 / 检索 ---------------- */
 
-  health(bankId?: number): QuestionHealth {
-    return stats.questionHealth(this.db, bankId);
+  async health(bankId?: number): Promise<QuestionHealth> {
+    return stats.questionHealth(this.adb(), bankId);
   }
 
-  countByMeta(
+  async countByMeta(
     bankId: number | undefined,
     column: 'subject' | 'book' | 'point' | 'content_hash',
     knownTotal?: number,
-  ): number {
-    return stats.countByMeta(this.db, bankId, column, knownTotal);
+  ): Promise<number> {
+    return stats.countByMeta(this.adb(), bankId, column, knownTotal);
   }
 
   async backfillAnalysisMediaOnly(batchSize = 2000): Promise<number> {
@@ -191,20 +195,20 @@ export class QuestionRepository {
     return maintenance.backfillContentHash(this.adb(), batchSize);
   }
 
-  searchByMeta(options: SearchMetaOptions): QuestionWithBankName[] {
-    return query.searchByMeta(this.db, options);
+  async searchByMeta(options: SearchMetaOptions): Promise<QuestionWithBankName[]> {
+    return query.searchByMeta(this.adb(), options);
   }
 
-  pointStats(options: PointStatsOptions): PointStatRow[] {
-    return stats.pointStats(this.db, options);
+  async pointStats(options: PointStatsOptions): Promise<PointStatRow[]> {
+    return stats.pointStats(this.adb(), options);
   }
 
-  duplicateGroups(limit: number, bankId?: number): DuplicateGroupRow[] {
-    return dedupe.duplicateGroups(this.db, limit, bankId);
+  async duplicateGroups(limit: number, bankId?: number): Promise<DuplicateGroupRow[]> {
+    return dedupe.duplicateGroups(this.adb(), limit, bankId);
   }
 
-  duplicateIdsInBank(bankId: number, limit = 5000): DuplicateIdGroup[] {
-    return dedupe.duplicateIdsInBank(this.db, bankId, limit);
+  async duplicateIdsInBank(bankId: number, limit = 5000): Promise<DuplicateIdGroup[]> {
+    return dedupe.duplicateIdsInBank(this.adb(), bankId, limit);
   }
 
   async deleteMany(ids: number[]): Promise<number> {

@@ -4,9 +4,12 @@
  * 从 questionRepository 抽出。分组判定是**纯函数** `groupDuplicateRows`：
  * 同指纹且答案一致才可删（保留 id 最小的一条）；同题不同答案属于数据质量问题，
  * 整组不自动处理，由体检的 `conflictGroups` 报出。
+ *
+ * P0 阶段 2（questions 读批次）：读方法改走 `AsyncDb` + `async`，聚合列在边界 `Number()`（方言 #17）。
+ * 另修一处 PG 不兼容：`SUM(a > 1)` 在 SQLite 里能求和布尔值，PG 没有 `sum(boolean)`，
+ * 改 `SUM(CASE WHEN a > 1 THEN 1 ELSE 0 END)`（两库语义一致：统计「答案种类 > 1」的组数）。
  */
 import { parseOptions, questionFingerprint } from '../../domain/question.js';
-import type { Db } from '../client.js';
 import type { AsyncDb } from '../async.js';
 import { clampLimit } from './question-query.js';
 import { withBusyRetry } from './question-write.js';
@@ -47,11 +50,11 @@ export interface DuplicateCandidateRow {
  * 真机冷缓存一次要读完整库、几百秒）。这里先用 `(content_hash, answer)` 覆盖索引算出分组，
  * 再只对要展示的这 `limit` 组各取一条题干。
  */
-export function duplicateGroups(db: Db, limit: number, bankId?: number): DuplicateGroupRow[] {
+export async function duplicateGroups(db: AsyncDb, limit: number, bankId?: number): Promise<DuplicateGroupRow[]> {
   const scope = bankId === undefined ? '' : ' AND bank_id = ?';
   const params = bankId === undefined ? [] : [bankId];
   const capped = clampLimit(limit, 1, 200);
-  return db.all<DuplicateGroupRow>(
+  const rows = await db.all<DuplicateGroupRow>(
     `WITH g AS (
        SELECT content_hash, COUNT(*) AS n, COUNT(DISTINCT answer) AS answers
        FROM questions WHERE content_hash <> ''${scope}
@@ -63,23 +66,27 @@ export function duplicateGroups(db: Db, limit: number, bankId?: number): Duplica
      FROM g ORDER BY g.n DESC, g.content_hash`,
     [...params, capped],
   );
+  // int8 收敛（方言 #17）
+  return rows.map((r) => ({ ...r, n: Number(r.n), answers: Number(r.answers) }));
 }
 
 /** 重复题与答案冲突的三口径汇总（体检头部卡片用；与明细共用同一条分组口径） */
-export function duplicateSummary(db: Db, bankId?: number): DuplicateSummary {
+export async function duplicateSummary(db: AsyncDb, bankId?: number): Promise<DuplicateSummary> {
   const scope = bankId === undefined ? '' : ' AND bank_id = ?';
   const params = bankId === undefined ? [] : [bankId];
-  return (
-    db.get<DuplicateSummary>(
-      `WITH g AS (
-         SELECT content_hash, COUNT(*) AS n, COUNT(DISTINCT answer) AS a
-         FROM questions WHERE content_hash <> ''${scope}
-         GROUP BY content_hash HAVING COUNT(*) > 1
-       )
-       SELECT COUNT(*) AS groups, COALESCE(SUM(n), 0) AS questions, COALESCE(SUM(a > 1), 0) AS conflicts FROM g`,
-      params,
-    ) ?? { groups: 0, questions: 0, conflicts: 0 }
+  const row = await db.get<DuplicateSummary>(
+    `WITH g AS (
+       SELECT content_hash, COUNT(*) AS n, COUNT(DISTINCT answer) AS a
+       FROM questions WHERE content_hash <> ''${scope}
+       GROUP BY content_hash HAVING COUNT(*) > 1
+     )
+     SELECT COUNT(*) AS groups, COALESCE(SUM(n), 0) AS questions,
+            COALESCE(SUM(CASE WHEN a > 1 THEN 1 ELSE 0 END), 0) AS conflicts FROM g`,
+    params,
   );
+  if (!row) return { groups: 0, questions: 0, conflicts: 0 };
+  // int8 收敛（方言 #17）：三列都是聚合结果
+  return { groups: Number(row.groups), questions: Number(row.questions), conflicts: Number(row.conflicts) };
 }
 
 /**
@@ -104,8 +111,8 @@ export function groupDuplicateRows(rows: DuplicateCandidateRow[], limit: number)
 }
 
 /** 扫描某题库的 (指纹, id, 答案) 行并折算出可删除的重复组 */
-export function duplicateIdsInBank(db: Db, bankId: number, limit = 5000): DuplicateIdGroup[] {
-  const rows = db.all<DuplicateCandidateRow>(
+export async function duplicateIdsInBank(db: AsyncDb, bankId: number, limit = 5000): Promise<DuplicateIdGroup[]> {
+  const rows = await db.all<DuplicateCandidateRow>(
     `SELECT content_hash, id, answer FROM questions
      WHERE bank_id = ? AND content_hash <> '' ORDER BY content_hash, id`,
     [bankId],
@@ -125,7 +132,7 @@ export async function rehashContentHash(
   batchSize = 2000,
   onProgress?: (done: number, total: number) => void,
 ): Promise<number> {
-  const total = (await db.get<{ c: number }>('SELECT COUNT(*) AS c FROM questions'))?.c ?? 0;
+  const total = Number((await db.get<{ c: number }>('SELECT COUNT(*) AS c FROM questions'))?.c ?? 0);
   let lastId = 0;
   let updated = 0;
   for (;;) {

@@ -143,7 +143,7 @@ export class BankCatalogService {
   ): Promise<{ examId: number; questions: number }> {
     const bank = await this.banks.findById(bankId);
     if (!bank) throw AppError.notFound('题库不存在');
-    const rows = this.questions.listByBank(bankId);
+    const rows = await this.questions.listByBank(bankId);
     if (rows.length === 0) throw AppError.badRequest('这个题库还没有题目，无法建考试');
     if (!Number.isInteger(input.courseId) || input.courseId <= 0) {
       throw AppError.badRequest('请选择要挂到哪门课程（考试必须属于一门课程）');

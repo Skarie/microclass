@@ -46,6 +46,36 @@ export function unixDay(column: string, driver: DbDriverName, options: { local?:
 export const PG_LOCAL_DAY_ZONE = 'Asia/Shanghai';
 
 /**
+ * 标题的「自然序数字前缀」（方言 #16）。
+ *
+ * `lessons` 的自然序按标题开头的数字排（`2. xxx` 排在 `10. xxx` 前面，与轻课室的 sort_order 一致）。
+ * SQLite 的 `CAST(title AS INTEGER)` 取前导数字、非数字开头得 0；
+ * PostgreSQL 的 `CAST` 遇到「第X课」这类非数字串会**直接报错**，所以只能用正则取同样的前导数字：
+ * `substring(trim(title) from '^[+-]?[0-9]+')`，取不到时为 NULL，再 `COALESCE(…, 0)` 收敛成 0。
+ *
+ * 两边结果保持一致（含前导空白与正负号）；只用于 ORDER BY 片段，不参与比较/索引。
+ */
+export function naturalNumberPrefix(column: string, driver: DbDriverName): string {
+  return driver === 'pg'
+    ? `COALESCE(NULLIF(substring(trim(${column}) from '^[+-]?[0-9]+'), '')::bigint, 0)`
+    : `CAST(${column} AS INTEGER)`;
+}
+
+/**
+ * 两参取大（方言 #20）。
+ *
+ * SQLite 的 `MAX(a,b)` 是标量函数；PostgreSQL 的 `MAX` 只有聚合形式，`MAX(a,b)` 直接报错，
+ * 必须用 `GREATEST(a,b)`。只用于 upsert 的 `SET cur = MAX(cur, excluded.cur)` 这类写法。
+ *
+ * 注意 NULL 语义有小差异：SQLite 的标量 `max()` 遇 NULL 返回 NULL，PG 的 `GREATEST` 会忽略 NULL。
+ * 当前唯一调用点 `lesson_progress.finished/quiz_best` 由写路径保证非 NULL（列默认 0），
+ * 历史脏数据若为 NULL 只在 PG 侧表现为「取到非 NULL 的那个值」，不会写坏数据。
+ */
+export function maxOf(a: string, b: string, driver: DbDriverName): string {
+  return driver === 'pg' ? `GREATEST(${a}, ${b})` : `MAX(${a}, ${b})`;
+}
+
+/**
  * 把 `answers` 这类 JSON 数组展开成行（方言 #24）。
  *
  * SQLite 用表值函数 `json_each(col)`；PostgreSQL 用 `jsonb_array_elements(col::jsonb)`，

@@ -16,7 +16,7 @@ export async function registerDifficultyRoutes(app: FastifyInstance, deps: Deps)
     const bankId = q.bankId === undefined || q.bankId === '' ? undefined : Number(q.bankId);
     return reply.send({
       cuts: deps.difficultyService.cuts(),
-      stats: deps.questions.difficultyStats(bankId, deps.difficultyService.cuts()),
+      stats: await deps.questions.difficultyStats(bankId, deps.difficultyService.cuts()),
     });
   });
 
@@ -26,7 +26,7 @@ export async function registerDifficultyRoutes(app: FastifyInstance, deps: Deps)
     const q = req.query as { bankId?: string; keepManual?: string; keepCalibrated?: string };
     const bankId = q.bankId === undefined || q.bankId === '' ? undefined : Number(q.bankId);
     return reply.send(
-      deps.difficultyService.preview(bankId, {
+      await deps.difficultyService.preview(bankId, {
         keepManual: q.keepManual !== '0',
         keepCalibrated: q.keepCalibrated !== '0',
       }),

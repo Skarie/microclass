@@ -5,9 +5,12 @@
  * - `difficultyFeatures` 按 id 游标翻页，只读判定需要的列；
  * - 落库走 `withBusyRetry` 包裹的事务，`manual` / `calibrated` 的来源由服务层决定；
  * - `answerStats` 从随堂练习与考试的 answers JSON 汇总，简答题（correct=null）不计入。
+ *
+ * P0 阶段 2（questions 读批次）：读方法改走 `AsyncDb` + `async`；
+ * 顺带把 `difficulty_at = unixepoch()` 换成 `nowSeconds(driver)`（方言 #19 漏网点）。
  */
-import type { Db } from '../client.js';
 import type { AsyncDb } from '../async.js';
+import { nowSeconds } from '../sql.js';
 import type {
   AnswerStat,
   DifficultyFeatureOptions,
@@ -21,7 +24,10 @@ import { withBusyRetry } from './question-write.js';
  * 取一批题的难度判定特征（分页）。
  * 只选判定需要的列，避免把 analysis 这类大字段读进来放大 I/O。
  */
-export function difficultyFeatures(db: Db, options: DifficultyFeatureOptions = {}): DifficultyFeatureRow[] {
+export async function difficultyFeatures(
+  db: AsyncDb,
+  options: DifficultyFeatureOptions = {},
+): Promise<DifficultyFeatureRow[]> {
   const clauses: string[] = ['q.id > ?'];
   const params: unknown[] = [options.afterId ?? 0];
   if (options.bankId !== undefined) {
@@ -43,13 +49,14 @@ export function difficultyFeatures(db: Db, options: DifficultyFeatureOptions = {
 }
 
 /** 全库难度分（走 idx_questions_difficulty_score，纯索引扫描） */
-export function allDifficultyScores(db: Db): number[] {
-  return db
-    .all<{ difficulty_score: number }>('SELECT difficulty_score FROM questions WHERE difficulty_score >= 0')
-    .map((r) => r.difficulty_score);
+export async function allDifficultyScores(db: AsyncDb): Promise<number[]> {
+  const rows = await db.all<{ difficulty_score: number }>(
+    'SELECT difficulty_score FROM questions WHERE difficulty_score >= 0',
+  );
+  return rows.map((r) => Number(r.difficulty_score));
 }
 
-export function difficultyScoreOf(db: Db, id: number): DifficultyScoreRow | undefined {
+export async function difficultyScoreOf(db: AsyncDb, id: number): Promise<DifficultyScoreRow | undefined> {
   return db.get<DifficultyScoreRow>('SELECT id, difficulty_score FROM questions WHERE id = ?', [id]);
 }
 
@@ -58,18 +65,18 @@ export function difficultyScoreOf(db: Db, id: number): DifficultyScoreRow | unde
  * 数据来自随堂练习（`attempts`）与考试（`exam_attempts`）的 answers JSON：
  * `[{ qid, answer, correct }]`，`correct` 为 null 表示该题型不自动判分（不计入）。
  */
-export function answerStats(db: Db): Map<number, AnswerStat> {
+export async function answerStats(db: AsyncDb): Promise<Map<number, AnswerStat>> {
   const out = new Map<number, AnswerStat>();
   for (const table of ['attempts', 'exam_attempts'] as const) {
     let afterId = 0;
     for (;;) {
-      const rows = db.all<{ id: number; answers: string }>(
+      const rows = await db.all<{ id: number; answers: string }>(
         `SELECT id, answers FROM ${table} WHERE id > ? ORDER BY id LIMIT 1000`,
         [afterId],
       );
       if (rows.length === 0) break;
       for (const row of rows) {
-        afterId = row.id;
+        afterId = Number(row.id);
         let parsed: unknown;
         try {
           parsed = JSON.parse(row.answers);
@@ -96,13 +103,14 @@ export function answerStats(db: Db): Map<number, AnswerStat> {
 /** 批量写难度结果（score + 三档 + 来源 + 校准信息） */
 export async function setDifficulty(db: AsyncDb, items: DifficultyUpdateItem[]): Promise<number> {
   if (items.length === 0) return 0;
+  const now = nowSeconds(db.driver);
   let updated = 0;
   await withBusyRetry(() =>
     db.transaction(async (tx) => {
       for (const it of items) {
         await tx.run(
           `UPDATE questions SET difficulty_score = ?, difficulty = ?, difficulty_source = ?,
-             difficulty_n = ?, difficulty_p = ?, difficulty_at = unixepoch() WHERE id = ?`,
+             difficulty_n = ?, difficulty_p = ?, difficulty_at = ${now} WHERE id = ?`,
           [it.score, it.difficulty, it.source, it.n ?? 0, it.p ?? null, it.id],
         );
         updated += 1;
@@ -116,7 +124,7 @@ export async function setDifficulty(db: AsyncDb, items: DifficultyUpdateItem[]):
 export async function setManualDifficulty(db: AsyncDb, id: number, difficulty: string, score: number): Promise<void> {
   await db.run(
     `UPDATE questions SET difficulty = ?, difficulty_score = ?, difficulty_source = 'manual',
-       difficulty_at = unixepoch() WHERE id = ?`,
+       difficulty_at = ${nowSeconds(db.driver)} WHERE id = ?`,
     [difficulty, score, id],
   );
 }

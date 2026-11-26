@@ -74,7 +74,7 @@ describe('questions 写方法', () => {
     expect(id).toBeGreaterThan(0);
     expect(await countQuestions()).toBe(1);
     expect(await bankCount()).toBe(before + 1);
-    const row = questions.findById(id);
+    const row = await questions.findById(id);
     expect(row?.stem).toBe('单选题：1+1 等于几');
   });
 
@@ -123,8 +123,8 @@ describe('questions 写方法', () => {
       await expect(questions.deleteMany([a, b])).rejects.toThrow();
       expect(await countQuestions()).toBe(beforeQ);
       expect(await bankCount()).toBe(beforeCount);
-      expect(questions.findById(a)).toBeTruthy();
-      expect(questions.findById(b)).toBeTruthy();
+      expect(await questions.findById(a)).toBeTruthy();
+      expect(await questions.findById(b)).toBeTruthy();
     } finally {
       await asyncDb.run('DROP TRIGGER IF EXISTS trg_block_delete');
     }
@@ -137,7 +137,7 @@ describe('questions 写方法', () => {
 
     const updated = await questions.setSections(bankId, [id, foreign], { chapter: '第一章' });
     expect(updated).toBe(1);
-    expect(questions.findById(id)?.chapter).toBe('第一章');
-    expect(questions.findById(foreign)?.chapter).toBe('');
+    expect((await questions.findById(id))?.chapter).toBe('第一章');
+    expect((await questions.findById(foreign))?.chapter).toBe('');
   });
 });

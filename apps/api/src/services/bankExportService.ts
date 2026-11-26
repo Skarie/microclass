@@ -26,7 +26,7 @@ export class BankExportService {
     const bank = await this.banks.findById(bankId);
     if (!bank) throw AppError.notFound('题库不存在');
     const rows: unknown[][] = [['题型', '题干', '选项A', '选项B', '选项C', '选项D', '选项E', '选项F', '答案', '解析']];
-    for (const q of this.questions.listByBank(bankId)) {
+    for (const q of await this.questions.listByBank(bankId)) {
       const options = parseOptions(q.options);
       const cells: unknown[] = [TYPE_LABEL[q.type], q.stem];
       for (let i = 0; i < 6; i += 1) cells.push(options[i] ?? '');
@@ -46,7 +46,7 @@ export class BankExportService {
   ): Promise<{ filename: string; body: string }> {
     const bank = await this.banks.findById(bankId);
     if (!bank) throw AppError.notFound('题库不存在');
-    const questions = this.questions.listByBank(bankId);
+    const questions = await this.questions.listByBank(bankId);
     return {
       filename: `${bank.name}_题库.md`,
       body: questionsToMarkdown({
@@ -65,7 +65,7 @@ export class BankExportService {
     const bank = await this.banks.findById(bankId);
     if (!bank) throw AppError.notFound('题库不存在');
     const withAnswers = options?.withAnswers !== false;
-    const questions = this.questions.listByBank(bankId);
+    const questions = await this.questions.listByBank(bankId);
 
     const blocks: DocxBlock[] = [
       { type: 'title', text: bank.name },

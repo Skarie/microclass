@@ -152,7 +152,7 @@ export class QuestionConflictService {
     const ids = group.questions.map((q) => q.id);
     let updated = 0;
     for (const id of ids) {
-      const q = this.questions.findById(id);
+      const q = await this.questions.findById(id);
       if (!q) continue;
       await this.questions.update(id, {
         bankId: q.bank_id,

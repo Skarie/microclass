@@ -4,8 +4,17 @@
  * 只在 `MC_DB=pg` 时创建；默认 sqlite 不会加载/连接 PG。
  * 连接参数按「同机容器」场景给：池上限要乘以 API 副本数，别把 PG 的 max_connections 占满。
  */
-import { Pool } from 'pg';
+import { Pool, types } from 'pg';
 import type { PgPoolLike } from '../async.js';
+
+/**
+ * 方言 #17：int8（`COUNT/SUM/MAX`、`RETURNING id`、`bigint` 列）经 node-postgres 默认回传 **string**，
+ * 与 SQLite 的 number 语义不一致（`=== 1`、`+`、排序都会出错）。
+ *
+ * 在驱动层全局把 OID 20（int8）解析成 number：这是**兜底**，仓储边界该 `Number()` 的地方仍要收敛
+ * （本项目 id/计数/Unix 秒都远小于 2^53，不会丢精度）。
+ */
+types.setTypeParser(20, (value: string) => Number(value));
 
 export interface PgPoolConfig {
   /** postgres://user:pass@host:port/db（**含密码，禁止打日志**） */

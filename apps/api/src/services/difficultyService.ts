@@ -44,7 +44,7 @@ export interface DifficultyPreview {
     levels: { level: number; label: string; questions: number; ratio: number }[];
   };
   /** 当前库里的真实分布（对照用） */
-  current: ReturnType<QuestionRepository['difficultyStats']>;
+  current: Awaited<ReturnType<QuestionRepository['difficultyStats']>>;
   /** 难度两端的样例题，便于老师抽查合理性 */
   samples: { easiest: SampleQuestion[]; hardest: SampleQuestion[] };
 }
@@ -81,7 +81,7 @@ export class DifficultyService {
   }
 
   /** 难度现状（体检用）：分布 + 来源统计 */
-  stats(bankId?: number): ReturnType<QuestionRepository['difficultyStats']> {
+  async stats(bankId?: number): Promise<Awaited<ReturnType<QuestionRepository['difficultyStats']>>> {
     return this.questions.difficultyStats(bankId, this.cuts());
   }
 
@@ -89,15 +89,15 @@ export class DifficultyService {
    * 给一批题打分（不写库）。
    * `manual` / `calibrated` 的题默认跳过 —— 人工判断与真实数据都比模型先验可靠。
    */
-  private scoreBatch(
+  private async scoreBatch(
     bankId: number | undefined,
     options: { keepManual?: boolean; keepCalibrated?: boolean; onlyUnscored?: boolean },
-  ): {
+  ): Promise<{
     items: { id: number; score: number; source: 'auto'; reasons: string; level: number; difficulty: string }[];
     skippedManual: number;
     skippedCalibrated: number;
     total: number;
-  } {
+  }> {
     const keepManual = options.keepManual !== false;
     const keepCalibrated = options.keepCalibrated !== false;
     const out: { id: number; score: number; source: 'auto'; reasons: string; level: number; difficulty: string }[] = [];
@@ -106,7 +106,7 @@ export class DifficultyService {
     let afterId = 0;
     let total = 0;
     for (;;) {
-      const rows = this.questions.difficultyFeatures({
+      const rows = await this.questions.difficultyFeatures({
         ...(bankId === undefined ? {} : { bankId }),
         afterId,
         limit: 2000,
@@ -161,10 +161,13 @@ export class DifficultyService {
   }
 
   /** 预览：算出这批题的新分数与分布，不写库 */
-  preview(bankId?: number, options?: { keepManual?: boolean; keepCalibrated?: boolean }): DifficultyPreview {
+  async preview(
+    bankId?: number,
+    options?: { keepManual?: boolean; keepCalibrated?: boolean },
+  ): Promise<DifficultyPreview> {
     let name = '全库';
-    if (bankId !== undefined) name = this.bankName(bankId);
-    const batch = this.scoreBatch(bankId, options ?? {});
+    if (bankId !== undefined) name = await this.bankName(bankId);
+    const batch = await this.scoreBatch(bankId, options ?? {});
     const cuts = cutPoints(batch.items.map((i) => i.score));
     const scored = batch.items.map((i) => ({
       ...i,
@@ -190,7 +193,7 @@ export class DifficultyService {
     });
     // 样例题干单独取（避免打分过程里把大字段读进来）
     const sampleIds = [...sorted.slice(0, 5), ...sorted.slice(-5)].map((s) => s.id);
-    const stems = new Map(this.stemOf(sampleIds).map((r) => [r.id, r]));
+    const stems = new Map((await this.stemOf(sampleIds)).map((r) => [r.id, r]));
     const decorate = (s: (typeof scored)[number]): SampleQuestion => {
       const row = stems.get(s.id);
       return {
@@ -219,7 +222,7 @@ export class DifficultyService {
           ratio: Math.round(((levelCount.get(lv) ?? 0) / denom) * 1000) / 10,
         })),
       },
-      current: this.questions.difficultyStats(bankId, this.cuts()),
+      current: await this.questions.difficultyStats(bankId, this.cuts()),
       samples: { easiest: sorted.slice(0, 5).map(decorate), hardest: sorted.slice(-5).reverse().map(decorate) },
     };
   }
@@ -233,9 +236,9 @@ export class DifficultyService {
     options?: { bankId?: number; keepManual?: boolean; keepCalibrated?: boolean; dryRun?: boolean },
   ): Promise<DifficultyApplyResult> {
     const bankId = options?.bankId;
-    const batch = this.scoreBatch(bankId, options ?? {});
+    const batch = await this.scoreBatch(bankId, options ?? {});
     // 阈值：整库用全库分位数；单题库也用全库阈值（保证跨题库可比），全库没算过就退回默认
-    const globalScores = bankId === undefined ? batch.items.map((i) => i.score) : this.allScores();
+    const globalScores = bankId === undefined ? batch.items.map((i) => i.score) : await this.allScores();
     const cuts = globalScores.length >= 20 ? cutPoints(globalScores) : this.cuts();
     const items = batch.items.map((i) => ({
       id: i.id,
@@ -275,7 +278,7 @@ export class DifficultyService {
       skippedManual: batch.skippedManual,
       skippedCalibrated: batch.skippedCalibrated,
       cuts,
-      buckets: this.questions.difficultyStats(bankId, cuts).buckets,
+      buckets: (await this.questions.difficultyStats(bankId, cuts)).buckets,
     };
   }
 
@@ -300,13 +303,13 @@ export class DifficultyService {
     const minSamples = Math.max(1, options?.minSamples ?? 5);
     const k = Math.max(1, options?.k ?? 20);
     const dryRun = options?.dryRun !== false;
-    const stats = this.answerStats();
+    const stats = await this.answerStats();
     const candidates = [...stats.values()].filter((s) => s.total >= minSamples);
     const samples: { id: number; prior: number; next: number; n: number; p: number }[] = [];
     const items: { id: number; score: number; difficulty: string; source: 'calibrated'; n: number; p: number }[] = [];
     const cuts = this.cuts();
     for (const stat of candidates) {
-      const row = this.question(stat.id);
+      const row = await this.question(stat.id);
       if (!row) continue;
       const prior = row.difficulty_score >= 0 ? row.difficulty_score : 50;
       const blended = calibrateScore(prior, stat, { k });
@@ -335,28 +338,28 @@ export class DifficultyService {
     return { candidates: candidates.length, calibrated: items.length, minSamples, k, dryRun, samples };
   }
 
-  /* ---------------- 内部小工具 ---------------- */
+  /* ---------------- 内部小工具（全部走 AsyncDb，调用方已 await） ---------------- */
 
-  private bankName(bankId: number): string {
-    const row = this.questions.difficultyFeatures({ bankId, limit: 1 })[0];
+  private async bankName(bankId: number): Promise<string> {
+    const row = (await this.questions.difficultyFeatures({ bankId, limit: 1 }))[0];
     if (!row) throw AppError.notFound('题库不存在或没有题目');
     return row.bank_name;
   }
 
-  private stemOf(ids: number[]): { id: number; stem: string; bank_name: string }[] {
+  private async stemOf(ids: number[]): Promise<{ id: number; stem: string; bank_name: string }[]> {
     return ids.length === 0 ? [] : this.questions.stemsByIds(ids);
   }
 
-  private allScores(): number[] {
+  private async allScores(): Promise<number[]> {
     return this.questions.allDifficultyScores();
   }
 
-  private question(id: number): { id: number; difficulty_score: number } | undefined {
+  private async question(id: number): Promise<{ id: number; difficulty_score: number } | undefined> {
     return this.questions.difficultyScoreOf(id);
   }
 
   /** 每题作答统计：从 attempts.answers 与错题本里汇总 */
-  private answerStats(): Map<number, { id: number; total: number; correct: number }> {
+  private async answerStats(): Promise<Map<number, { id: number; total: number; correct: number }>> {
     return this.questions.answerStats();
   }
 }
