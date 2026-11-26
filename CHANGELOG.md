@@ -18,7 +18,11 @@
 - 预热对照：`/banks/catalog` 2.8 ms（2.4.1 SQLite 冷页 **54.6 s**）、`/courses` 1.7 ms；
 - 备份：SQLite 库 tar 311 MB（sha `0303f4c3…`）+ `pg_dump -Fc` 121 MB（sha `c09c691e…`）；
 - 回滚点：`2.4.2 + MC_DB=sqlite`（L1）/ `2.4.1`（L2）/ `2.3.3-stable`（L3），SQLite 卷全程未动；
-- 可复跑命令与证据路径：**`docs/pg-cutover-runbook.md`**。
+- 可复跑命令与证据路径：**`docs/pg-cutover-runbook.md`**；
+- 切流后修复（`b8fa57d`）：`/banks/catalog` 与 `/banks/catalog-sections` 在 PG 下 500 —— `?1` 编号占位符被
+  `?`→`$n` 重写器拆成 `$11`，以及 `HAVING`/`ORDER BY` 引用裸 camelCase 别名被折叠成 `bankcount`；
+  修 SQL + 新增 `test/bank-catalog-async.test.ts`（6 条源码守卫 + sqlite 计数对照）与 1 条真 PG 用例，
+  重建镜像 `e1e6d3f6f13c` 后复验 24/24、慢查询 0 条。
 
 **代码**
 

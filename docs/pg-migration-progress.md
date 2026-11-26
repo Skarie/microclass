@@ -512,13 +512,13 @@ docker compose -p microclass-prod -f compose.evo4.yml up -d
 | `/readyz`             | 改探**当前驱动**（`getAsyncDb(...).get('SELECT 1')`）并回报 `driver`：原先只 ping 同步 SQLite，`MC_DB=pg` 后 PG 挂了也永远 200，而 `redeploy.sh` 拿它当发布闸门                                                                                         |
 | 装配                  | `app.ts`：`new AuditRepository(db, asyncDb)`；`bankHealthSetup` 内部 `getAsyncDb(config, db)`（app.ts 行数基线不再增长）；`routes/practiceLinks` 注入进程级 asyncDb                                                                                     |
 | 测试                  | 新增 `test/repo-async-audit-links.test.ts` **14 条**：3 仓储「返回 Promise 且只经 AsyncDb」（同步 `Db` 桩一碰就抛）、#14/#22/#27 表达式、int8 收敛、审计攒批与失败吞掉、checkpoint 双驱动、协调器异步、装配源码断言、readyz driver、sqlite 真库读写一轮 |
-| 门禁                  | vitest **1128 passed / 30 skipped**、E2E **40/40**、typecheck 0、eslint 0 error、prettier、build、size guard（625 文件 / 技术债 20）                                                                                                                    |
+| 门禁                  | vitest **1134 passed / 31 skipped**、E2E **40/40**、typecheck 0、eslint 0 error、prettier、build、size guard（625 文件 / 技术债 20）                                                                                                                    |
 
 ### 7.11.2 切流前动作（实测）
 
 | 步骤                    | 时间              | 结果                                                                                                                                                              |
 | ----------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 构建 `microclass:2.4.2` | 02:07–02:21       | 首版 sha `0a186d46…`；后因 readyz 修复于 02:52–02:58 重建为 sha `c1279ce13772`                                                                                    |
+| 构建 `microclass:2.4.2` | 02:07–02:21       | 三次：`0a186d46…`（初版）→ `c1279ce13772`（readyz 修复）→ **`e1e6d3f6f13c`**（目录方言修复，最终上线）                                                            |
 | 停 api（PG 不动）       | 02:21:38→02:21:44 | `Exited (0)`，8091 释放，PG healthy                                                                                                                               |
 | 行数基线                | 02:21:51          | 30 表合计 **454,135 行**                                                                                                                                          |
 | 备份 SQLite 库 tar      | 02:32–02:35       | 311 MB，sha256 `0303f4c3…a201db`（卷内另有 6.7 GB media-cache / 2.7 GB uploads，只读且切流不写；全卷 14 GB tar 实测 ~1.2 MB/s，窗口内不可行，已放弃并删除半成品） |
@@ -532,16 +532,54 @@ docker compose -p microclass-prod -f compose.evo4.yml up -d
 
 ### 7.11.3 切流与验证
 
-| 项              | 结果                                                                                                                                                                                                                                                                                                                                                                      |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 切库 + redeploy | 02:59:37 开始，**02:59:46 完成（9 s）**，`readyz=200` 第 6 秒，运行镜像 `microclass:2.4.2`                                                                                                                                                                                                                                                                                |
-| 预热            | catalog 2.8 ms、catalog-sections 2.2 ms、courses 1.7 ms、settings 1.9 ms、announcements 1.7 ms（对照 2.4.1 SQLite 冷页 54.6 s）                                                                                                                                                                                                                                           |
-| 24 项验证       | **24/24 全绿**（`verify10-20261127-030008.log`）：version 2.4.2、healthz/readyz、登录 694 ms、课程 53 条/22.8 ms、题库首屏 5 条/共 13,258、题目详情 2.6 ms、刷题取题 85.7 ms + 提交 1.28 s（attempts 13→15，**写进 PG**）、组卷建卷/抽题/读回/删除、设置、公告建改删、**审计 29,538→29,541 落 PG**、8092 两接口、`schema_migrations` 31=31、PG 连接 2（active/idle 各 1） |
-| 回滚点          | L1 `2.4.2 + MC_DB=sqlite`（推荐）· L2 `2.4.1` · L3 `2.3.3-stable`；SQLite 卷全程未动                                                                                                                                                                                                                                                                                      |
+| 项              | 结果                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 切库 + redeploy | 02:59:37 开始，**02:59:46 完成（9 s）**，`readyz=200` 第 6 秒，运行镜像 `microclass:2.4.2`                                                                                                                                                                                                                                                                                                                                                          |
+| 预热            | catalog 2.8 ms、catalog-sections 2.2 ms、courses 1.7 ms、settings 1.9 ms、announcements 1.7 ms（对照 2.4.1 SQLite 冷页 54.6 s）                                                                                                                                                                                                                                                                                                                     |
+| 24 项验证       | **24/24 全绿**（`verify10-20261127-030008.log`；最终镜像 `e1e6d3f6f13c` 复跑 `verify10-20261127-032507.log`，慢查询 0 条）：version 2.4.2、healthz/readyz、登录 694 ms、课程 53 条/22.8 ms、题库首屏 5 条/共 13,258、题目详情 2.6 ms、刷题取题 85.7 ms + 提交 1.28 s（attempts 13→15，**写进 PG**）、组卷建卷/抽题/读回/删除、设置、公告建改删、**审计 29,538→29,541 落 PG**、8092 两接口、`schema_migrations` 31=31、PG 连接 2（active/idle 各 1） |
+| 回滚点          | L1 `2.4.2 + MC_DB=sqlite`（推荐）· L2 `2.4.1` · L3 `2.3.3-stable`；SQLite 卷全程未动                                                                                                                                                                                                                                                                                                                                                                |
 
 ### 7.11.4 观察与性能
 
-（观察 20 分钟后回填：healthz / courses / banks 的 P50/P95、容器重启、PG 连接数、COMMIT 抖动复测）
+| 项                        | 结果（40 样本 × 30 s，03:00:18–03:19:52）                              |
+| ------------------------- | ---------------------------------------------------------------------- |
+| 非 200                    | **0 / 40**                                                             |
+| `healthz`                 | P50 **14 ms** · P95 **23 ms** · max 32 ms（含 curl 进程+建连约 10 ms） |
+| `courses`                 | P50 **16 ms** · P95 **19 ms** · max 28 ms                              |
+| `banks?limit=5`           | P50 **11 ms** · P95 **14 ms** · max 20 ms                              |
+| 容器                      | `microclass:2.4.2` healthy，**restarts=0**                             |
+| PG 连接                   | 2（active=1 / idle=1）                                                 |
+| 慢查询（>200 ms，稳定期） | **0 条**（装载后首 2 次写有 205 ms / 1144 ms 抖动，之后消失）          |
+
+稳态写路径复测（观察结束后）：刷题提交 **174 ms**（切流后首次 1.28 s 是装载后 checkpoint 抖动）；
+组卷建卷首次 1.54 s、其后读回 3 ms；`/banks/catalog` **26 ms**、`/banks/catalog-sections` **31 ms**。
+
+### 7.11.5 ⚠️ 切流后事故：`/banks/catalog` 与 `/banks/catalog-sections` 500（已修，`b8fa57d`）
+
+**发现**（03:20，观察结束后的接口探针）：两个目录接口在 PG 下 500，而 SQLite 下正常；
+**24 项清单里没有它们**（清单只覆盖主链路 + 写路径），所以切流验证全绿却漏了。
+
+| bug                                                                                         | 报错                                                                                       | 修法                                                  |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| `?1` 编号占位符（7 处：`bankCatalogQueries` / `bankSectionQueries` / `bankBindingQueries`） | `could not determine data type of parameter $1`（`?`→`$n` 重写把 `?1` 拆成 `$11`）         | 改裸 `?`，参数传两份（`[kind, kind]`）                |
+| `HAVING bankCount > 0`（`catalogCourses`）                                                  | `column "bankcount" does not exist`（PG 折叠裸驼峰别名；且 PG 不允许 HAVING 引用输出别名） | `HAVING COUNT(DISTINCT b.id) > 0`（表达式，两库通用） |
+| `ORDER BY bankCount DESC`（`catalogUnboundBooks`）                                          | 同上                                                                                       | `ORDER BY COUNT(*) DESC`                              |
+
+**为什么测试没抓住**：① sqlite 认 `?1` 与裸别名，全绿；② 收尾批次的 #29 守卫只扫了 `AS camelCase`，
+没扫 `HAVING`/`ORDER BY` 的**引用侧**；③ 切流验证清单没有覆盖这两个重接口。
+
+**修复与验证**：
+
+- `b8fa57d` 修 SQL；新增 `test/bank-catalog-async.test.ts`（6 条：`?N` 源码守卫、`HAVING`/`ORDER BY`
+  裸驼峰守卫、7 个聚合函数在 sqlite 的 kind 过滤对照），`pg-final-repos.test.ts` 加 1 条真 PG 用例（10 tests，默认 skip）；
+- 重建镜像 `microclass:2.4.2` sha **`e1e6d3f6f13c`**（03:24:31），`redeploy.sh` **2 秒** readyz 通过；
+- 复验：`/banks/catalog` **200 / 26 ms**、`/banks/catalog-sections?view=book` **200 / 31 ms**；
+  全量只读端点扫描 **无 500**（其余非 200 都是我的探针写错路径的 404/400）；
+- 24 项清单复跑 **24/24 全绿**（`verify10-20261127-032507.log`），慢查询 0 条。**
+
+> 教训：**parity 只验数据，不验接口**。切流验证清单必须把「重聚合读接口」逐个打一遍
+> （`/banks/catalog`、`/banks/catalog-sections?view=book|course`、`/analytics/*`、`/stats`、`/tags`、
+> `/question-conflicts`），否则 PG 专属 SQL 错误会潜伏到老师第一次点开页面。
 
 ## 8. 关键文件索引
 

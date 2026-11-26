@@ -21,6 +21,13 @@ import { QuestionGroupRepository } from '../src/db/repositories/questionGroupRep
 import { KnowledgeRepository } from '../src/db/repositories/knowledgeRepository.js';
 import { TagRepository } from '../src/db/repositories/tagRepository.js';
 import { BankFolderRepository } from '../src/db/repositories/bankFolderQueries.js';
+import { catalogCourses, catalogUnbound, catalogUnboundBooks } from '../src/db/repositories/bankCatalogQueries.js';
+import {
+  banksMissingSection,
+  catalogSectionsByBook,
+  catalogSectionsByCourse,
+} from '../src/db/repositories/bankSectionQueries.js';
+import { courseBindingStats } from '../src/db/repositories/bankBindingQueries.js';
 import { closePg, pgEnabled, resetPgSchema } from './helpers/pgTestDb.js';
 
 describe.skipIf(!pgEnabled)('PG 收尾批次仓储', () => {
@@ -303,5 +310,73 @@ describe.skipIf(!pgEnabled)('PG 收尾批次仓储', () => {
       await folders.remove(folder.id);
       expect(await folders.findById(folder.id)).toBeUndefined();
     });
+  });
+});
+
+/**
+ * 题库目录聚合（`/banks/catalog`、`/banks/catalog-sections`）在真 PG 上的方言契约。
+ *
+ * 事故（2026-11-27 切流后）：这两个接口在 `MC_DB=pg` 下 500 ——
+ *   1. `?1` 编号占位符被 `?` → `$n` 重写器拆成 `$11`（`could not determine data type of parameter $1`）；
+ *   2. `HAVING bankCount > 0` / `ORDER BY bankCount DESC` 裸驼峰别名被折叠成 `bankcount`。
+ * sqlite 侧两个 bug 都不报错，所以只有真库能钉住。
+ */
+describe.skipIf(!pgEnabled)('PG 目录聚合（/banks/catalog 方言）', () => {
+  let db: AsyncDb;
+  let courseId = 0;
+
+  beforeAll(async () => {
+    db = await resetPgSchema();
+    const course = await db.get<{ id: number | string }>('INSERT INTO courses (name) VALUES (?) RETURNING id', [
+      '目录课程',
+    ]);
+    courseId = Number(course?.id ?? 0);
+    const lesson = await db.get<{ id: number | string }>(
+      'INSERT INTO lessons (title, video_kind, video_path, course_id, group_name, sort) VALUES (?,?,?,?,?,?) RETURNING id',
+      ['目录课时', 'local', 'a.mp4', courseId, '第一章', 1],
+    );
+    const lessonId = Number(lesson?.id ?? 0);
+    // 课时库（有课程+课时）/ 章节库（有课程无课时）/ 未归属库
+    await db.run(
+      'INSERT INTO banks (name, course_id, lesson_id, kind, book, section, question_count) VALUES (?,?,?,?,?,?,?)',
+      ['课时库', courseId, lessonId, 'lesson', '八年级上', '第一章', 10],
+    );
+    await db.run(
+      'INSERT INTO banks (name, course_id, lesson_id, kind, book, section, question_count) VALUES (?,?,?,?,?,?,?)',
+      ['章节库', courseId, null, 'chapter', '八年级上', '第二章', 5],
+    );
+    await db.run(
+      'INSERT INTO banks (name, course_id, lesson_id, kind, book, section, question_count) VALUES (?,?,?,?,?,?,?)',
+      ['未归属库', null, null, 'chapter', '八年级下', '', 7],
+    );
+  });
+
+  afterAll(async () => {
+    await closePg(db);
+  });
+
+  it('7 个聚合函数在 PG 上都能执行且计数正确（?N 与别名引用都已修）', async () => {
+    const courses = await catalogCourses(db, '');
+    expect(courses).toHaveLength(1);
+    expect(courses[0]).toMatchObject({ id: courseId, bankCount: 2, questionCount: 15, chapterCount: 1 });
+
+    const chapters = await catalogCourses(db, 'chapter');
+    expect(chapters[0]).toMatchObject({ bankCount: 1, questionCount: 5 });
+
+    expect(await catalogUnbound(db, '')).toEqual({ bankCount: 1, questionCount: 7 });
+    expect(await catalogUnboundBooks(db, '')).toEqual([{ book: '八年级下', bankCount: 1, questionCount: 7 }]);
+
+    const byBook = await catalogSectionsByBook(db, '');
+    expect(byBook.books.map((b) => b.book)).toEqual(['八年级上', '八年级下']);
+    expect(byBook.books[0]).toMatchObject({ bankCount: 2, questionCount: 15, isUnbound: false });
+    expect((await catalogSectionsByBook(db, 'lesson')).books.map((b) => [b.book, b.bankCount])).toEqual([
+      ['八年级上', 1],
+    ]);
+
+    const byCourse = await catalogSectionsByCourse(db, '');
+    expect(byCourse.courses[0]).toMatchObject({ id: courseId, bankCount: 2, questionCount: 15 });
+
+    expect((await banksMissingSection(db, '')).map((r) => r.id)).toHaveLength(1);
+    expect((await courseBindingStats(db, ''))[0]).toEqual({ bound: 2, unbound: 1, banks: 3 });
   });
 });
