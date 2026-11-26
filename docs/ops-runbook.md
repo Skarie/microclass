@@ -282,15 +282,23 @@ tail -20 /var/log/microclass-backup.log               # cron 次日应有输出
 | SQLite 卷归档 | `/vol1/1000/microclass-backup/sqlite-volume-<TS>.tar.gz`（排除 `media-cache`、`backups`） | 2,901,729,866 B（2.7 GiB）/ ~25 分钟 |
 | 运行日志      | `.../backup.log`、`.../pg/backup.log`、`/var/log/microclass-backup.log`（cron 输出）      | —                                    |
 
-- 保留：PG 7 份（`MC_PG_BACKUP_KEEP`，默认 7）；SQLite 卷 7 份（`backup.sh` 内置）。
-- **7 份不会打满，但会逼近告警线**：7×(121 MiB + 2.7 GiB) ≈ **19.7 GiB**；当时 `/vol1` 已用 373G/466G（81%）、
-  剩余 91G，稳态约 **84%**。若只保 3 份 SQLite 卷（PG 仍 7 份），稳态回落到 ~81%。
-- **告警阈值建议**：`/vol1` 使用率 **≥85% 告警、≥90% 严重**（备份与数据同盘，95% 以上备份自己会写失败）；
-  最新 dump **超过 26 小时未更新** → cron 失败告警；dump 大小 **< 50 MB** 或比前一日缩小 >30% → 立即人工检查
-  （脚本自身只拦 <1 MB）；`backup.sh` 退出码非 0 → 查 `.../backup.log`。
+- 保留：PG **7 份**（`MC_PG_BACKUP_KEEP`，默认 7，不变）；SQLite 卷 **3 份**（`MC_SQLITE_BACKUP_KEEP`，默认 3）。
+  切流已验证 2 天稳定，卷已非主库，没必要每晚留 7×2.7 GiB。
+- **磁盘测算**：7×121 MiB + 3×2.7 GiB ≈ **8.9 GiB**；清理后 `/vol1` 已用 372 GiB，实测再跑一轮备份后
+  375 GiB/466 GiB（**81%**），稳态约 **81%**（保留 7 份 SQLite 会到 ~84%，逼近告警线，故下调）。
+  2026-11-27 实测保留逻辑：预置 4 份后跑一轮，脚本按上限 3 清理（日志 `backup.log` 有「清理旧 SQLite 备份」行）。
+- **告警（已内置在 `backup.sh`，只写 warning、不改退出码）**：
+  - `/vol1` 使用率 **≥85%** → warning（`MC_DISK_WARN_PCT`，备份与数据同盘，95% 以上备份自己会写失败）；
+  - 最新 dump **< 50 MB** → warning（`MC_DUMP_MIN_BYTES`，脚本自身另有 <1 MB 硬失败）；
+  - 最新 dump 比上一份**缩小 >30%** → warning（`MC_DUMP_SHRINK_PCT`）；
+  - warning 同时落 `.../backup.log` 与 cron 的 `/var/log/microclass-backup.log`。
+  - 自检：`sudo bash /vol1/1000/microclass-deploy/backup.sh --check-alerts`（只跑检查、不备份，可配合
+    `MC_DISK_WARN_PCT=1` 等环境变量验证告警通路）。
 - 慢盘现实：这台 NAS 顺序读 ~1.9 MB/s，SQLite 卷 tar（源 ~5 GB）要跑 ~25 分钟；凌晨 3:30 跑完不影响白天。
-- 清理提示：`microclass-backup/` 里还有历史手工产物（`fpk-data-*.tar.gz` ~0.64 GB、`pg-*.dump` 121 MB、
-  `sqlite-db-vol-*.tar.gz` 311 MB），不在自动轮转范围内，确认无用后可手工删。
+- 清理记录（2026-11-27）：已删除被取代的手工产物 `fpk-data-20261125-223147/225838.tar.gz`（17 K + 253 MiB）、
+  `sqlite-db-vol-20261127-023215.tar.gz`（310 MiB）、`pg/pre-move-20261126-014449.dump`（120 MiB），
+  合计 **~683 MiB**；`ls -lh` 与 sha256 清单在 `/vol1/1000/microclass-backup/cleanup-20261127-052716.log`。
+  仍保留 `fpk-data-20261125-230906.tar.gz`（最新一份）与切流时刻快照 `pg-20261127-023215.dump`。
 
 ### 7.3 恢复演练（每季度一次，默认不碰生产库）
 
