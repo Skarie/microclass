@@ -133,8 +133,27 @@ await this.adb().transaction(async (tx) => {
 
 ## 7.2 下次会话的起点
 
-1. ~~构建 2.4.1 → NVMe 副本压测~~（已改为低峰直接发布并验证，见 §7.1.1）
-2. 再继续剩余域：lessons/courses → users/auth/progress/notes/favorites/watch → exams/analytics/attempts
+1. 继续剩余域：lessons/courses → users/auth/progress/notes/favorites/watch → exams/analytics/attempts
+   （每域独立提交、sqlite 全绿、更新本文件进度表）
+2. 全部域迁完后再排 PG 切流窗口（01:00–06:00），Runbook 见 `docs/postgres-migration.md` §12.2
+
+## 7.3 2.4.1 发布记录（2026-11-27 23:00）
+
+| 项                                    | 值                                                                                           |
+| ------------------------------------- | -------------------------------------------------------------------------------------------- |
+| 版本/镜像                             | `2.4.1` / `microclass:2.4.1`                                                                 |
+| 回滚点                                | `microclass:2.3.3-stable`（sha `2d6eea511ee3`，已确认存在）                                  |
+| 部署方式                              | 低峰直接 `redeploy.sh`（不建第二份副本，遵守「禁止 NVMe」）                                  |
+| 首次 `/banks/catalog`（冷页、机械盘） | **54.6 s**（mmap 256 MB；这是冷页真实代价，不是卡死）                                        |
+| 其后 `/settings`                      | **71 ms**（< 100 ms 要求）                                                                   |
+| `/healthz`                            | 6 ms；`/courses` 17 ms；`8092` 4 ms                                                          |
+| 第二轮（warm）                        | catalog 10 ms / settings 1 ms / healthz 1 ms                                                 |
+| 10 分钟观察（20 样本，30 s 间隔）     | settings 最大 **2 ms**、healthz 最大 **2 ms**、util 峰值 20%、`restarts=0`、`health=healthy` |
+| 结论                                  | **通过**，生产停留 2.4.1，`.image-tag=2.4.1`、`MC_VERSION=2.4.1`                             |
+
+> ⚠️ 冷页 54.6 s 仍是隐患：部署/重启后第一批访问 `/banks/catalog` 的用户会等近 1 分钟。
+> 后续可考虑「启动后后台预热 catalog 相关表」（低优先级，不在切流前动）。
+
 3. 全部域迁完 + 本地复测通过，才安排 PG 切流窗口（01:00–06:00）
 
 ## 8. 关键文件索引
