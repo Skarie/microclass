@@ -108,19 +108,27 @@ for (const table of tables) {
 
   // 外键：**不在建表时内联**（PG 要求被引用表先存在，而 SQLite 允许任意顺序），
   // 全部延后到所有表建好之后用 ALTER TABLE 添加。
+  //
+  // `ON DELETE CASCADE` 必须一起搬过去（方言 #31）：SQLite 侧删题库/题组/标签依赖级联，
+  // PG 的 ALTER TABLE 若不写动作就是 `NO ACTION` —— 真机上会直接报
+  // `update or delete on table "question_groups" violates foreign key constraint`。
   const fkGroups = new Map();
   for (const fk of fks) {
     const key = `${fk.id}`;
-    if (!fkGroups.has(key)) fkGroups.set(key, { table: fk.table, from: [], to: [] });
+    if (!fkGroups.has(key)) fkGroups.set(key, { table: fk.table, from: [], to: [], onDelete: '', onUpdate: '' });
     const g = fkGroups.get(key);
     g.from.push(`"${fk.from}"`);
     g.to.push(`"${fk.to}"`);
+    if (fk.on_delete && fk.on_delete !== 'NO ACTION') g.onDelete = fk.on_delete;
+    if (fk.on_update && fk.on_update !== 'NO ACTION') g.onUpdate = fk.on_update;
   }
   for (const [id, g] of fkGroups) {
+    const onDelete = g.onDelete ? ` ON DELETE ${g.onDelete}` : '';
+    const onUpdate = g.onUpdate ? ` ON UPDATE ${g.onUpdate}` : '';
     deferredFks.push(
       `ALTER TABLE "${table.name}" ADD CONSTRAINT "${table.name}_fk_${id}" FOREIGN KEY (${g.from.join(
         ', ',
-      )}) REFERENCES "${g.table}" (${g.to.join(', ')});`,
+      )}) REFERENCES "${g.table}" (${g.to.join(', ')})${onDelete}${onUpdate};`,
     );
   }
 

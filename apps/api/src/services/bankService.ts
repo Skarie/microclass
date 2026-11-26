@@ -52,7 +52,7 @@ export class BankService {
   ) {
     this.bankCatalog = new BankCatalogService(banks, questions, audit);
     this.bankSections = new BankSectionService(banks, audit);
-    this.bankFolders = new BankFolderService(new BankFolderRepository(banks.db), audit);
+    this.bankFolders = new BankFolderService(new BankFolderRepository(banks.asyncPort()), audit);
     this.bankQuestions = new BankQuestionService(banks, questions, lessons, storage, audit);
     this.bankImages = new BankQuestionImageService(banks, questions, audit, storage);
     this.bankHealth = new BankHealthService(banks, questions, difficulty, audit);
@@ -94,7 +94,7 @@ export class BankService {
     const section = resolveSection(input.section, lesson?.group_name);
     // 文件夹归属：不传/传 null 都是未分类，但给了不存在的 id 要拒绝（避免脏引用）
     const folderId = input.folderId === undefined || input.folderId === null ? null : Number(input.folderId);
-    if (folderId !== null && !this.bankFolders.exists(folderId)) {
+    if (folderId !== null && !(await this.bankFolders.exists(folderId))) {
       throw AppError.badRequest('归属文件夹不存在');
     }
     const id = await this.banks.create({
@@ -131,7 +131,7 @@ export class BankService {
     const section = resolveSection(input.section, lesson?.group_name, bank.section);
     // 文件夹：不传 = 不变；显式 null = 移出到未分类
     const folderId = input.folderId === undefined ? undefined : input.folderId === null ? null : Number(input.folderId);
-    if (folderId != null && !this.bankFolders.exists(folderId)) {
+    if (folderId != null && !(await this.bankFolders.exists(folderId))) {
       throw AppError.badRequest('归属文件夹不存在');
     }
     await this.banks.update(id, {

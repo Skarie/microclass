@@ -53,26 +53,26 @@ export class BankFolderService {
   ) {}
 
   /** 文件夹树 + 未分类统计 */
-  tree(): BankFolderTree {
-    return buildFolderTree(this.folders.all(), this.folders.directCounts(), this.folders.unfiled());
+  async tree(): Promise<BankFolderTree> {
+    return buildFolderTree(await this.folders.all(), await this.folders.directCounts(), await this.folders.unfiled());
   }
 
   /** 文件夹是否存在（题库创建/编辑校验 folderId 用） */
-  exists(id: number): boolean {
-    return Number.isInteger(id) && id > 0 && this.folders.findById(id) !== undefined;
+  async exists(id: number): Promise<boolean> {
+    return Number.isInteger(id) && id > 0 && (await this.folders.findById(id)) !== undefined;
   }
 
-  create(actor: User, input: FolderCreateInput): BankFolderSummary {
+  async create(actor: User, input: FolderCreateInput): Promise<BankFolderSummary> {
     const name = normalizeName(input.name);
     const parentId = input.parentId === undefined ? null : input.parentId;
     if (parentId !== null) {
-      if (!this.exists(parentId)) throw AppError.badRequest('父文件夹不存在');
+      if (!(await this.exists(parentId))) throw AppError.badRequest('父文件夹不存在');
     }
-    if (this.folders.findByParentAndName(parentId, name)) {
+    if (await this.folders.findByParentAndName(parentId, name)) {
       throw AppError.conflict('同级已存在同名文件夹');
     }
-    const sort = this.folders.nextSort(parentId);
-    const row = this.folders.insert(parentId, name, sort);
+    const sort = await this.folders.nextSort(parentId);
+    const row = await this.folders.insert(parentId, name, sort);
     this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
@@ -84,8 +84,8 @@ export class BankFolderService {
     return this.nodeOf(row.id);
   }
 
-  update(actor: User, id: number, input: FolderUpdateInput): BankFolderSummary {
-    const row = this.folders.findById(id);
+  async update(actor: User, id: number, input: FolderUpdateInput): Promise<BankFolderSummary> {
+    const row = await this.folders.findById(id);
     if (!row) throw AppError.notFound('文件夹不存在');
 
     const name = input.name === undefined ? row.name : normalizeName(input.name);
@@ -93,18 +93,18 @@ export class BankFolderService {
     if (input.parentId !== undefined) {
       parentId = input.parentId;
       if (parentId !== null) {
-        if (!this.exists(parentId)) throw AppError.badRequest('父文件夹不存在');
-        if (this.isDescendant(parentId, id)) {
+        if (!(await this.exists(parentId))) throw AppError.badRequest('父文件夹不存在');
+        if (await this.isDescendant(parentId, id)) {
           throw AppError.badRequest('不能把文件夹移动到它自己或它的子文件夹下');
         }
       }
     }
     const sort = input.sort === undefined ? row.sort : Math.trunc(input.sort);
 
-    const duplicate = this.folders.findByParentAndName(parentId, name);
+    const duplicate = await this.folders.findByParentAndName(parentId, name);
     if (duplicate && duplicate.id !== id) throw AppError.conflict('同级已存在同名文件夹');
 
-    this.folders.update(id, { name, parentId, sort });
+    await this.folders.update(id, { name, parentId, sort });
     this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
@@ -116,13 +116,13 @@ export class BankFolderService {
     return this.nodeOf(id);
   }
 
-  remove(actor: User, id: number): void {
-    const row = this.folders.findById(id);
+  async remove(actor: User, id: number): Promise<void> {
+    const row = await this.folders.findById(id);
     if (!row) throw AppError.notFound('文件夹不存在');
-    if (this.folders.childCount(id) > 0 || this.folders.bankCount(id) > 0) {
+    if ((await this.folders.childCount(id)) > 0 || (await this.folders.bankCount(id)) > 0) {
       throw AppError.conflict('请先移走其中的题库或子文件夹');
     }
-    this.folders.remove(id);
+    await this.folders.remove(id);
     this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
@@ -134,12 +134,12 @@ export class BankFolderService {
   }
 
   /** 课程关联视图的汇总（只返回有题库的课程） */
-  courseSummary(): CourseSummary {
+  async courseSummary(): Promise<CourseSummary> {
     return this.folders.courseSummary();
   }
 
   /** 单个文件夹节点（增删改的返回体，与树节点同构） */
-  private nodeOf(id: number): BankFolderNode {
+  private async nodeOf(id: number): Promise<BankFolderNode> {
     const find = (list: BankFolderNode[]): BankFolderNode | undefined => {
       for (const node of list) {
         if (node.id === id) return node;
@@ -148,20 +148,20 @@ export class BankFolderService {
       }
       return undefined;
     };
-    const node = find(this.tree().folders);
+    const node = find((await this.tree()).folders);
     if (!node) throw AppError.notFound('文件夹不存在');
     return node;
   }
 
   /** candidate 是否是 ancestorId 本身或它的子孙（沿 parent 链向上找） */
-  private isDescendant(candidate: number, ancestorId: number): boolean {
+  private async isDescendant(candidate: number, ancestorId: number): Promise<boolean> {
     let current: number | null = candidate;
     const seen = new Set<number>();
     while (current !== null) {
       if (current === ancestorId) return true;
       if (seen.has(current)) return false; // 脏数据成环时停止，避免死循环
       seen.add(current);
-      current = this.folders.findById(current)?.parent_id ?? null;
+      current = (await this.folders.findById(current))?.parent_id ?? null;
     }
     return false;
   }

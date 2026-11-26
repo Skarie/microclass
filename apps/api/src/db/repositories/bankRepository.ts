@@ -72,15 +72,28 @@ export interface BankInput {
 }
 
 export class BankRepository {
-  /** 写方法与未迁移的读方法用同步 Db；已迁移的只读方法走 asyncDb（P0 阶段 2，B3a） */
+  /**
+   * 写方法与未迁移的读方法用同步 Db；已迁移的只读方法走 asyncDb（P0 阶段 2，B3a）。
+   * PG 模式下 `db` 可以是 `null`（体检子进程不打开只读 SQLite，见 `workers/bankHealthChild`）。
+   */
   constructor(
-    readonly db: Db,
+    readonly db: Db | null,
     private readonly asyncDb?: AsyncDb,
   ) {}
 
   /** 已迁移的只读方法要求注入 asyncDb；测试里没注入时退回 sqlite 包装，保持构造简单 */
   private adb(): AsyncDb {
-    return this.asyncDb ?? createSqliteAsyncDb(this.db);
+    if (this.asyncDb) return this.asyncDb;
+    if (!this.db) throw new Error('BankRepository 未注入 AsyncDb（PG 模式不允许退回 SQLite）');
+    return createSqliteAsyncDb(this.db);
+  }
+
+  /**
+   * 异步端口（给同层仓储复用）：`BankFolderRepository` 由 `BankService` 装配，
+   * 必须拿到与题库同一份 asyncDb，否则 PG 模式下文件夹读写会落回 SQLite。
+   */
+  asyncPort(): AsyncDb {
+    return this.adb();
   }
 
   /** 题库列表（SQL 与派生字段见 `bankListQueries`） */

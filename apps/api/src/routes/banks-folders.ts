@@ -59,7 +59,7 @@ export async function registerBankFolderRoutes(app: FastifyInstance, deps: Deps)
   app.post('/banks/folders', { schema: { body: folderCreateBodySchema } }, async (req, reply) => {
     const actor = requireTeacherOrAdmin(req, reply);
     const body = req.body as FolderCreateInput;
-    const folder = deps.bankService.createFolder(actor, {
+    const folder = await deps.bankService.createFolder(actor, {
       name: body.name,
       ...(body.parentId === undefined ? {} : { parentId: body.parentId }),
     });
@@ -68,12 +68,12 @@ export async function registerBankFolderRoutes(app: FastifyInstance, deps: Deps)
 
   app.patch('/banks/folders/:id', { schema: { body: folderUpdateBodySchema } }, async (req, reply) => {
     const actor = requireTeacherOrAdmin(req, reply);
-    return { folder: deps.bankService.updateFolder(actor, folderIdOf(req), req.body as FolderUpdateInput) };
+    return { folder: await deps.bankService.updateFolder(actor, folderIdOf(req), req.body as FolderUpdateInput) };
   });
 
   app.delete('/banks/folders/:id', async (req, reply) => {
     const actor = requireTeacherOrAdmin(req, reply);
-    deps.bankService.removeFolder(actor, folderIdOf(req));
+    await deps.bankService.removeFolder(actor, folderIdOf(req));
     return { ok: true };
   });
 }

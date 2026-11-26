@@ -148,7 +148,7 @@ export function reorgBankFolders(db: Db): BankFolderReorgResult {
          SELECT f.id FROM bank_folders f JOIN subtree s ON f.parent_id = s.id
        )
        SELECT b.id, b.name, COALESCE(b.book, '') AS book, COALESCE(b.section, '') AS section,
-              b.course_id, COALESCE(c.name, '') AS courseName, b.folder_id
+              b.course_id, COALESCE(c.name, '') AS "courseName", b.folder_id
          FROM banks b JOIN subtree s ON b.folder_id = s.id
          LEFT JOIN courses c ON c.id = b.course_id
         ORDER BY b.id`,
@@ -186,7 +186,7 @@ export function reorgBankFolders(db: Db): BankFolderReorgResult {
 
   const rows = db.all<BankRow>(
     `SELECT b.id, b.name, COALESCE(b.book, '') AS book, COALESCE(b.section, '') AS section,
-            b.course_id, COALESCE(c.name, '') AS courseName, b.folder_id
+            b.course_id, COALESCE(c.name, '') AS "courseName", b.folder_id
        FROM banks b LEFT JOIN courses c ON c.id = b.course_id
       ORDER BY b.id`,
   );

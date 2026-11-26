@@ -53,8 +53,8 @@ WITH RECURSIVE folder_paths(id, path, depth) AS (
 /** `banks` 列表的公共 SELECT（含文件夹路径 / 课程 / 课时） */
 const BANK_SELECT = `
 SELECT b.*, COALESCE(l.title, '') AS lesson_title, b.question_count,
-       b.folder_id AS folderId, COALESCE(fp.path, '') AS folderPath,
-       COALESCE(c.name, '') AS courseName, COALESCE(l.title, '') AS lessonTitle
+       b.folder_id AS "folderId", COALESCE(fp.path, '') AS "folderPath",
+       COALESCE(c.name, '') AS "courseName", COALESCE(l.title, '') AS "lessonTitle"
 FROM banks b
 LEFT JOIN lessons l ON l.id = b.lesson_id
 LEFT JOIN courses c ON c.id = b.course_id

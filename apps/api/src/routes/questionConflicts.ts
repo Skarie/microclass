@@ -22,7 +22,7 @@ export async function registerQuestionConflictRoutes(app: FastifyInstance, deps:
     requireUser(req, reply);
     const q = req.query as { status?: string; page?: string; pageSize?: string };
     return reply.send(
-      deps.conflictService.list({
+      await deps.conflictService.list({
         status: parseStatus(q.status),
         page: Number(q.page ?? 1) || 1,
         pageSize: Number(q.pageSize ?? 20) || 20,
@@ -34,12 +34,12 @@ export async function registerQuestionConflictRoutes(app: FastifyInstance, deps:
    * 重新扫描全库、刷新台账。
    *
    * 注意：这是一次全库分组（36.6 万题），**冷缓存时在 NAS 上可能要几分钟**，
-   * 期间 node:sqlite 会占住事件循环（整站短暂无响应），所以只允许显式调用，
-   * 列表接口不会隐式触发。已 resolved / ignored 的组保留人工判断，不会被打回 pending。
+   * 所以只允许显式调用，列表接口不会隐式触发。
+   * 已 resolved / ignored 的组保留人工判断，不会被打回 pending。
    */
   app.post('/question-conflicts/sync', async (req, reply) => {
     requireTeacherOrAdmin(req, reply);
-    return reply.send(deps.conflictService.rescan());
+    return reply.send(await deps.conflictService.rescan());
   });
 
   /** 批量按「多数答案」处理（默认只预演，`dryRun=0` 才落库；票数并列的跳过） */
@@ -69,7 +69,7 @@ export async function registerQuestionConflictRoutes(app: FastifyInstance, deps:
   app.get('/question-conflicts/:hash', async (req, reply) => {
     requireUser(req, reply);
     const { hash } = req.params as { hash: string };
-    return reply.send(deps.conflictService.detail(hash));
+    return reply.send(await deps.conflictService.detail(hash));
   });
 
   /** 选定答案：整组统一（题干+选项相同的题，答案本应一致） */
@@ -84,13 +84,13 @@ export async function registerQuestionConflictRoutes(app: FastifyInstance, deps:
   app.post('/question-conflicts/:hash/ignore', async (req, reply) => {
     const actor = requireTeacherOrAdmin(req, reply);
     const { hash } = req.params as { hash: string };
-    return reply.send(deps.conflictService.ignore(actor, hash));
+    return reply.send(await deps.conflictService.ignore(actor, hash));
   });
 
   /** 恢复为待核对 */
   app.post('/question-conflicts/:hash/reopen', async (req, reply) => {
     const actor = requireTeacherOrAdmin(req, reply);
     const { hash } = req.params as { hash: string };
-    return reply.send(deps.conflictService.reopen(actor, hash));
+    return reply.send(await deps.conflictService.reopen(actor, hash));
   });
 }

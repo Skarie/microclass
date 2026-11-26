@@ -68,11 +68,13 @@ async function insertAttempt(adb: AsyncDb, input: AttemptInput): Promise<number>
 /** 答错：次数 +1 并重新标记为未掌握（调用方负责事务边界） */
 async function upsertWrongRow(adb: AsyncDb, userId: number, questionId: number): Promise<void> {
   const now = nowSeconds(adb.driver);
+  // 方言 #30：`ON CONFLICT DO UPDATE` 的 SET 里裸列名在 PG 侧是**歧义引用**
+  // （`column reference "wrong_count" is ambiguous`，SQLite 会解析成「已有行」），必须写全表名。
   await adb.run(
     `INSERT INTO wrong_questions (user_id, question_id, wrong_count, mastered, last_at)
      VALUES (?,?,1,0,${now})
      ON CONFLICT(user_id, question_id)
-     DO UPDATE SET wrong_count = wrong_count + 1, mastered = 0, last_at = ${now}`,
+     DO UPDATE SET wrong_count = wrong_questions.wrong_count + 1, mastered = 0, last_at = ${now}`,
     [userId, questionId],
   );
 }

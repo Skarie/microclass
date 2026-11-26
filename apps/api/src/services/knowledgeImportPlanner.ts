@@ -70,7 +70,7 @@ export class KnowledgeImportPlanner {
     const key = `${found.match.lessonId}\u0000${knowledgeTitle}`;
     if (
       this.createdKeys.has(key) ||
-      this.knowledge.existsTextTitle({ lessonId: found.match.lessonId }, knowledgeTitle)
+      (await this.knowledge.existsTextTitle({ lessonId: found.match.lessonId }, knowledgeTitle))
     ) {
       this.skipped += 1;
       return;
@@ -87,7 +87,7 @@ export class KnowledgeImportPlanner {
       chars: rewritten.content.length,
       images: rewritten.images,
       content: rewritten.content,
-      sort: this.nextSort(found.match.lessonId),
+      sort: await this.nextSort(found.match.lessonId),
     });
   }
 
@@ -133,13 +133,13 @@ export class KnowledgeImportPlanner {
     return null;
   }
 
-  private nextSort(lessonId: number): number {
+  private async nextSort(lessonId: number): Promise<number> {
     const cached = this.sortNext.get(lessonId);
     if (cached !== undefined) {
       this.sortNext.set(lessonId, cached + 1);
       return cached;
     }
-    const start = this.knowledge.maxSort({ lessonId }) + 1;
+    const start = (await this.knowledge.maxSort({ lessonId })) + 1;
     this.sortNext.set(lessonId, start + 1);
     return start;
   }

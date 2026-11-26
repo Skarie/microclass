@@ -16,7 +16,7 @@ export async function registerKnowledgeRoutes(app: FastifyInstance, deps: Deps):
   app.get('/knowledge/:id/file', async (req, reply) => {
     requireUser(req, reply);
     const id = Number((req.params as { id: string }).id);
-    const row = deps.knowledge.findById(id);
+    const row = await deps.knowledge.findById(id);
     if (!row || row.kind !== 'file') throw AppError.notFound('文件不存在');
     const abs = deps.storage.resolve(row.file_path);
     if (!abs || !fs.existsSync(abs)) throw AppError.notFound('文件已被移除');
@@ -63,14 +63,14 @@ export async function registerKnowledgeRoutes(app: FastifyInstance, deps: Deps):
   app.put('/knowledge/:id', async (req, reply) => {
     const user = requireTeacherOrAdmin(req, reply);
     const id = Number((req.params as { id: string }).id);
-    deps.lessonService.updateKnowledge(user, id, req.body as { title?: string; content?: string; url?: string });
+    await deps.lessonService.updateKnowledge(user, id, req.body as { title?: string; content?: string; url?: string });
     return { ok: true };
   });
 
   app.delete('/knowledge/:id', async (req, reply) => {
     const user = requireTeacherOrAdmin(req, reply);
     const id = Number((req.params as { id: string }).id);
-    const { filePath } = deps.lessonService.removeKnowledge(user, id);
+    const { filePath } = await deps.lessonService.removeKnowledge(user, id);
     if (filePath) deps.storage.remove(filePath);
     return { ok: true };
   });

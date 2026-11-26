@@ -17,6 +17,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { AppError } from '@microclass/shared';
 import { requireTeacherOrAdmin, requireUser } from '../http/guards.js';
 import type { Deps } from '../app.js';
+import { getAsyncDb } from '../db/driver.js';
 import { QuestionGroupRepository } from '../db/repositories/questionGroupRepository.js';
 import { QuestionGroupService, GROUP_NOTE_MAX } from '../services/questionGroupService.js';
 
@@ -53,17 +54,18 @@ function questionIdOf(req: FastifyRequest): number {
 }
 
 export async function registerQuestionGroupRoutes(app: FastifyInstance, deps: Deps): Promise<void> {
-  const service = new QuestionGroupService(new QuestionGroupRepository(deps.db), deps.audit);
+  // 仓储走进程级 AsyncDb 单例（PG 模式下不再落回 SQLite；见 db/driver.ts 的说明）
+  const service = new QuestionGroupService(new QuestionGroupRepository(getAsyncDb(deps.config, deps.db)), deps.audit);
 
   app.get('/question-groups', async (req, reply) => {
     requireUser(req, reply);
     const q = req.query as { search?: unknown };
-    return { groups: service.list(q.search) };
+    return { groups: await service.list(q.search) };
   });
 
   app.post('/question-groups', { schema: { body: writeBodySchema } }, async (req, reply) => {
     const actor = requireTeacherOrAdmin(req, reply);
-    const id = service.create(actor, req.body as { title?: unknown; note?: unknown });
+    const id = await service.create(actor, req.body as { title?: unknown; note?: unknown });
     return reply.code(201).send({ ok: true, id });
   });
 
@@ -74,25 +76,25 @@ export async function registerQuestionGroupRoutes(app: FastifyInstance, deps: De
 
   app.put('/question-groups/:id', { schema: { body: writeBodySchema } }, async (req, reply) => {
     const actor = requireTeacherOrAdmin(req, reply);
-    service.update(actor, groupIdOf(req), req.body as { title?: unknown; note?: unknown });
+    await service.update(actor, groupIdOf(req), req.body as { title?: unknown; note?: unknown });
     return { ok: true };
   });
 
   app.delete('/question-groups/:id', async (req, reply) => {
     const actor = requireTeacherOrAdmin(req, reply);
-    service.remove(actor, groupIdOf(req));
+    await service.remove(actor, groupIdOf(req));
     return { ok: true };
   });
 
   app.post('/question-groups/:id/items', { schema: { body: itemsBodySchema } }, async (req, reply) => {
     const actor = requireTeacherOrAdmin(req, reply);
     const body = req.body as { questionIds: unknown; role: unknown };
-    return { ok: true, ...service.addItems(actor, groupIdOf(req), body.questionIds, body.role) };
+    return { ok: true, ...(await service.addItems(actor, groupIdOf(req), body.questionIds, body.role)) };
   });
 
   app.delete('/question-groups/:id/items/:questionId', async (req, reply) => {
     const actor = requireTeacherOrAdmin(req, reply);
-    service.removeItem(actor, groupIdOf(req), questionIdOf(req));
+    await service.removeItem(actor, groupIdOf(req), questionIdOf(req));
     return { ok: true };
   });
 
@@ -100,6 +102,6 @@ export async function registerQuestionGroupRoutes(app: FastifyInstance, deps: De
     requireUser(req, reply);
     const id = Number((req.params as { id: string }).id);
     if (!Number.isInteger(id) || id <= 0) throw AppError.badRequest('题目 id 非法');
-    return { groups: service.groupsOfQuestion(id) };
+    return { groups: await service.groupsOfQuestion(id) };
   });
 }

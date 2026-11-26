@@ -9,6 +9,7 @@ import type { Db } from '../client.js';
 import { createSqliteAsyncDb, type AsyncDb } from '../async.js';
 import type { QuestionInput } from './question-types.js';
 import { withBusyRetry } from './question-write.js';
+import { nullSafeEq } from '../sql.js';
 import { bookKeyOfCourseName, normalizeBookKey } from './bankNaming.js';
 import type { TeacherBankCandidate } from '../../domain/teacherBankMatch.js';
 
@@ -85,33 +86,33 @@ export class TeacherBankRepository {
     return parentId;
   }
 
-  /** 同级同名文件夹 id（`parent_id` 可为 NULL） */
+  /** 同级同名文件夹 id（`parent_id` 可为 NULL；方言 #27：PG 的 `IS` 不接受参数） */
   private async findChildFolder(parentId: number | null, name: string): Promise<number | null> {
-    const row = await this.adb().get<{ id: number }>(
-      'SELECT id FROM bank_folders WHERE parent_id IS ? AND name = ? ORDER BY id LIMIT 1',
+    const row = await this.adb().get<{ id: number | string }>(
+      `SELECT id FROM bank_folders WHERE ${nullSafeEq('parent_id', this.adb().driver)} AND name = ? ORDER BY id LIMIT 1`,
       [parentId, name],
     );
-    return row?.id ?? null;
+    return row ? Number(row.id) : null;
   }
 
   /** 同级末尾的 sort（空目录返回 0） */
   private async nextFolderSort(parentId: number | null): Promise<number> {
-    const row = await this.adb().get<{ s: number }>(
-      'SELECT COALESCE(MAX(sort), -1) + 1 AS s FROM bank_folders WHERE parent_id IS ?',
+    const row = await this.adb().get<{ s: number | string }>(
+      `SELECT COALESCE(MAX(sort), -1) + 1 AS s FROM bank_folders WHERE ${nullSafeEq('parent_id', this.adb().driver)}`,
       [parentId],
     );
-    return row?.s ?? 0;
+    return Number(row?.s ?? 0);
   }
 
   /** 新建章节题库（kind=chapter，不挂课时） */
   async createBank(input: NewTeacherBankInput): Promise<number> {
-    const row = await this.adb().get<{ id: number }>(
+    const row = await this.adb().get<{ id: number | string }>(
       `INSERT INTO banks (name, kind, subject, book, section, course_id, folder_id)
        VALUES (?, 'chapter', ?, ?, ?, ?, ?) RETURNING id`,
       [input.name, input.subject, input.book, input.section, input.courseId, input.folderId],
     );
     if (!row) throw new Error('创建题库后未返回 id');
-    return row.id;
+    return Number(row.id); // PG 的 bigint 回字符串（#17）
   }
 
   /** 题库当前题量 */

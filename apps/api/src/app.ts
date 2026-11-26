@@ -119,11 +119,11 @@ export function buildDeps(config: AppConfig, db: Db, options?: { inlineHealthRun
   const audit = new AuditRepository(db);
   const courses = new CourseRepository(db, asyncDb);
   const lessons = new LessonRepository(db, asyncDb);
-  const knowledge = new KnowledgeRepository(db);
+  const knowledge = new KnowledgeRepository(asyncDb);
   const progress = new ProgressRepository(db, asyncDb);
   const banks = new BankRepository(db, asyncDb);
   const questions = new QuestionRepository(db, asyncDb); // 读写同批（§7.7）：只补 asyncDb 不迁读方法 = 写 PG 读 SQLite
-  const questionConflicts = new QuestionConflictRepository(db);
+  const questionConflicts = new QuestionConflictRepository(asyncDb);
   const attempts = new AttemptRepository(db, asyncDb);
   const wrongs = new WrongQuestionRepository(db, asyncDb);
   const exams = new ExamRepository(db, asyncDb);

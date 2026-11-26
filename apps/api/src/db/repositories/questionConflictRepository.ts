@@ -5,11 +5,34 @@
  * 扫全库算出来（36.6 万题、590MB 的库在 NAS 机械盘上一次要几秒），
  * 而核对是「人一条条看」的过程，需要**落库 + 分页 + 记录复核结果**，
  * 因此把扫描结果物化到 `question_conflicts`，只在需要时重新扫描（sync）。
+ *
+ * P0 阶段 2（收尾批次）：整个仓储改走 `AsyncDb`，PG 模式下不再落回 SQLite；
+ * 4 处 `unixepoch()` 换成 `nowSeconds(driver)`（方言 #19）；只读 SQL 拆到
+ * `question-conflict-queries.ts`（本文件在行数守卫的基线里，只能减不能增）。
  */
-import type { Db } from '../client.js';
+import type { AsyncDb } from '../async.js';
+import { nowSeconds } from '../sql.js';
 import { stemSummary } from '../../domain/stemSummary.js';
+import {
+  answersForHashes,
+  conflictAnswers,
+  conflictCounts,
+  conflictQuestions,
+  findConflict,
+  listConflicts,
+  type ConflictAnswerRow,
+  type ConflictCounts,
+  type ConflictPage,
+  type ConflictQuestionRow,
+} from './question-conflict-queries.js';
 
-export type ConflictStatus = 'pending' | 'resolved' | 'ignored';
+export type {
+  ConflictAnswerRow,
+  ConflictCounts,
+  ConflictPage,
+  ConflictQuestionRow,
+} from './question-conflict-queries.js';
+export type { ConflictRow, ConflictStatus } from './question-conflict-queries.js';
 
 /** 台账最长保鲜时间：超过就提示重扫一次（导入新题库后能发现新冲突组） */
 export const CONFLICT_SYNC_TTL_MS = 5 * 60 * 1000;
@@ -23,20 +46,8 @@ export interface SyncResult {
   ms: { scan: number; cleanup: number; write: number; stems: number; meta: number; total: number };
 }
 
-export interface ConflictRow {
-  content_hash: string;
-  status: ConflictStatus;
-  chosen_answer: string;
-  sample_stem: string;
-  group_size: number;
-  answer_count: number;
-  reviewer_id: number | null;
-  reviewer_name: string;
-  updated_at: number;
-}
-
 export class QuestionConflictRepository {
-  constructor(private readonly db: Db) {}
+  constructor(private readonly db: AsyncDb) {}
 
   /**
    * 重新扫描全库，把「同题不同答案」的组写进台账：
@@ -49,7 +60,7 @@ export class QuestionConflictRepository {
    * （NAS 机械盘 + 600MB 库），热缓存约 2 秒。所以这条路径只由**用户明确的动作**触发，
    * 列表页不得隐式调用（见 `QuestionConflictService.list`）；返回的 `ms` 是分段耗时，便于排查。
    */
-  sync(): SyncResult {
+  async sync(): Promise<SyncResult> {
     const ms = { scan: 0, cleanup: 0, write: 0, stems: 0, meta: 0, total: 0 };
     const t0 = Date.now();
     let removed = 0;
@@ -60,11 +71,7 @@ export class QuestionConflictRepository {
     //    题干样例不在这里取（题干是大字段，回表会把冷缓存扫描拖慢到几十秒），
     //    只对真正冲突的几百组单独查一次（见第 3 步）。
     let t = Date.now();
-    const rows = this.db.all<{
-      content_hash: string;
-      n: number;
-      a: number;
-    }>(
+    const rows = await this.db.all<{ content_hash: string; n: number | string; a: number | string }>(
       `SELECT content_hash, COUNT(*) AS n, COUNT(DISTINCT answer) AS a
        FROM questions WHERE content_hash <> ''
        GROUP BY content_hash HAVING COUNT(*) > 1 AND MIN(answer) <> MAX(answer)`,
@@ -72,15 +79,15 @@ export class QuestionConflictRepository {
     ms.scan = Date.now() - t;
     const keeping = new Set(rows.map((r) => r.content_hash));
 
-    this.db.transaction(() => {
+    await this.db.transaction(async (tx) => {
       // 2) 清理不再冲突的记录（`resolved` 是核对历史，保留）
       t = Date.now();
-      const stale = this.db.all<{ content_hash: string }>(
+      const stale = await tx.all<{ content_hash: string }>(
         "SELECT content_hash FROM question_conflicts WHERE status <> 'resolved'",
       );
       for (const row of stale) {
         if (keeping.has(row.content_hash)) continue;
-        this.db.run('DELETE FROM question_conflicts WHERE content_hash = ?', [row.content_hash]);
+        await tx.run('DELETE FROM question_conflicts WHERE content_hash = ?', [row.content_hash]);
         removed += 1;
       }
       ms.cleanup = Date.now() - t;
@@ -88,26 +95,28 @@ export class QuestionConflictRepository {
       // 3) 写入 / 更新台账（题干样例只对新组查一次，避免全库回表）
       t = Date.now();
       const existing = new Set(
-        this.db.all<{ content_hash: string }>('SELECT content_hash FROM question_conflicts').map((r) => r.content_hash),
+        (await tx.all<{ content_hash: string }>('SELECT content_hash FROM question_conflicts')).map(
+          (r) => r.content_hash,
+        ),
       );
       for (const r of rows) {
         if (existing.has(r.content_hash)) {
           // 已核对过的组又冲突了 → 打回待核对（题目被改回去了，需要重新看）；
           // 同时刷新题干摘要：旧版用 `slice(0,200)` 可能切出残缺 markdown（真机 bug），
           // 不靠"看起来坏了"去猜（题干里先出现 `)` 就会漏判），直接按新规则重算。
-          this.db.run(
+          await tx.run(
             `UPDATE question_conflicts
              SET group_size = ?, answer_count = ?, sample_stem = ?,
                  status = CASE WHEN status = 'resolved' THEN 'pending' ELSE status END
              WHERE content_hash = ?`,
-            [r.n, r.a, this.sampleStem(r.content_hash), r.content_hash],
+            [r.n, r.a, await this.sampleStem(tx, r.content_hash), r.content_hash],
           );
           continue;
         }
-        this.db.run(
+        await tx.run(
           `INSERT INTO question_conflicts (content_hash, status, sample_stem, group_size, answer_count)
            VALUES (?, 'pending', ?, ?, ?)`,
-          [r.content_hash, this.sampleStem(r.content_hash), r.n, r.a],
+          [r.content_hash, await this.sampleStem(tx, r.content_hash), r.n, r.a],
         );
         inserted += 1;
       }
@@ -116,13 +125,13 @@ export class QuestionConflictRepository {
       // 4) 兜底：历史遗留的残缺摘要（旧版截断在 200 字符，或切断了图片 markdown）一并修正。
       //    已核对/已忽略的行不会走上面的分支，但它们在列表里同样会显示题干。
       t = Date.now();
-      const legacy = this.db.all<{ content_hash: string }>(
+      const legacy = await tx.all<{ content_hash: string }>(
         `SELECT content_hash FROM question_conflicts
          WHERE (sample_stem LIKE '%![%' AND sample_stem NOT LIKE '%)%') OR length(sample_stem) = 200`,
       );
       for (const row of legacy) {
-        this.db.run('UPDATE question_conflicts SET sample_stem = ? WHERE content_hash = ?', [
-          this.sampleStem(row.content_hash),
+        await tx.run('UPDATE question_conflicts SET sample_stem = ? WHERE content_hash = ?', [
+          await this.sampleStem(tx, row.content_hash),
           row.content_hash,
         ]);
       }
@@ -130,32 +139,33 @@ export class QuestionConflictRepository {
     });
 
     t = Date.now();
-    const counts = this.counts();
-    this.markSynced(counts);
+    const counts = await this.counts();
+    await this.markSynced(counts);
     ms.meta = Date.now() - t;
     ms.total = Date.now() - t0;
     return { scanned: counts.total, inserted, removed, pending: counts.pending, ms };
   }
 
   /** 取某组的一道题的题干做样例（大字段，只对新入库的组查） */
-  private sampleStem(hash: string): string {
-    const row = this.db.get<{ stem: string }>('SELECT stem FROM questions WHERE content_hash = ? LIMIT 1', [hash]);
+  private async sampleStem(db: AsyncDb, hash: string): Promise<string> {
+    const row = await db.get<{ stem: string }>('SELECT stem FROM questions WHERE content_hash = ? LIMIT 1', [hash]);
     return stemSummary(String(row?.stem ?? ''), 200);
   }
 
   /** 记下本次扫描时的题量水位与时间（下次靠它判断台账是否过期） */
-  private markSynced(counts?: { pending?: number; total?: number }): void {
-    const maxId = this.db.get<{ m: number }>('SELECT COALESCE(MAX(id), 0) AS m FROM questions')?.m ?? 0;
-    const c = counts ?? this.counts();
-    this.db.run(
+  private async markSynced(counts?: { pending?: number; total?: number }): Promise<void> {
+    const now = nowSeconds(this.db.driver);
+    const maxIdRow = await this.db.get<{ m: number | string }>('SELECT COALESCE(MAX(id), 0) AS m FROM questions');
+    const c = counts ?? (await this.counts());
+    await this.db.run(
       `INSERT INTO question_conflict_meta (id, last_sync_at, questions_max_id, conflict_total, pending_total)
-       VALUES (1, unixepoch(), ?, ?, ?)
+       VALUES (1, ${now}, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
-         last_sync_at = unixepoch(),
+         last_sync_at = ${now},
          questions_max_id = excluded.questions_max_id,
          conflict_total = excluded.conflict_total,
          pending_total = excluded.pending_total`,
-      [maxId, c.total ?? 0, c.pending ?? 0],
+      [Number(maxIdRow?.m ?? 0), c.total ?? 0, c.pending ?? 0],
     );
   }
 
@@ -166,105 +176,63 @@ export class QuestionConflictRepository {
    * - 题目 id 水位上涨（导入/新增了题目，可能带来新的冲突组）；
    * - 距上次扫描超过 TTL。
    */
-  staleness(): { stale: boolean; reason: 'never' | 'empty' | 'grew' | 'ttl' | 'fresh'; ageMs: number } {
-    const meta = this.db.get<{ last_sync_at: number; questions_max_id: number }>(
+  async staleness(): Promise<{ stale: boolean; reason: 'never' | 'empty' | 'grew' | 'ttl' | 'fresh'; ageMs: number }> {
+    const meta = await this.db.get<{ last_sync_at: number | string; questions_max_id: number | string }>(
       'SELECT last_sync_at, questions_max_id FROM question_conflict_meta WHERE id = 1',
     );
-    const ageMs = meta && meta.last_sync_at > 0 ? Date.now() - meta.last_sync_at * 1000 : Number.POSITIVE_INFINITY;
-    if (!meta || meta.last_sync_at === 0) return { stale: true, reason: 'never', ageMs };
-    if (this.counts().total === 0) return { stale: true, reason: 'empty', ageMs };
-    const maxId = this.db.get<{ m: number }>('SELECT COALESCE(MAX(id), 0) AS m FROM questions')?.m ?? 0;
-    if (maxId !== meta.questions_max_id) return { stale: true, reason: 'grew', ageMs };
+    const lastSyncAt = Number(meta?.last_sync_at ?? 0);
+    const ageMs = lastSyncAt > 0 ? Date.now() - lastSyncAt * 1000 : Number.POSITIVE_INFINITY;
+    if (!meta || lastSyncAt === 0) return { stale: true, reason: 'never', ageMs };
+    if ((await this.counts()).total === 0) return { stale: true, reason: 'empty', ageMs };
+    const maxIdRow = await this.db.get<{ m: number | string }>('SELECT COALESCE(MAX(id), 0) AS m FROM questions');
+    if (Number(maxIdRow?.m ?? 0) !== Number(meta.questions_max_id)) return { stale: true, reason: 'grew', ageMs };
     if (ageMs > CONFLICT_SYNC_TTL_MS) return { stale: true, reason: 'ttl', ageMs };
     return { stale: false, reason: 'fresh', ageMs };
   }
 
-  list(options: { status?: ConflictStatus | 'all'; page?: number; pageSize?: number }): {
-    items: ConflictRow[];
-    total: number;
-    page: number;
-    pageSize: number;
-  } {
-    const status = options.status ?? 'pending';
-    const pageSize = Math.min(100, Math.max(1, options.pageSize ?? 20));
-    const page = Math.max(1, options.page ?? 1);
-    const where = status === 'all' ? '' : ' WHERE status = ?';
-    const params = status === 'all' ? [] : [status];
-    const total = this.db.get<{ c: number }>(`SELECT COUNT(*) AS c FROM question_conflicts${where}`, params)?.c ?? 0;
-    const items = this.db.all<ConflictRow>(
-      `SELECT * FROM question_conflicts${where} ORDER BY group_size DESC, content_hash LIMIT ? OFFSET ?`,
-      [...params, pageSize, (page - 1) * pageSize],
-    );
-    return { items, total, page, pageSize };
+  /** 台账分页（含本页各组的答案分布，一次查完） */
+  async list(options: {
+    status?: 'pending' | 'resolved' | 'ignored' | 'all';
+    page?: number;
+    pageSize?: number;
+  }): Promise<ConflictPage> {
+    return listConflicts(this.db, options);
   }
 
-  /** 某个冲突组里的题目（含题库名与来源，便于判断该信哪个答案） */
-  questions(hash: string): {
-    id: number;
-    answer: string;
-    type: string;
-    difficulty: string;
-    stem: string;
-    bank_id: number;
-    bank_name: string;
-    bank_kind: string;
-    source_no: string;
-    source_path: string;
-  }[] {
-    return this.db.all(
-      `SELECT q.id, q.answer, q.type, q.difficulty, q.stem, q.bank_id, COALESCE(b.name, '') AS bank_name,
-              COALESCE(b.kind, '') AS bank_kind, q.source_no, q.source_path
-       FROM questions q LEFT JOIN banks b ON b.id = q.bank_id
-       WHERE q.content_hash = ? ORDER BY q.id`,
-      [hash],
-    );
+  /** 某个冲突组里的题目（含题库名与来源） */
+  async questions(hash: string): Promise<ConflictQuestionRow[]> {
+    return conflictQuestions(this.db, hash);
   }
 
-  /** 组内各答案的出现次数（列表里直接显示「答案 A ×2、答案 B ×1」） */
-  answers(hash: string): { answer: string; n: number; first_id: number }[] {
-    return this.db.all(
-      `SELECT answer, COUNT(*) AS n, MIN(id) AS first_id FROM questions
-       WHERE content_hash = ? GROUP BY answer ORDER BY n DESC, answer`,
-      [hash],
-    );
+  /** 组内各答案的出现次数 */
+  async answers(hash: string): Promise<ConflictAnswerRow[]> {
+    return conflictAnswers(this.db, hash);
   }
 
-  /** 批量取多组的答案分布（列表页一次查完，避免 N+1） */
-  answersFor(hashes: string[]): Map<string, { answer: string; n: number; first_id: number }[]> {
-    const out = new Map<string, { answer: string; n: number; first_id: number }[]>();
-    if (hashes.length === 0) return out;
-    const placeholders = hashes.map(() => '?').join(',');
-    const rows = this.db.all<{ content_hash: string; answer: string; n: number; first_id: number }>(
-      `SELECT content_hash, answer, COUNT(*) AS n, MIN(id) AS first_id FROM questions
-       WHERE content_hash IN (${placeholders}) GROUP BY content_hash, answer ORDER BY content_hash, n DESC, answer`,
-      hashes,
-    );
-    for (const r of rows) {
-      const list = out.get(r.content_hash) ?? [];
-      list.push({ answer: r.answer, n: r.n, first_id: r.first_id });
-      out.set(r.content_hash, list);
-    }
-    return out;
+  /** 批量取多组的答案分布（翻页批量处理用） */
+  async answersFor(hashes: string[]): Promise<Map<string, ConflictAnswerRow[]>> {
+    return answersForHashes(this.db, hashes);
   }
 
-  find(hash: string): ConflictRow | undefined {
-    return this.db.get<ConflictRow>('SELECT * FROM question_conflicts WHERE content_hash = ?', [hash]);
+  async find(hash: string) {
+    return findConflict(this.db, hash);
   }
 
   /**
    * 写核对结论。`meta` 用于「核对后该组已不再是冲突（sync 会删掉它）」时补齐组信息，
    * 这样历史记录里还能看到当时那道题的题干和题量。
    */
-  upsertStatus(
+  async upsertStatus(
     hash: string,
-    status: ConflictStatus,
+    status: 'pending' | 'resolved' | 'ignored',
     chosenAnswer: string,
     reviewer: { id: number | null; name: string },
     meta?: { groupSize?: number; answerCount?: number; sampleStem?: string },
-  ): void {
-    this.db.run(
+  ): Promise<void> {
+    const now = nowSeconds(this.db.driver);
+    await this.db.run(
       `INSERT INTO question_conflicts (content_hash, status, chosen_answer, reviewer_id, reviewer_name, group_size, answer_count, sample_stem, updated_at)
-       VALUES (?,?,?,?,?,?,?,?, unixepoch())
+       VALUES (?,?,?,?,?,?,?,?, ${now})
        ON CONFLICT(content_hash) DO UPDATE SET
          status = excluded.status,
          chosen_answer = excluded.chosen_answer,
@@ -273,7 +241,7 @@ export class QuestionConflictRepository {
          group_size = CASE WHEN excluded.group_size > 0 THEN excluded.group_size ELSE question_conflicts.group_size END,
          answer_count = CASE WHEN excluded.answer_count > 0 THEN excluded.answer_count ELSE question_conflicts.answer_count END,
          sample_stem = CASE WHEN excluded.sample_stem <> '' THEN excluded.sample_stem ELSE question_conflicts.sample_stem END,
-         updated_at = unixepoch()`,
+         updated_at = ${now}`,
       [
         hash,
         status,
@@ -287,17 +255,7 @@ export class QuestionConflictRepository {
     );
   }
 
-  counts(): { pending: number; resolved: number; ignored: number; total: number } {
-    const rows = this.db.all<{ status: string; c: number }>(
-      'SELECT status, COUNT(*) AS c FROM question_conflicts GROUP BY status',
-    );
-    const get = (s: string): number => rows.find((r) => r.status === s)?.c ?? 0;
-    // 台账为空时按「实时扫描」给个估算：调用方一般会先 sync 一次
-    return {
-      pending: get('pending'),
-      resolved: get('resolved'),
-      ignored: get('ignored'),
-      total: rows.reduce((s, r) => s + r.c, 0),
-    };
+  async counts(): Promise<ConflictCounts> {
+    return conflictCounts(this.db);
   }
 }

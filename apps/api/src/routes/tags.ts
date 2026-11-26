@@ -16,6 +16,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { AppError } from '@microclass/shared';
 import { requireTeacherOrAdmin, requireUser } from '../http/guards.js';
 import type { Deps } from '../app.js';
+import { getAsyncDb } from '../db/driver.js';
 import { TagRepository } from '../db/repositories/tagRepository.js';
 import { TagService, TAG_NOTE_MAX } from '../services/tagService.js';
 
@@ -59,47 +60,48 @@ function questionIdOf(req: FastifyRequest): number {
 }
 
 export async function registerTagRoutes(app: FastifyInstance, deps: Deps): Promise<void> {
-  const service = new TagService(new TagRepository(deps.db), deps.audit);
+  // 仓储走进程级 AsyncDb 单例（PG 模式下不再落回 SQLite；见 db/driver.ts 的说明）
+  const service = new TagService(new TagRepository(getAsyncDb(deps.config, deps.db)), deps.audit);
 
   app.get('/tags', async (req, reply) => {
     requireUser(req, reply);
     const q = req.query as { search?: unknown };
-    return { tags: service.list(q.search) };
+    return { tags: await service.list(q.search) };
   });
 
   app.post('/tags', { schema: { body: writeBodySchema } }, async (req, reply) => {
     const actor = requireTeacherOrAdmin(req, reply);
-    const id = service.create(actor, req.body as { name?: unknown; note?: unknown });
+    const id = await service.create(actor, req.body as { name?: unknown; note?: unknown });
     return reply.code(201).send({ ok: true, id });
   });
 
   app.put('/tags/:id', { schema: { body: writeBodySchema } }, async (req, reply) => {
     const actor = requireTeacherOrAdmin(req, reply);
-    service.update(actor, tagIdOf(req), req.body as { name?: unknown; note?: unknown });
+    await service.update(actor, tagIdOf(req), req.body as { name?: unknown; note?: unknown });
     return { ok: true };
   });
 
   app.delete('/tags/:id', async (req, reply) => {
     const actor = requireTeacherOrAdmin(req, reply);
-    service.remove(actor, tagIdOf(req));
+    await service.remove(actor, tagIdOf(req));
     return { ok: true };
   });
 
   app.get('/questions/:id/tags', async (req, reply) => {
     requireUser(req, reply);
-    return { tags: service.ofQuestion(questionIdOf(req)) };
+    return { tags: await service.ofQuestion(questionIdOf(req)) };
   });
 
   app.post('/questions/:id/tags', { schema: { body: setQuestionTagsSchema } }, async (req, reply) => {
     const actor = requireTeacherOrAdmin(req, reply);
     const body = req.body as { tagIds: unknown };
-    return { ok: true, ...service.setQuestionTags(actor, questionIdOf(req), body.tagIds) };
+    return { ok: true, ...(await service.setQuestionTags(actor, questionIdOf(req), body.tagIds)) };
   });
 
   /** 批量打标：路由 /questions/tags 与 /questions/:id/tags 方法不同（POST vs GET），不会互相遮挡 */
   app.post('/questions/tags', { schema: { body: batchTagsSchema } }, async (req, reply) => {
     const actor = requireTeacherOrAdmin(req, reply);
     const body = req.body as { questionIds: unknown; tagIds: unknown; mode?: unknown };
-    return { ok: true, ...service.batch(actor, body) };
+    return { ok: true, ...(await service.batch(actor, body)) };
   });
 }

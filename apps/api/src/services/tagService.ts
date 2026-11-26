@@ -94,9 +94,9 @@ export class TagService {
     private readonly audit: AuditRepository,
   ) {}
 
-  list(rawSearch: unknown): TagItem[] {
+  async list(rawSearch: unknown): Promise<TagItem[]> {
     const search = typeof rawSearch === 'string' ? rawSearch.trim().slice(0, TAG_NAME_MAX) : '';
-    return this.tags.list(search).map((row) => ({
+    return (await this.tags.list(search)).map((row) => ({
       id: row.id,
       name: row.name,
       note: row.note,
@@ -105,11 +105,11 @@ export class TagService {
     }));
   }
 
-  create(actor: User, input: { name?: unknown; note?: unknown }): number {
+  async create(actor: User, input: { name?: unknown; note?: unknown }): Promise<number> {
     const name = normalizeName(input.name);
     const note = normalizeNote(input.note);
-    if (this.tags.findByName(name)) throw AppError.conflict('已存在同名标签');
-    const id = this.tags.create({ name, note, createdBy: actor.id });
+    if (await this.tags.findByName(name)) throw AppError.conflict('已存在同名标签');
+    const id = await this.tags.create({ name, note, createdBy: actor.id });
     this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
@@ -121,13 +121,13 @@ export class TagService {
     return id;
   }
 
-  update(actor: User, id: number, input: { name?: unknown; note?: unknown }): void {
-    const row = this.requireRow(id);
+  async update(actor: User, id: number, input: { name?: unknown; note?: unknown }): Promise<void> {
+    const row = await this.requireRow(id);
     const name = input.name === undefined ? row.name : normalizeName(input.name);
     const note = input.note === undefined ? row.note : normalizeNote(input.note);
-    const duplicate = this.tags.findByName(name);
+    const duplicate = await this.tags.findByName(name);
     if (duplicate && duplicate.id !== id) throw AppError.conflict('已存在同名标签');
-    this.tags.update(id, { name, note, createdBy: row.created_by });
+    await this.tags.update(id, { name, note, createdBy: row.created_by });
     this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
@@ -138,10 +138,10 @@ export class TagService {
     });
   }
 
-  remove(actor: User, id: number): void {
-    const row = this.requireRow(id);
-    const questions = this.tags.countQuestions(id);
-    this.tags.remove(id);
+  async remove(actor: User, id: number): Promise<void> {
+    const row = await this.requireRow(id);
+    const questions = await this.tags.countQuestions(id);
+    await this.tags.remove(id);
     this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
@@ -153,17 +153,19 @@ export class TagService {
   }
 
   /** 某道题当前标签（题目编辑弹窗回显） */
-  ofQuestion(questionId: number): QuestionTagItem[] {
-    if (!this.tags.existingQuestionIds([questionId]).includes(questionId)) throw AppError.notFound('题目不存在');
-    return this.tags.tagsOfQuestion(questionId).map((row) => this.toQuestionTag(row));
+  async ofQuestion(questionId: number): Promise<QuestionTagItem[]> {
+    if (!(await this.tags.existingQuestionIds([questionId])).includes(questionId))
+      throw AppError.notFound('题目不存在');
+    return (await this.tags.tagsOfQuestion(questionId)).map((row) => this.toQuestionTag(row));
   }
 
   /** 覆盖式设置某道题的标签（允许清空） */
-  setQuestionTags(actor: User, questionId: number, rawTagIds: unknown): { affected: number } {
-    if (!this.tags.existingQuestionIds([questionId]).includes(questionId)) throw AppError.notFound('题目不存在');
+  async setQuestionTags(actor: User, questionId: number, rawTagIds: unknown): Promise<{ affected: number }> {
+    if (!(await this.tags.existingQuestionIds([questionId])).includes(questionId))
+      throw AppError.notFound('题目不存在');
     const tagIds = parseTagIds(rawTagIds);
-    this.requireTags(tagIds);
-    this.tags.setQuestionTags(questionId, tagIds);
+    await this.requireTags(tagIds);
+    await this.tags.setQuestionTags(questionId, tagIds);
     this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
@@ -176,26 +178,26 @@ export class TagService {
   }
 
   /** 批量打标：add / remove / replace，返回受影响的题目数 */
-  batch(
+  async batch(
     actor: User,
     input: { questionIds?: unknown; tagIds?: unknown; mode?: unknown },
-  ): {
+  ): Promise<{
     affected: number;
     mode: TagBatchMode;
-  } {
+  }> {
     const mode = input.mode === undefined ? 'add' : input.mode;
     if (mode !== 'add' && mode !== 'remove' && mode !== 'replace') {
       throw AppError.badRequest('mode 只能是 add / remove / replace');
     }
     const questionIds = parseQuestionIds(input.questionIds);
     const tagIds = parseTagIds(input.tagIds);
-    if (questionIds.length !== this.tags.existingQuestionIds(questionIds).length) {
+    if (questionIds.length !== (await this.tags.existingQuestionIds(questionIds)).length) {
       throw AppError.badRequest('部分题目不存在或已被删除，请刷新后重试');
     }
     // replace 允许空标签（= 清空这些题的标签）；add / remove 必须至少给一个标签才有意义
     if (mode !== 'replace' && tagIds.length === 0) throw AppError.badRequest('请至少选择一个标签');
-    this.requireTags(tagIds);
-    const affected = this.tags.batch(questionIds, tagIds, mode);
+    await this.requireTags(tagIds);
+    const affected = await this.tags.batch(questionIds, tagIds, mode);
     this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
@@ -206,15 +208,15 @@ export class TagService {
     return { affected, mode };
   }
 
-  private requireRow(id: number): TagRow {
-    const row = this.tags.findById(id);
+  private async requireRow(id: number): Promise<TagRow> {
+    const row = await this.tags.findById(id);
     if (!row) throw AppError.notFound('标签不存在');
     return row;
   }
 
-  private requireTags(tagIds: number[]): void {
+  private async requireTags(tagIds: number[]): Promise<void> {
     if (tagIds.length === 0) return;
-    const found = this.tags.existingTagIds(tagIds);
+    const found = await this.tags.existingTagIds(tagIds);
     if (found.length !== tagIds.length) {
       const missing = tagIds.filter((id) => !found.includes(id)).slice(0, 5);
       throw AppError.badRequest(`标签不存在或已被删除：${missing.join(', ')}`);

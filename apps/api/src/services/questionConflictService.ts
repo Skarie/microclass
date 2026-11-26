@@ -37,22 +37,19 @@ export class QuestionConflictService {
 
   /**
    * 台账状态：**只看状态，不扫库**。
-   *
-   * 为什么不在列表页隐式重扫：node:sqlite 是同步 API，一次全库分组会把整个事件循环占住，
-   * 而真机冷缓存时（容器刚重启 / 系统刚重启）实测要几分钟 —— 那会让整个站点跟着卡死。
-   * 因此扫描只由用户点「重新扫描全库」（`POST /question-conflicts/sync`）或运维脚本触发；
+   * 全库分组（36.6 万题）冷缓存时要几分钟，只允许用户显式点「重新扫描全库」触发；
    * 列表页只报告「台账是否过期、为什么过期」，由界面提示用户去点那个按钮。
    */
-  freshness(): {
+  async freshness(): Promise<{
     stale: boolean;
     reason: string;
     ageMs: number;
     pending: number;
     total: number;
     counts: { pending: number; resolved: number; ignored: number; total: number };
-  } {
-    const staleness = this.conflicts.staleness();
-    const counts = this.conflicts.counts();
+  }> {
+    const staleness = await this.conflicts.staleness();
+    const counts = await this.conflicts.counts();
     return {
       stale: staleness.stale,
       reason: staleness.reason,
@@ -64,7 +61,7 @@ export class QuestionConflictService {
   }
 
   /** 显式扫描（用户点按钮 / 运维脚本）；返回分段耗时便于排查慢在哪一步 */
-  rescan(): {
+  async rescan(): Promise<{
     reason: 'forced';
     scannedGroups: number;
     inserted: number;
@@ -72,8 +69,8 @@ export class QuestionConflictService {
     pending: number;
     total: number;
     ms: { scan: number; cleanup: number; write: number; meta: number; total: number };
-  } {
-    const res = this.conflicts.sync();
+  }> {
+    const res = await this.conflicts.sync();
     return {
       reason: 'forced',
       scannedGroups: res.scanned,
@@ -85,17 +82,17 @@ export class QuestionConflictService {
     };
   }
 
-  list(options: { status?: ConflictStatus | 'all'; page?: number; pageSize?: number }): {
+  async list(options: { status?: ConflictStatus | 'all'; page?: number; pageSize?: number }): Promise<{
     counts: { pending: number; resolved: number; ignored: number; total: number };
     sync: { scanned: false; reason: string; stale: boolean; ageMs: number };
     page: number;
     pageSize: number;
     total: number;
     items: ConflictGroupDto[];
-  } {
-    const fresh = this.freshness();
-    const page = this.conflicts.list(options);
-    const answers = this.conflicts.answersFor(page.items.map((i) => i.content_hash));
+  }> {
+    const fresh = await this.freshness();
+    // `list` 顺带返回本页各组的答案分布（一次查询，避免列表页 N+1）
+    const page = await this.conflicts.list(options);
     return {
       counts: fresh.counts,
       sync: { scanned: false, reason: fresh.reason, stale: fresh.stale, ageMs: fresh.ageMs },
@@ -108,7 +105,7 @@ export class QuestionConflictService {
         status: row.status,
         groupSize: row.group_size,
         answerCount: row.answer_count,
-        answers: answers.get(row.content_hash) ?? [],
+        answers: page.answers.get(row.content_hash) ?? [],
         chosenAnswer: row.chosen_answer,
         reviewerName: row.reviewer_name,
         updatedAt: row.updated_at,
@@ -117,11 +114,11 @@ export class QuestionConflictService {
   }
 
   /** 某一组的全部题目（含题库名与来源，便于判断该信哪个答案） */
-  detail(hash: string): {
+  async detail(hash: string): Promise<{
     group: ConflictGroupDto;
-    questions: ReturnType<QuestionConflictRepository['questions']>;
-  } {
-    const row = this.conflicts.find(hash);
+    questions: Awaited<ReturnType<QuestionConflictRepository['questions']>>;
+  }> {
+    const row = await this.conflicts.find(hash);
     if (!row) throw AppError.notFound('这一组冲突题不存在（可能已被合并或修改）');
     return {
       group: {
@@ -130,12 +127,12 @@ export class QuestionConflictService {
         status: row.status,
         groupSize: row.group_size,
         answerCount: row.answer_count,
-        answers: this.conflicts.answers(hash),
+        answers: await this.conflicts.answers(hash),
         chosenAnswer: row.chosen_answer,
         reviewerName: row.reviewer_name,
         updatedAt: row.updated_at,
       },
-      questions: this.conflicts.questions(hash),
+      questions: await this.conflicts.questions(hash),
     };
   }
 
@@ -146,7 +143,7 @@ export class QuestionConflictService {
     answer: string,
     options?: { sync?: boolean },
   ): Promise<{ updated: number; answer: string }> {
-    const group = this.detail(hash);
+    const group = await this.detail(hash);
     const chosen = String(answer ?? '').trim();
     if (!chosen) throw AppError.badRequest('请选择或填写正确答案');
     const ids = group.questions.map((q) => q.id);
@@ -178,10 +175,9 @@ export class QuestionConflictService {
       });
       updated += 1;
     }
-    // 答案统一后这组不再是冲突，台账同步删除；批量处理时由调用方在末尾统一同步一次
-    // （sync 是全表分组，逐组调用会把批量操作拖成 N 次全表扫描）
-    if (options?.sync !== false) this.conflicts.sync();
-    this.conflicts.upsertStatus(
+    // 答案统一后这组不再是冲突；批量处理时由调用方在末尾统一 sync 一次（全表分组很贵）
+    if (options?.sync !== false) await this.conflicts.sync();
+    await this.conflicts.upsertStatus(
       hash,
       'resolved',
       chosen,
@@ -203,9 +199,12 @@ export class QuestionConflictService {
   }
 
   /** 忽略：确认这一组的多种答案是合理的，不再提示 */
-  ignore(actor: User, hash: string): { ok: true } {
-    const group = this.detail(hash);
-    this.conflicts.upsertStatus(hash, 'ignored', group.group.chosenAnswer, { id: actor.id, name: actor.username });
+  async ignore(actor: User, hash: string): Promise<{ ok: true }> {
+    const group = await this.detail(hash);
+    await this.conflicts.upsertStatus(hash, 'ignored', group.group.chosenAnswer, {
+      id: actor.id,
+      name: actor.username,
+    });
     this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
@@ -217,9 +216,9 @@ export class QuestionConflictService {
   }
 
   /** 恢复为待核对 */
-  reopen(actor: User, hash: string): { ok: true } {
-    this.detail(hash);
-    this.conflicts.upsertStatus(hash, 'pending', '', { id: actor.id, name: actor.username });
+  async reopen(actor: User, hash: string): Promise<{ ok: true }> {
+    await this.detail(hash);
+    await this.conflicts.upsertStatus(hash, 'pending', '', { id: actor.id, name: actor.username });
     return { ok: true };
   }
 
@@ -239,7 +238,7 @@ export class QuestionConflictService {
   }> {
     // 台账可能过期（导入了新题库），但这里不重扫：以台账现状为准，界面会提示去重扫。
     const limit = Math.max(1, Math.min(5000, options?.limit ?? 1000));
-    const pending = this.collectPendingGroups(limit);
+    const pending = await this.collectPendingGroups(limit);
     let groups = 0;
     let questions = 0;
     let skipped = 0;
@@ -258,7 +257,7 @@ export class QuestionConflictService {
       if (samples.length < 10) samples.push({ stem: row.sample_stem.slice(0, 80), answer: top.answer, n: top.n });
       if (!dryRun) await this.resolve(actor, row.content_hash, top.answer, { sync: false });
     }
-    if (!dryRun) this.conflicts.sync();
+    if (!dryRun) await this.conflicts.sync();
     return { groups, questions, skipped, dryRun, samples };
   }
 
@@ -270,17 +269,18 @@ export class QuestionConflictService {
    * 这里先把待处理组连同答案分布一次性快照下来，再统一判断/落库，
    * 避免边写边翻页导致漏组（写操作会把组的状态改掉，翻页会漂移）。
    */
-  private collectPendingGroups(limit: number): { row: ConflictRow; answers: { answer: string; n: number }[] }[] {
+  private async collectPendingGroups(
+    limit: number,
+  ): Promise<{ row: ConflictRow; answers: { answer: string; n: number }[] }[]> {
     const pageSize = 100;
     const out: { row: ConflictRow; answers: { answer: string; n: number }[] }[] = [];
     for (let page = 1; out.length < limit; page += 1) {
-      const res = this.conflicts.list({ status: 'pending', page, pageSize });
+      const res = await this.conflicts.list({ status: 'pending', page, pageSize });
       if (res.items.length === 0) break;
-      const answers = this.conflicts.answersFor(res.items.map((i) => i.content_hash));
       for (const row of res.items) {
         out.push({
           row,
-          answers: (answers.get(row.content_hash) ?? []).map((a) => ({ answer: a.answer, n: a.n })),
+          answers: (res.answers.get(row.content_hash) ?? []).map((a) => ({ answer: a.answer, n: a.n })),
         });
         if (out.length >= limit) break;
       }
@@ -311,7 +311,7 @@ export class QuestionConflictService {
     samples: { stem: string; from: string[]; merged: string }[];
   }> {
     const limit = Math.max(1, Math.min(5000, options?.limit ?? 1000));
-    const pending = this.collectPendingGroups(limit);
+    const pending = await this.collectPendingGroups(limit);
     let groups = 0;
     let questions = 0;
     let skipped = 0;
@@ -332,7 +332,7 @@ export class QuestionConflictService {
       // 批量场景不逐组 sync（每组一次全表分组太贵），末尾统一同步一次
       if (!dryRun) await this.resolve(actor, row.content_hash, merged, { sync: false });
     }
-    if (!dryRun) this.conflicts.sync();
+    if (!dryRun) await this.conflicts.sync();
     return { groups, questions, skipped, dryRun, samples };
   }
 }

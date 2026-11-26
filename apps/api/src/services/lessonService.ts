@@ -93,9 +93,9 @@ export class LessonService {
     const [withProgress] = await this.lessons.withProgress([lesson], viewer.id);
     return {
       lesson: withProgress ?? { ...lesson, progress: null },
-      knowledge: this.knowledgeRepo.listByLesson(id),
+      knowledge: await this.knowledgeRepo.listByLesson(id),
       // 观看页展示该课时所属课程的「课程级共享知识点」；未归类课时为空
-      courseKnowledge: lesson.course_id === null ? [] : this.knowledgeRepo.listByCourse(lesson.course_id),
+      courseKnowledge: lesson.course_id === null ? [] : await this.knowledgeRepo.listByCourse(lesson.course_id),
     };
   }
 
@@ -156,11 +156,11 @@ export class LessonService {
   addKnowledge(actor: User, input: KnowledgeInput): Promise<number> {
     return this.knowledge.addKnowledge(actor, input);
   }
-  removeKnowledge(actor: User, id: number): { filePath: string } {
+  removeKnowledge(actor: User, id: number): Promise<{ filePath: string }> {
     return this.knowledge.removeKnowledge(actor, id);
   }
-  updateKnowledge(actor: User, id: number, input: { title?: string; content?: string; url?: string }): void {
-    this.knowledge.updateKnowledge(actor, id, input);
+  updateKnowledge(actor: User, id: number, input: { title?: string; content?: string; url?: string }): Promise<void> {
+    return this.knowledge.updateKnowledge(actor, id, input);
   }
   uploadKnowledgeFile(actor: User, input: UploadKnowledgeFileInput): Promise<{ id: number; fileName: string }> {
     return this.knowledge.uploadKnowledgeFile(actor, input);

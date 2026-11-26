@@ -4,11 +4,10 @@
  * 为什么是子进程：线程共享进程优先级，Node 不暴露 ioprio；只有独立进程才能用
  * `ionice -c3 nice -n 19` 把 39.6 万题的全表扫描压到最低优先级。
  *
- * 数据来源（**过渡态，B3 迁移完成后要改**）：
- *   - 题目/题库聚合：仍读 **SQLite**（read-only 连接）——questions/banks 仓储还是同步 sqlite 实现；
- *   - 站内设置（难度阈值等）：按 `MC_DB` 走对应库（`pg` 连接 `MC_PG_URL`，否则复用上面的 sqlite 连接），
- *     启动时 `await settings.load()` 把 settings 快照读进内存，之后同步读。
- *   B3 把 questions/banks 迁到 PG 后，这里应该改成「只连 PG、不再开 sqlite」。
+ * 数据来源（P0 阶段 2 收尾后）：**只看 `MC_DB`**
+ *   - `MC_DB=pg`：只连 PG（`MC_PG_URL`），题目/题库聚合与设置都走同一个连接池；
+ *     **不再打开只读 SQLite，`MC_HEALTH_DB` 也不再是必需项**（切流后 sqlite 只是历史归档）；
+ *   - 其它（默认 sqlite）：沿用原来的「只读 SQLite 连接」+ `MC_HEALTH_DB`。
  *
  * 输出约定：一行 JSON（`{ok:true,payload}` 或 `{ok:false,error}`），由 services/bankHealthRunner 解析。
  */
@@ -20,6 +19,9 @@ import { SettingsRepository } from '../db/repositories/settingsRepository.js';
 import { computeGlobalHealthPayload } from '../db/repositories/bankHealthPayload.js';
 
 const dbFile = process.env.MC_HEALTH_DB ?? '';
+const pgUrl = process.env.MC_PG_URL ?? '';
+/** PG 模式：只连 PG；缺 `MC_PG_URL` 时仍按 sqlite 处理（保持既有回退语义） */
+const pgMode = process.env.MC_DB === 'pg' && pgUrl !== '';
 const limit = Number(process.env.MC_HEALTH_LIMIT ?? 20);
 
 function fail(error: string): never {
@@ -28,25 +30,20 @@ function fail(error: string): never {
   process.exit(1);
 }
 
-if (!dbFile) fail('体检子进程缺少 MC_HEALTH_DB');
+if (!pgMode && !dbFile) fail('体检子进程缺少 MC_HEALTH_DB（sqlite 模式必需）');
 
 try {
-  const db = new Db(dbFile, { readOnly: true });
-  // 过渡点（B3 后改）：题库聚合读 sqlite；settings 按 MC_DB 走 PG 或 sqlite
-  let asyncDb: AsyncDb;
-  const pgUrl = process.env.MC_PG_URL;
-  if (process.env.MC_DB === 'pg' && pgUrl) {
-    asyncDb = createPgAsyncDb(createPgPool({ url: pgUrl, max: 1 }));
-  } else {
-    asyncDb = createSqliteAsyncDb(db);
-  }
+  // PG 模式下 db 传 null：QuestionRepository / BankRepository 只走注入的 AsyncDb，
+  // 不会碰 SQLite（也就不会因为打不开历史库而整次体检失败）。
+  const db = pgMode ? null : new Db(dbFile, { readOnly: true });
+  const asyncDb: AsyncDb = db ? createSqliteAsyncDb(db) : createPgAsyncDb(createPgPool({ url: pgUrl, max: 1 }));
   try {
     const settings = new SettingsRepository(asyncDb);
     await settings.load();
     const payload = await computeGlobalHealthPayload(db, asyncDb, settings, limit);
     process.stdout.write(JSON.stringify({ ok: true, payload }));
   } finally {
-    db.close();
+    db?.close();
     await asyncDb.close();
   }
 } catch (e) {

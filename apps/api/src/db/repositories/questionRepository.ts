@@ -51,14 +51,19 @@ export type * from './question-types.js';
 export type { DuplicateGroupRow, DuplicateIdGroup } from './question-dedupe.js';
 
 export class QuestionRepository {
-  /** 读写都走 asyncDb（P0 阶段 2，questions 读批次）；没注入时退回 sqlite 包装（测试） */
+  /**
+   * 读写都走 asyncDb（P0 阶段 2，questions 读批次）；`db` 只在没注入 asyncDb 时兜底（测试）。
+   * PG 模式下 `db` 可以是 `null` —— 体检子进程不再打开只读 SQLite（见 `workers/bankHealthChild`）。
+   */
   constructor(
-    private readonly db: Db,
+    private readonly db: Db | null,
     private readonly asyncDb?: AsyncDb,
   ) {}
 
   private adb(): AsyncDb {
-    return this.asyncDb ?? createSqliteAsyncDb(this.db);
+    if (this.asyncDb) return this.asyncDb;
+    if (!this.db) throw new Error('QuestionRepository 未注入 AsyncDb（PG 模式不允许退回 SQLite）');
+    return createSqliteAsyncDb(this.db);
   }
 
   async listByBank(bankId: number, filter?: QuestionFilter, page?: QuestionPage): Promise<Question[]> {

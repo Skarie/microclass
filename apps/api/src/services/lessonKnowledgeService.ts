@@ -22,7 +22,7 @@ export class LessonKnowledgeService {
     const title = (input.title ?? '').trim();
     if (!title) throw AppError.badRequest('标题不能为空');
     if (input.kind === 'link' && !isHttpUrl(input.url ?? '')) throw AppError.badRequest('链接必须以 http(s):// 开头');
-    const id = this.knowledge.create({ ...input, title });
+    const id = await this.knowledge.create({ ...input, title });
     this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
@@ -34,10 +34,10 @@ export class LessonKnowledgeService {
     return id;
   }
 
-  removeKnowledge(actor: User, id: number): { filePath: string } {
-    const row = this.knowledge.findById(id);
+  async removeKnowledge(actor: User, id: number): Promise<{ filePath: string }> {
+    const row = await this.knowledge.findById(id);
     if (!row) throw AppError.notFound('知识点不存在');
-    this.knowledge.delete(id);
+    await this.knowledge.delete(id);
     this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
@@ -49,16 +49,20 @@ export class LessonKnowledgeService {
   }
 
   /** 更新知识点：链接类型改 URL，其余类型改正文 */
-  updateKnowledge(actor: User, id: number, input: { title?: string; content?: string; url?: string }): void {
-    const row = this.knowledge.findById(id);
+  async updateKnowledge(
+    actor: User,
+    id: number,
+    input: { title?: string; content?: string; url?: string },
+  ): Promise<void> {
+    const row = await this.knowledge.findById(id);
     if (!row) throw AppError.notFound('知识点不存在');
     const title = String(input.title ?? row.title).trim() || row.title;
     if (row.kind === 'link') {
       const url = String(input.url ?? row.url);
       if (!isHttpUrl(url)) throw AppError.badRequest('链接必须以 http(s):// 开头');
-      this.knowledge.update(id, { title, url });
+      await this.knowledge.update(id, { title, url });
     } else {
-      this.knowledge.update(id, { title, content: String(input.content ?? row.content) });
+      await this.knowledge.update(id, { title, content: String(input.content ?? row.content) });
     }
     this.audit.write({
       actorId: actor.id,
@@ -81,7 +85,7 @@ export class LessonKnowledgeService {
       data: input.data,
     });
     const title = String(input.title ?? '').trim() || fileName || '知识点文件';
-    const id = this.knowledge.create({
+    const id = await this.knowledge.create({
       lessonId: input.lessonId,
       title,
       kind: 'file',

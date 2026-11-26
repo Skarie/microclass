@@ -39,9 +39,9 @@ export interface CatalogNode {
 export async function catalogCourses(db: AsyncDb, kind: BankKind | '' = ''): Promise<CatalogCourse[]> {
   return db.all<CatalogCourse>(
     `SELECT c.id, c.name,
-            COUNT(DISTINCT b.id) AS bankCount,
-            COALESCE(SUM(b.question_count), 0) AS questionCount,
-            COUNT(DISTINCT CASE WHEN l.group_name <> '' THEN l.group_name END) AS chapterCount
+            COUNT(DISTINCT b.id) AS "bankCount",
+            COALESCE(SUM(b.question_count), 0) AS "questionCount",
+            COUNT(DISTINCT CASE WHEN l.group_name <> '' THEN l.group_name END) AS "chapterCount"
      FROM courses c
      LEFT JOIN banks b ON b.course_id = c.id AND (?1 = '' OR b.kind = ?1)
      LEFT JOIN lessons l ON l.id = b.lesson_id
@@ -58,7 +58,7 @@ export async function catalogUnbound(
   kind: BankKind | '' = '',
 ): Promise<{ bankCount: number; questionCount: number }> {
   const row = await db.get<{ bankCount: number; questionCount: number }>(
-    `SELECT COUNT(*) AS bankCount, COALESCE(SUM(b.question_count), 0) AS questionCount
+    `SELECT COUNT(*) AS "bankCount", COALESCE(SUM(b.question_count), 0) AS "questionCount"
        FROM banks b WHERE b.course_id IS NULL AND (?1 = '' OR b.kind = ?1)`,
     [kind],
   );
@@ -72,8 +72,8 @@ export async function catalogUnboundBooks(
 ): Promise<{ book: string; bankCount: number; questionCount: number }[]> {
   return db.all<{ book: string; bankCount: number; questionCount: number }>(
     `SELECT COALESCE(NULLIF(b.book, ''), '(无册次信息)') AS book,
-            COUNT(*) AS bankCount,
-            COALESCE(SUM(b.question_count), 0) AS questionCount
+            COUNT(*) AS "bankCount",
+            COALESCE(SUM(b.question_count), 0) AS "questionCount"
      FROM banks b WHERE b.course_id IS NULL AND (?1 = '' OR b.kind = ?1)
      GROUP BY book ORDER BY bankCount DESC`,
     [kind],

@@ -36,13 +36,14 @@ export class CourseKnowledgeService {
     if (!title) throw AppError.badRequest('标题不能为空');
     if (input.kind === 'link' && !isHttpUrl(input.url ?? '')) throw AppError.badRequest('链接必须以 http(s):// 开头');
 
-    const id = this.knowledge.create({
+    const sort = (await this.knowledge.maxSort({ courseId })) + 1;
+    const id = await this.knowledge.create({
       courseId,
       title,
       kind: input.kind,
       content: input.content ?? '',
       url: input.kind === 'link' ? (input.url ?? '') : '',
-      sort: this.knowledge.maxSort({ courseId }) + 1,
+      sort,
     });
     this.audit.write({
       actorId: actor.id,

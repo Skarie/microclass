@@ -76,6 +76,51 @@ export function maxOf(a: string, b: string, driver: DbDriverName): string {
 }
 
 /**
+ * 「当前时间」的 UTC 文本（`YYYY-MM-DD HH:MM:SS`）表达式（方言 #26）。
+ *
+ * SQLite 的 `datetime('now')` 产出 UTC 文本；PG 没有 `datetime()`，
+ * 用 `to_char(now() AT TIME ZONE 'utc', …)` 得到同样的文本（与 DDL 生成器的映射规则一致，见 #4）。
+ * 时间列在库里是 TEXT，切流前后可直接比较/排序。
+ */
+export function nowText(driver: DbDriverName): string {
+  return driver === 'pg' ? "to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD HH24:MI:SS')" : "datetime('now')";
+}
+
+/**
+ * 大小写不敏感的列引用（方言 #6 的运行时一半）。
+ *
+ * SQLite 的 `COLLATE NOCASE` 是列/表达式级排序规则；PG 没有这个排序规则，
+ * `tags.name` 在 PG 里已是 `citext`（见 `ops/scripts/pg/post-schema.pg.sql`），
+ * 等值比较与排序天然大小写不敏感，直接写列名即可。
+ * 只用于 `tags.name` 这类在 PG 侧已改 citext 的列。
+ */
+export function nocase(column: string, driver: DbDriverName): string {
+  return driver === 'pg' ? column : `${column} COLLATE NOCASE`;
+}
+
+/**
+ * NULL 安全的等值比较（方言 #27）。
+ *
+ * SQLite 允许 `parent_id IS ?`（`IS` 可带参数）；PG 的 `IS` 只接受 `NULL` 字面量，
+ * 写成 `IS $1` 是语法错误，必须用 `IS NOT DISTINCT FROM`。
+ * sqlite 侧保持 `IS ?` 不动（语义相同，执行计划不变）。
+ */
+export function nullSafeEq(column: string, driver: DbDriverName): string {
+  return driver === 'pg' ? `${column} IS NOT DISTINCT FROM ?` : `${column} IS ?`;
+}
+
+/**
+ * 「插入顺序」兜底列（方言 #28）。
+ *
+ * `question_group_items` 没有自增 id，SQLite 用隐式 `rowid` 做同 sort 的稳定次序；
+ * PG 表没有 rowid，退化为按主键另一半 `question_id` 排（顺序稳定，但不等价于插入顺序）。
+ * 只用于 `ORDER BY` 的最后一个键。
+ */
+export function insertionOrder(alias: string, driver: DbDriverName): string {
+  return driver === 'pg' ? `${alias}.question_id` : `${alias}.rowid`;
+}
+
+/**
  * 把 `answers` 这类 JSON 数组展开成行（方言 #24）。
  *
  * SQLite 用表值函数 `json_each(col)`；PostgreSQL 用 `jsonb_array_elements(col::jsonb)`，

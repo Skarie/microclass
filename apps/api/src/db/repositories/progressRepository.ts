@@ -65,7 +65,7 @@ export class ProgressRepository {
        ON CONFLICT(user_id, lesson_id) DO UPDATE SET
          position = excluded.position,
          duration = excluded.duration,
-         finished = ${maxOf('finished', 'excluded.finished', driver)},
+         finished = ${maxOf('lesson_progress.finished', 'excluded.finished', driver)},
          updated_at = ${now}`,
       [input.userId, input.lessonId, position, Math.max(0, input.duration), input.finished ? 1 : 0],
     );
@@ -78,7 +78,7 @@ export class ProgressRepository {
       `INSERT INTO lesson_progress (user_id, lesson_id, quiz_done, quiz_best) VALUES (?,?,1,?)
        ON CONFLICT(user_id, lesson_id) DO UPDATE SET
          quiz_done = 1,
-         quiz_best = ${maxOf('quiz_best', 'excluded.quiz_best', driver)},
+         quiz_best = ${maxOf('lesson_progress.quiz_best', 'excluded.quiz_best', driver)},
          updated_at = ${now}`,
       [userId, lessonId, score],
     );

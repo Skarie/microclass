@@ -10,6 +10,7 @@
  * **回调内的语句必须走 `tx`**（sqlite BEGIN IMMEDIATE / PG 单连接 BEGIN + ROLLBACK）。
  */
 import type { AsyncDb } from '../async.js';
+import { maxOf } from '../sql.js';
 import type { QuestionInput } from './question-types.js';
 
 /** 异步 sleep（批量写脚本退避重试用） */
@@ -45,7 +46,9 @@ export async function withBusyRetry<T>(fn: () => Promise<T>, attempts = 6): Prom
 /** 题库题量增减（bankId 为空或非法时不动） */
 async function bumpBankCount(db: AsyncDb, bankId: number | null | undefined, delta: number): Promise<void> {
   if (typeof bankId !== 'number' || !Number.isInteger(bankId) || delta === 0) return;
-  await db.run('UPDATE banks SET question_count = MAX(0, question_count + ?) WHERE id = ?', [delta, bankId]);
+  // 方言 #20：SQLite 的 `MAX(0, x)` 是标量函数，PG 的 MAX 只有聚合形式（`max(integer, bigint) does not exist`）
+  const floorZero = maxOf('0', 'question_count + ?', db.driver);
+  await db.run(`UPDATE banks SET question_count = ${floorZero} WHERE id = ?`, [delta, bankId]);
 }
 
 export async function createQuestion(db: AsyncDb, input: QuestionInput): Promise<number> {

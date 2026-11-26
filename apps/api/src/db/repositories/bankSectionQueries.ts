@@ -77,8 +77,8 @@ interface SectionRow {
 export async function catalogSectionsByBook(db: AsyncDb, kind: BankKind | '' = ''): Promise<BankBookCatalog> {
   const rows = await db.all<SectionRow>(
     `SELECT COALESCE(b.book, '') AS book, COALESCE(b.section, '') AS section,
-            COUNT(*) AS bankCount,
-            COALESCE(SUM(b.question_count), 0) AS questionCount,
+            COUNT(*) AS "bankCount",
+            COALESCE(SUM(b.question_count), 0) AS "questionCount",
             MAX(CASE WHEN b.course_id IS NULL THEN 1 ELSE 0 END) AS unbound
      FROM banks b WHERE (?1 = '' OR b.kind = ?1)
      GROUP BY book, section`,
@@ -111,10 +111,10 @@ export async function catalogSectionsByBook(db: AsyncDb, kind: BankKind | '' = '
  */
 export async function catalogSectionsByCourse(db: AsyncDb, kind: BankKind | '' = ''): Promise<BankCourseCatalog> {
   const rows = await db.all<SectionRow & { courseId: number; name: string }>(
-    `SELECT c.id AS courseId, c.name,
+    `SELECT c.id AS "courseId", c.name,
             COALESCE(b.book, '') AS book, COALESCE(b.section, '') AS section,
-            COUNT(*) AS bankCount,
-            COALESCE(SUM(b.question_count), 0) AS questionCount,
+            COUNT(*) AS "bankCount",
+            COALESCE(SUM(b.question_count), 0) AS "questionCount",
             0 AS unbound
      FROM banks b JOIN courses c ON c.id = b.course_id
      WHERE (?1 = '' OR b.kind = ?1)
@@ -154,7 +154,7 @@ export async function catalogSectionsByCourse(db: AsyncDb, kind: BankKind | '' =
 /** 回填候选：section 为空（可按 kind 过滤），带课时 group_name 供优先继承 */
 export async function banksMissingSection(db: AsyncDb, kind: BankKind | '' = ''): Promise<BankMissingSectionRow[]> {
   return db.all<BankMissingSectionRow>(
-    `SELECT b.id, b.name, COALESCE(b.book, '') AS book, b.lesson_id AS lessonId, COALESCE(l.group_name, '') AS groupName
+    `SELECT b.id, b.name, COALESCE(b.book, '') AS book, b.lesson_id AS "lessonId", COALESCE(l.group_name, '') AS "groupName"
        FROM banks b LEFT JOIN lessons l ON l.id = b.lesson_id
        WHERE b.section = '' AND (?1 = '' OR b.kind = ?1)
        ORDER BY b.id`,

@@ -62,7 +62,7 @@ export class KnowledgeImportService {
     if (dryRun) return report;
 
     const inputs = planner.inputs();
-    this.knowledge.createMany(inputs);
+    await this.knowledge.createMany(inputs);
     this.audit.write({
       actorId: actor.id,
       actorName: actor.username,

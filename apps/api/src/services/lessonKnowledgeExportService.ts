@@ -33,7 +33,7 @@ export class LessonKnowledgeExportService {
       const course = await this.courses.findById(scope.courseId);
       if (!course) throw AppError.notFound('课程不存在');
       lessons = await this.lessons.listByCourse(scope.courseId);
-      courseItems = this.knowledge.listByCourse(scope.courseId);
+      courseItems = await this.knowledge.listByCourse(scope.courseId);
       title = course.name;
     } else {
       throw AppError.badRequest('必须指定课程或课时');
@@ -42,7 +42,7 @@ export class LessonKnowledgeExportService {
     const chapters: KnowledgeOutline['chapters'] = [];
     let totalItems = courseItems.length;
     for (const lesson of lessons) {
-      const items = this.knowledge.listByLesson(lesson.id);
+      const items = await this.knowledge.listByLesson(lesson.id);
       totalItems += items.length;
       const chapterName = lesson.group_name || '未分章';
       let chapter = chapters.find((c) => c.chapter === chapterName);

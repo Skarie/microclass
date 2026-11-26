@@ -25,7 +25,7 @@ export async function registerCourseRoutes(app: FastifyInstance, deps: Deps): Pr
     return {
       course: { ...course, fav: await deps.courses.isFavorite(user.id, id) },
       lessons,
-      knowledge: deps.knowledge.listByCourse(id),
+      knowledge: await deps.knowledge.listByCourse(id),
     };
   });
 

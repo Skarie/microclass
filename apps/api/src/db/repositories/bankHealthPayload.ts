@@ -26,7 +26,7 @@ export type BankHealthPayload = Omit<BankHealthResult, 'cachedAt'>;
 
 /** 计算全库体检（大库很慢，必须只在 worker / 子进程 / 测试里调用） */
 export async function computeGlobalHealthPayload(
-  db: Db,
+  db: Db | null,
   asyncDb: AsyncDb,
   settings: SettingsRepository,
   limit: number,
