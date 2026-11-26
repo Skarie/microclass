@@ -93,7 +93,7 @@ export async function addByQuota(
   }
 
   const unique = [...new Set(ids)];
-  const added = deps.exams.addQuestions(examId, unique);
+  const added = await deps.exams.addQuestions(examId, unique);
   writeAudit(deps, actor, 'exam.add_quota', examId, {
     quota,
     difficultyQuota: difficultyQuota ?? {},

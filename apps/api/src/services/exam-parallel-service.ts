@@ -4,8 +4,8 @@
  *
  * 配对逻辑在 `paperParallel`（纯查询 + 匹配），这里只负责建卷、抄结构、逐题落分值。
  *
- * P0 阶段 2（批次 1）：原卷读取/候选挑题走 AsyncDb（故 await 后续步骤）；
- * 建卷、抄结构、逐题落分值仍是同步写（SQL/事务未动，批次 2 再迁）。
+ * P0 阶段 2（批次 2）：原卷读取/候选挑题/建卷/抄结构/逐题落分值全部走 AsyncDb 并 `await`；
+ * 建卷、抄结构、逐题分值仍是**逐语句**写入（新卷 id 还没有卷面缓存，无需失效）。
  */
 import { AppError, type User } from '@microclass/shared';
 import type { AuditRepository } from '../db/repositories/auditRepository.js';
@@ -60,9 +60,9 @@ export class ExamParallelService {
       shuffleQuestions: Number(source.shuffle_questions ?? 0) === 1,
       showAnswers: Number(source.show_answers ?? 1) === 1,
     });
-    if (input.replaceExisting) this.exams.clearQuestions(newId);
+    if (input.replaceExisting) await this.exams.clearQuestions(newId);
     // 沿用原卷的试卷结构与目标配比（分值也在下面逐题抄）
-    this.exams.setStructure(
+    await this.exams.setStructure(
       newId,
       String(source.structure ?? '[]'),
       String(source.difficulty_target ?? ''),

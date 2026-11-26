@@ -3,7 +3,7 @@
  *
  * 本文件只保留 `ExamRepository` 门面与薄委托，领域模块：
  * - exam-crud.ts       考试增删改查、列表统计（题量/参与人数/我的最近成绩）
- * - exam-questions.ts  卷内题目（listQuestions / add / remove / reorder / 换题 / 大题分值）
+ * - exam-questions.ts  卷内题目（listQuestions / add / remove / reorder / 换题 / 大题分值 / 组卷落库）
  * - exam-pool-filter.ts 挑题条件构造（纯函数）与分页收敛
  * - exam-pool.ts       挑题/计数/取 id、课程候选池、跨题库检索
  * - exam-stats.ts      细目表「知识点 × 题型 × 难度」、知识点聚合统计
@@ -11,16 +11,16 @@
  * - exam-attempts.ts   作答次数、交卷落库、成绩单、个人成绩
  *
  * SQL 文本、排序与返回结构保持不变；类型从原路径 re-export。
- * 读方法在批次 1 改为 `Promise` 返回，调用方（服务/路由/测试）已同步补 `await`。
  *
- * ## P0 阶段 2（exams/attempts 批次 1：只读方法）
+ * ## P0 阶段 2（exams/attempts 批次 2：写 + 交卷）
  *
- * - **读方法**（list/findById/paper/pool/facets/stats/成绩查询）统一注入 `AsyncDb`，
- *   返回 Promise；sqlite 下与旧同步实现等价，PG 下走连接池。
- * - **写方法**（create/update/delete/setStructure/卷内加删改/交卷落库）仍是同步 `Db`，
- *   事务边界与 SQL 一律不变 —— 批次 2 再迁，避免把组卷/交卷的写路径混进只读批次。
- * - `adb()` 是唯一的异步入口：测试只注入 `Db` 时退回 sqlite 包装（行为等价），
- *   与 users/courses/lessons/progress 等已迁域同一口径。
+ * - **读写一体**：所有方法（含 create/update/delete/setStructure、卷内加删改/排序/换题、
+ *   组卷落库、交卷落库）统一注入 `AsyncDb` 并返回 Promise；单测只注入 `Db` 时退回
+ *   sqlite 包装（行为等价）。
+ * - **自增**：`create` / `createAttempt` 改 `INSERT … RETURNING id`，不再用 `lastInsertRowid`。
+ * - **事务**：组卷 `applyComposition`（清空 + 加题 + 逐题分值）与考试交卷 `recordAttempt`
+ *   用 `AsyncDb.transaction(async tx)`；审计由服务层在事务提交后写。
+ * - 批次 1 留下的 `findByIdSync` / `questionInExamSync` 已删除：写路径读旧值统一 `await`。
  */
 import type { Exam } from '@microclass/shared';
 import { createSqliteAsyncDb, type AsyncDb } from '../async.js';
@@ -34,6 +34,7 @@ import * as pool from './exam-pool.js';
 import type { PickRow, SearchOptions } from './exam-pool.js';
 import type { PickOptions } from './exam-pool-filter.js';
 import * as questions from './exam-questions.js';
+import type { CompositionInput } from './exam-questions.js';
 import * as stats from './exam-stats.js';
 import type { PointStatsOptions, PointStatsRow, TaxonomyOptions, TaxonomyPoint } from './exam-stats.js';
 import type {
@@ -49,6 +50,7 @@ import type {
 
 export type * from './exam-types.js';
 export type { AttemptWithExam, AttemptWithStudent } from './exam-attempts.js';
+export type { CompositionInput } from './exam-questions.js';
 
 export class ExamRepository {
   constructor(
@@ -56,7 +58,7 @@ export class ExamRepository {
     private readonly asyncDb?: AsyncDb,
   ) {}
 
-  /** 已迁移的读方法统一走异步端口；单测只注入 `Db` 时退回 sqlite 包装（行为等价） */
+  /** 所有读写方法统一走异步端口；单测只注入 `Db` 时退回 sqlite 包装（行为等价） */
   private adb(): AsyncDb {
     return this.asyncDb ?? createSqliteAsyncDb(this.db);
   }
@@ -79,21 +81,21 @@ export class ExamRepository {
     return crud.findById(this.adb(), id);
   }
 
-  create(input: ExamInput): number {
-    return crud.create(this.db, input);
+  async create(input: ExamInput): Promise<number> {
+    return crud.create(this.adb(), input);
   }
 
-  update(id: number, input: ExamInput): void {
-    crud.update(this.db, id, input);
+  async update(id: number, input: ExamInput): Promise<void> {
+    return crud.update(this.adb(), id, input);
   }
 
   /** 只更新试卷结构/目标配比（组卷工作台里改大题、分值） */
-  setStructure(id: number, structure: string, difficultyTarget?: string, totalScore?: number): void {
-    crud.setStructure(this.db, id, structure, difficultyTarget, totalScore);
+  async setStructure(id: number, structure: string, difficultyTarget?: string, totalScore?: number): Promise<void> {
+    return crud.setStructure(this.adb(), id, structure, difficultyTarget, totalScore);
   }
 
-  delete(id: number): void {
-    crud.remove(this.db, id);
+  async delete(id: number): Promise<void> {
+    return crud.remove(this.adb(), id);
   }
 
   /* ---------------- 组卷 / 卷内题目 ---------------- */
@@ -109,37 +111,42 @@ export class ExamRepository {
   }
 
   /** 改某题的分值 / 大题分组 */
-  setQuestionMeta(examId: number, questionId: number, meta: { score?: number; section?: string }): void {
-    questions.setQuestionMeta(this.db, examId, questionId, meta);
+  async setQuestionMeta(examId: number, questionId: number, meta: { score?: number; section?: string }): Promise<void> {
+    return questions.setQuestionMeta(this.adb(), examId, questionId, meta);
   }
 
   /** 重排卷内顺序（传完整 id 顺序） */
-  reorder(examId: number, questionIds: number[]): void {
-    questions.reorder(this.db, examId, questionIds);
+  async reorder(examId: number, questionIds: number[]): Promise<void> {
+    return questions.reorder(this.adb(), examId, questionIds);
   }
 
   /** 用另一道题替换卷内某题（保持位置/分值/大题） */
-  replaceQuestion(examId: number, oldQuestionId: number, newQuestionId: number): void {
-    questions.replaceQuestion(this.db, examId, oldQuestionId, newQuestionId);
+  async replaceQuestion(examId: number, oldQuestionId: number, newQuestionId: number): Promise<void> {
+    return questions.replaceQuestion(this.adb(), examId, oldQuestionId, newQuestionId);
   }
 
   /** 批量加题；已在卷内的自动跳过，返回实际新增数 */
-  addQuestions(examId: number, questionIds: number[]): number {
-    return questions.addQuestions(this.db, examId, questionIds);
+  async addQuestions(examId: number, questionIds: number[]): Promise<number> {
+    return questions.addQuestions(this.adb(), examId, questionIds);
   }
 
-  removeQuestion(examId: number, questionId: number): void {
-    questions.removeQuestion(this.db, examId, questionId);
+  /** 组卷原子落库：清空（可选）+ 加题 + 逐题分值/大题，同一事务 */
+  async applyComposition(examId: number, input: CompositionInput): Promise<number> {
+    return questions.applyComposition(this.adb(), examId, input);
+  }
+
+  async removeQuestion(examId: number, questionId: number): Promise<void> {
+    return questions.removeQuestion(this.adb(), examId, questionId);
   }
 
   /** 把某题型的所有题统一刷成「大题名 + 每题分值」（组卷按题型生成大题用） */
-  applySection(examId: number, type: string, sectionName: string, score: number): number {
-    return questions.applySection(this.db, examId, type, sectionName, score);
+  async applySection(examId: number, type: string, sectionName: string, score: number): Promise<number> {
+    return questions.applySection(this.adb(), examId, type, sectionName, score);
   }
 
   /** 清空卷内题目（智能组卷「重新生成」用） */
-  clearQuestions(examId: number): number {
-    return questions.clearQuestions(this.db, examId);
+  async clearQuestions(examId: number): Promise<number> {
+    return questions.clearQuestions(this.adb(), examId);
   }
 
   async questionIds(examId: number): Promise<number[]> {
@@ -204,8 +211,12 @@ export class ExamRepository {
     return attempts.findAttempt(this.adb(), examId, userId);
   }
 
-  createAttempt(input: AttemptInput): number {
-    return attempts.createAttempt(this.db, input);
+  /**
+   * 交卷落库（考试）。用**单事务**包住：判分是纯内存计算，落库只有这一条语句，
+   * 事务边界显式化是为了「审计只在提交成功后写」——回滚时不能留下「已交卷」审计。
+   */
+  async recordAttempt(input: AttemptInput): Promise<number> {
+    return this.adb().transaction((tx) => attempts.createAttempt(tx, input));
   }
 
   /** 成绩单：某场考试的全部作答（含学生信息与统计） */

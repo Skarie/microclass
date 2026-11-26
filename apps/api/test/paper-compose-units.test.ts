@@ -129,9 +129,10 @@ describe('组卷范围查询拼装', () => {
     const calls: PickQuery[] = [];
     const deps = depsWithPick(async (query) => {
       calls.push(query);
-      return calls.length === 2 ? [{ id: 7 }] : [];
+      return calls.length === 2 ? [{ id: 7, type: 'single' }] : [];
     });
-    expect(await pickForCompose(deps, { type: 'single', level: 'hard', exclude: [] })).toBe(7);
+    // 返回整行（id + 题型）：组卷落库要按题型写分值，不再回表读卷面
+    expect(await pickForCompose(deps, { type: 'single', level: 'hard', exclude: [] })).toMatchObject({ id: 7 });
     expect(calls).toHaveLength(2);
     expect(calls[0]?.levelMin).toBe(71);
     expect(calls[1]?.difficulty).toBe('hard');

@@ -58,14 +58,14 @@ export async function registerQuizRoutes(app: FastifyInstance, deps: Deps): Prom
     const user = requireUser(req, reply);
     const qid = parseId((req.params as { qid: string }).qid, '题目 ID 非法');
     const body = req.body as { mastered?: boolean } | undefined;
-    deps.quizService.setMastered(user, qid, body?.mastered !== false);
+    await deps.quizService.setMastered(user, qid, body?.mastered !== false);
     return { ok: true };
   });
 
   /** 从错题本移除 */
   app.delete('/me/wrong-questions/:qid', async (req, reply) => {
     const user = requireUser(req, reply);
-    deps.quizService.removeFromWrongBook(user, parseId((req.params as { qid: string }).qid, '题目 ID 非法'));
+    await deps.quizService.removeFromWrongBook(user, parseId((req.params as { qid: string }).qid, '题目 ID 非法'));
     return { ok: true };
   });
 }

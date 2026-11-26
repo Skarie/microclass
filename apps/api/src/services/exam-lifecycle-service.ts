@@ -67,7 +67,7 @@ export class ExamLifecycleService {
 
   async create(actor: User, input: ExamDto): Promise<number> {
     const prepared = await this.prepare(input);
-    const id = this.exams.create(prepared);
+    const id = await this.exams.create(prepared);
     this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
@@ -81,9 +81,10 @@ export class ExamLifecycleService {
 
   async update(actor: User, examId: number, input: ExamDto): Promise<void> {
     await this.findById(examId);
-    this.paperCache.clearPaper(examId);
     const prepared = await this.prepare(input);
-    this.exams.update(examId, prepared);
+    await this.exams.update(examId, prepared);
+    // 卷面缓存：**写成功之后**再失效（写失败时不能把仍在用的缓存清掉）
+    this.paperCache.clearPaper(examId);
     this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
@@ -95,8 +96,8 @@ export class ExamLifecycleService {
 
   async remove(actor: User, examId: number): Promise<void> {
     const exam = await this.findById(examId);
+    await this.exams.delete(examId);
     this.paperCache.clearPaper(examId);
-    this.exams.delete(examId);
     this.audit.write({
       actorId: actor.id,
       actorName: actor.username,

@@ -1,11 +1,11 @@
 /**
- * exams 只读迁移（批次 1）的契约测试：**读走 AsyncDb、写仍走同步 Db**。
+ * exams 域「读写都走 AsyncDb」的契约测试（批次 1 的读 + 批次 2 的写）。
  *
  * 为什么单独钉：
- *   - `tsc` 抓不到「读方法忘了走 asyncDb」——漏了在 sqlite 下照样能跑，
+ *   - `tsc` 抓不到「方法忘了走 asyncDb」——漏了在 sqlite 下照样能跑，
  *     但 PG 模式下会变成「读 SQLite、写 PG」的跨库混合路径（切流前必须清零）；
- *   - 反过来也不能把写方法顺手迁进本批次：组卷/交卷的事务边界是批次 2 的事，
- *     本批次只允许读方法碰 AsyncDb。
+ *   - 批次 2 把写方法（create/update/setStructure/addQuestions/createAttempt）也迁到 AsyncDb，
+ *     这里断言它们**返回 Promise 且不再碰同步 Db**，防止回退；
  *   - PG 的 COUNT 是 int8，node-postgres 默认回传**字符串**（方言 #17），
  *     读方法的计数必须在仓储边界收敛成 number，否则 API 会返回 "3" 而不是 3。
  */
@@ -14,7 +14,7 @@ import type { AsyncDb } from '../src/db/async.js';
 import type { Db } from '../src/db/client.js';
 import { ExamRepository } from '../src/db/repositories/examRepository.js';
 
-/** 同步 Db 桩：只给写方法用，任何写路径都不该碰 AsyncDb */
+/** 同步 Db 桩：迁移完成后任何方法都不该再走它（一旦调用就是跨库混合读写） */
 function stubDb(): {
   db: Db;
   run: ReturnType<typeof vi.fn>;
@@ -124,18 +124,27 @@ describe('exams 批次 1：读方法全部走 AsyncDb', () => {
   });
 });
 
-describe('exams 批次 1：写方法没有混入 AsyncDb（批次 2 才迁）', () => {
-  it('create / update / setStructure / addQuestions / createAttempt 仍走同步 Db', () => {
-    const { db, run } = stubDb();
-    const { adb, all, get, run: asyncRun } = stubAsyncDb();
+describe('exams 批次 2：写方法也走 AsyncDb（读写不再混跑）', () => {
+  it('create / update / setStructure / addQuestions / recordAttempt 返回 Promise，且不碰同步 Db', async () => {
+    const { db, run: syncRun, get: syncGet } = stubDb();
+    const {
+      adb,
+      all,
+      get,
+      run: asyncRun,
+    } = stubAsyncDb({
+      get: (sql) => (sql.includes('RETURNING id') ? { id: '42' } : { id: 5, m: null }),
+    });
     const repo = new ExamRepository(db, adb);
 
-    expect(repo.create({ courseId: 3, title: '写路径考试' })).toBe(42);
-    repo.update(5, { courseId: 3, title: '改标题' });
-    repo.setStructure(5, '[]');
-    expect(repo.addQuestions(5, [7, 8])).toBe(0);
+    const pendingCreate = repo.create({ courseId: 3, title: '写路径考试' });
+    expect(pendingCreate).toBeInstanceOf(Promise);
+    expect(await pendingCreate).toBe(42); // PG 的 int8 回字符串，仓储边界收敛成 number
+    await repo.update(5, { courseId: 3, title: '改标题' });
+    await repo.setStructure(5, '[]');
+    expect(await repo.addQuestions(5, [7, 8])).toBe(0);
     expect(
-      repo.createAttempt({
+      await repo.recordAttempt({
         examId: 5,
         userId: 9,
         answers: [],
@@ -146,10 +155,9 @@ describe('exams 批次 1：写方法没有混入 AsyncDb（批次 2 才迁）', 
       }),
     ).toBe(42);
 
-    expect(run).toHaveBeenCalled();
-    // 写路径不得触碰异步端口：一旦碰了，就是跨库混合读写
-    expect(all).not.toHaveBeenCalled();
-    expect(get).not.toHaveBeenCalled();
-    expect(asyncRun).not.toHaveBeenCalled();
+    expect(all.mock.calls.length + get.mock.calls.length + asyncRun.mock.calls.length).toBeGreaterThan(0);
+    // 写路径不得再碰同步 Db：一旦碰了，就是跨库混合读写
+    expect(syncRun).not.toHaveBeenCalled();
+    expect(syncGet).not.toHaveBeenCalled();
   });
 });

@@ -8,6 +8,7 @@
  * - 条件顺序与拆分前逐字一致，保证 SQL 计划与结果稳定。
  */
 import { DIFFICULTY_BUCKET_SQL } from './exam-types.js';
+import { likeCI } from '../sql.js';
 
 /** 挑题条件（pick / pickCount / pickIds 共用） */
 export interface PickOptions {
@@ -133,15 +134,16 @@ export function buildPickWhere(options: PickOptions): { where: string; params: u
     params.push(options.levelMax);
   }
   if (options.point) {
-    clauses.push('q.point LIKE ?');
+    // 方言 #23：SQLite 的 LIKE 对 ASCII 大小写不敏感、PG 区分大小写 → 统一 LOWER() LIKE LOWER()
+    clauses.push(likeCI('q.point'));
     params.push(`%${options.point}%`);
   }
   if (options.chapter) {
-    clauses.push('q.chapter LIKE ?');
+    clauses.push(likeCI('q.chapter'));
     params.push(`%${options.chapter}%`);
   }
   if (options.keyword) {
-    clauses.push('q.stem LIKE ?');
+    clauses.push(likeCI('q.stem'));
     params.push(`%${options.keyword}%`);
   }
   if (options.hasImage === true) clauses.push('q.has_image = 1');

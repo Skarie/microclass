@@ -4,7 +4,11 @@
  */
 import { AUTO_GRADED_TYPES, AppError, type Question, type User } from '@microclass/shared';
 import type { QuestionRepository } from '../db/repositories/questionRepository.js';
-import type { AttemptRepository, WrongQuestionRepository } from '../db/repositories/attemptRepository.js';
+import type {
+  AttemptRepository,
+  WrongBookEffect,
+  WrongQuestionRepository,
+} from '../db/repositories/attemptRepository.js';
 import type { LessonRepository } from '../db/repositories/lessonRepository.js';
 import type { ProgressRepository } from '../db/repositories/progressRepository.js';
 import type { LessonService } from './lessonService.js';
@@ -111,24 +115,29 @@ export class QuizService {
       });
     }
 
-    // 错题本：答错收录并累加次数；答对则把未掌握的同类错题标记为已掌握
+    // 错题本：答错收录并累加次数；答对则把未掌握的同类错题标记为已掌握。
+    // 判分仍在内存里做完，落库时把「作答 + 错题本效果」交给仓储**同一个事务**。
+    const wrongEffects: WrongBookEffect[] = [];
     for (const r of results) {
       if (r.correct === false && AUTO_GRADED_TYPES.includes(r.type)) {
-        this.wrongs.upsertWrong(viewer.id, r.qid);
+        wrongEffects.push({ questionId: r.qid, wrong: true });
       } else if (r.correct === true) {
-        this.wrongs.markMastered(viewer.id, r.qid);
+        wrongEffects.push({ questionId: r.qid, wrong: false });
       }
     }
 
     const total = all.length;
-    const attemptId = this.attempts.create({
-      userId: viewer.id,
-      clientId: clientId ?? `user:${viewer.id}`,
-      lessonId,
-      answers: results.map((r) => ({ qid: r.qid, answer: r.given, correct: r.correct })),
-      score,
-      total,
-    });
+    const attemptId = await this.attempts.recordSubmission(
+      {
+        userId: viewer.id,
+        clientId: clientId ?? `user:${viewer.id}`,
+        lessonId,
+        answers: results.map((r) => ({ qid: r.qid, answer: r.given, correct: r.correct })),
+        score,
+        total,
+      },
+      wrongEffects,
+    );
 
     // 刷题完成标记与最佳成绩（仓储内部按 MAX 保留历史最好成绩）
     if (total > 0) {
@@ -141,7 +150,7 @@ export class QuizService {
       total,
       manual,
       // 历史最好成绩按百分比返回（随机抽题时总题数不同，比较原始分没有意义）
-      best: this.attempts.bestPercent(viewer.id, lessonId),
+      best: await this.attempts.bestPercent(viewer.id, lessonId),
       results,
     };
   }
@@ -162,7 +171,8 @@ export class QuizService {
   > {
     // 课时标题一次查全（lessons 域已 async，逐条 await 会变成 N+1）
     const titles = new Map((await this.lessonsRepo.listAll()).map((l) => [l.id, l.title]));
-    return this.attempts.listByUser(viewer.id, options).map((a) => ({
+    const rows = await this.attempts.listByUser(viewer.id, options);
+    return rows.map((a) => ({
       id: a.id,
       lesson_id: a.lesson_id,
       lesson_title: titles.get(a.lesson_id) ?? '',
@@ -173,16 +183,16 @@ export class QuizService {
   }
 
   /** 错题本列表（默认只看未掌握） */
-  wrongBook(
+  async wrongBook(
     viewer: User,
     options?: { lessonId?: number; includeMastered?: boolean },
-  ): {
+  ): Promise<{
     total: number;
     pending: number;
     items: (QuestionForViewer & { wrong_count: number; mastered: 0 | 1; last_at: number })[];
-  } {
-    const rows = this.wrongs.list(viewer.id, options);
-    const counts = this.wrongs.count(viewer.id);
+  }> {
+    const rows = await this.wrongs.list(viewer.id, options);
+    const counts = await this.wrongs.count(viewer.id);
     return {
       ...counts,
       items: rows.map((r) => ({
@@ -219,15 +229,15 @@ export class QuizService {
   }
 
   /** 标记/取消掌握 */
-  setMastered(viewer: User, questionId: number, mastered: boolean): void {
+  async setMastered(viewer: User, questionId: number, mastered: boolean): Promise<void> {
     const q = this.questions.findById(questionId);
     if (!q) throw AppError.notFound('题目不存在');
-    this.wrongs.setMastered(viewer.id, questionId, mastered);
+    await this.wrongs.setMastered(viewer.id, questionId, mastered);
   }
 
   /** 从错题本移除 */
-  removeFromWrongBook(viewer: User, questionId: number): void {
-    this.wrongs.remove(viewer.id, questionId);
+  async removeFromWrongBook(viewer: User, questionId: number): Promise<void> {
+    await this.wrongs.remove(viewer.id, questionId);
   }
 }
 

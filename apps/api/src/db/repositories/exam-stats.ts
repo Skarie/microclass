@@ -8,6 +8,7 @@
  * 汇总前统一 `Number()`（方言 #17）。
  */
 import type { AsyncDb } from '../async.js';
+import { likeCI } from '../sql.js';
 import { clampLimit } from './exam-pool-filter.js';
 import { DIFFICULTY_BUCKET_SQL } from './exam-types.js';
 
@@ -136,8 +137,8 @@ export async function pointStats(adb: AsyncDb, options: PointStatsOptions): Prom
     params.push(options.book);
   }
   if (options.point) {
-    // ⚠️ 方言 TODO #8/#22：SQLite 的 LIKE 对 ASCII 大小写不敏感，PG 需要 ILIKE/lower()
-    clauses.push('q.point LIKE ?');
+    // 方言 #23：与题池 keyword/point/chapter 同一口径，用 likeCI（SQLite/PG 都大小写不敏感）
+    clauses.push(likeCI('q.point'));
     params.push(`%${options.point}%`);
   }
   const limit = clampLimit(options.limit, 50, 500);

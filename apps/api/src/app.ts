@@ -124,8 +124,8 @@ export function buildDeps(config: AppConfig, db: Db, options?: { inlineHealthRun
   const banks = new BankRepository(db, asyncDb);
   const questions = new QuestionRepository(db);
   const questionConflicts = new QuestionConflictRepository(db);
-  const attempts = new AttemptRepository(db);
-  const wrongs = new WrongQuestionRepository(db);
+  const attempts = new AttemptRepository(db, asyncDb);
+  const wrongs = new WrongQuestionRepository(db, asyncDb);
   const exams = new ExamRepository(db, asyncDb);
   const notes = new NoteRepository(db, asyncDb);
   const stats = new StatsRepository(db);

@@ -7,6 +7,7 @@
  *   - 难度优先用 0–100 难度分区间，模型没跑过时退回三档字段，最后只保证题型。
  */
 import type { ExamRepository } from '../db/repositories/examRepository.js';
+import type { PickRow } from '../db/repositories/exam-pool.js';
 import { shuffle } from './quizService.js';
 import type { ExamPaperDeps } from './paperCommon.js';
 import type { DifficultyLevel } from './paperTypes.js';
@@ -83,12 +84,14 @@ export function composePickAttempts(options: ComposePickOptions): PickQuery[] {
  *   2) 退回旧的 `difficulty` 三档字段；
  *   3) 再不匹配就忽略难度，只保证题型与范围（宁可出题也不要空卷）。
  *
- * P0 阶段 2（批次 1）：`pick()` 改走 AsyncDb，三级回退必须**按序 await**（回退顺序即语义）。
+ * P0 阶段 2（批次 2）：`pick()` 改走 AsyncDb，三级回退必须**按序 await**（回退顺序即语义）；
+ * 返回**整行**（id + 题型）供组卷落库时按题型写分值，避免落库后再回表读一次。
  */
-export async function pickForCompose(deps: ExamPaperDeps, options: ComposePickOptions): Promise<number | undefined> {
+export async function pickForCompose(deps: ExamPaperDeps, options: ComposePickOptions): Promise<PickRow | undefined> {
   for (const query of composePickAttempts(options)) {
     const rows = await deps.exams.pick(query);
-    if (rows.length > 0) return shuffle(rows)[0]?.id;
+    const picked = shuffle(rows)[0];
+    if (picked) return picked;
   }
   return undefined;
 }

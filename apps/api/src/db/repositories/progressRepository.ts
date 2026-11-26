@@ -5,12 +5,14 @@
  * `upsert` 是高频写路径（播放器每十几秒上报一次），单语句 upsert 不需要外层事务；
  * 删除用户的进度行（users 路由）也收在这里，避免跨域直接写表。
  *
- * ⚠️ 方言 TODO（#19）：`unixepoch()` 是 SQLite 专有函数，PG 侧切流前需换成
- * `EXTRACT(EPOCH FROM now())::bigint`（见 docs/postgres-migration.md §9）。
+ * ⚠️ 方言 TODO（#20）：`finished = MAX(finished, excluded.finished)` / `quiz_best = MAX(...)`
+ * 是 SQLite 的两参标量 `max()`，PG 的 `MAX` 是聚合会直接报错；切流前换 `GREATEST`/`CASE WHEN`
+ * （方言 #19 的 `unixepoch()` 已改 `nowSeconds(driver)` 方言表达式，见 `db/sql.ts`）。
  */
 import { LEVELS } from '@microclass/shared';
 import type { Db } from '../client.js';
 import { createSqliteAsyncDb, type AsyncDb } from '../async.js';
+import { nowSeconds } from '../sql.js';
 import type { LessonProgress } from '@microclass/shared';
 
 export interface ProgressInput {
@@ -54,25 +56,27 @@ export class ProgressRepository {
 
   async upsert(input: ProgressInput): Promise<void> {
     const position = input.finished ? input.duration : Math.max(0, input.position);
+    const now = nowSeconds(this.adb().driver);
     await this.adb().run(
       `INSERT INTO lesson_progress (user_id, lesson_id, position, duration, finished, updated_at)
-       VALUES (?,?,?,?,?,unixepoch())
+       VALUES (?,?,?,?,?,${now})
        ON CONFLICT(user_id, lesson_id) DO UPDATE SET
          position = excluded.position,
          duration = excluded.duration,
          finished = MAX(finished, excluded.finished),
-         updated_at = unixepoch()`,
+         updated_at = ${now}`,
       [input.userId, input.lessonId, position, Math.max(0, input.duration), input.finished ? 1 : 0],
     );
   }
 
   async markQuizDone(userId: number, lessonId: number, score: number): Promise<void> {
+    const now = nowSeconds(this.adb().driver);
     await this.adb().run(
       `INSERT INTO lesson_progress (user_id, lesson_id, quiz_done, quiz_best) VALUES (?,?,1,?)
        ON CONFLICT(user_id, lesson_id) DO UPDATE SET
          quiz_done = 1,
          quiz_best = MAX(quiz_best, excluded.quiz_best),
-         updated_at = unixepoch()`,
+         updated_at = ${now}`,
       [userId, lessonId, score],
     );
   }

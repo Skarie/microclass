@@ -6,14 +6,13 @@
  * - create/update 的字段顺序与默认值不变，未传的考试设置保持原值；
  * - 只有 `delete` 走物理删除（调用方负责级联清理，仓储不额外扩权）。
  *
- * P0 阶段 2（批次 1）：**读方法**改走 `AsyncDb`，返回 Promise；
- * 写方法（create/update/setStructure/remove）仍是同步 `Db`，批次 2 再迁。
- * `update`/`setStructure` 读旧值保留同步读（写路径不掺异步），
- * 因此 `findByIdSync` 只在模块内可见，**不要**从仓储门面导出。
+ * P0 阶段 2（批次 2）：**读方法与写方法都走 `AsyncDb`**，全部返回 Promise。
+ * - 自增改 `INSERT … RETURNING id`（不再依赖 `lastInsertRowid`）；
+ * - `update`/`setStructure` 读旧值改 `await findById(adb, id)`，
+ *   批次 1 留下的模块内私有同步读 `findByIdSync` 已删除（切流后不会再出现「读 SQLite、写 PG」）。
  */
 import type { Exam } from '@microclass/shared';
 import type { AsyncDb } from '../async.js';
-import type { Db } from '../client.js';
 import type { ExamAttempt, ExamInput, ExamWithStats } from './exam-types.js';
 
 const SELECT_EXAM = 'SELECT * FROM exams WHERE id = ?';
@@ -61,16 +60,12 @@ export async function findById(adb: AsyncDb, id: number): Promise<Exam | undefin
   return adb.get<Exam>(SELECT_EXAM, [id]);
 }
 
-/** ⚠️ 仅供写路径（update/setStructure）读旧值：批次 2 改造写方法时删掉 */
-function findByIdSync(db: Db, id: number): Exam | undefined {
-  return db.get<Exam>(SELECT_EXAM, [id]);
-}
-
-export function create(db: Db, input: ExamInput): number {
-  return db.run(
+/** 新建考试；返回自增 id（`RETURNING id`，SQLite 3.35+ / PG 同一句 SQL） */
+export async function create(adb: AsyncDb, input: ExamInput): Promise<number> {
+  const row = await adb.get<{ id: number | string }>(
     `INSERT INTO exams (course_id, title, description, duration_minutes, pass_score, status, structure, difficulty_target, total_score,
                          start_at, end_at, attempt_limit, shuffle_questions, show_answers)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id`,
     [
       input.courseId,
       input.title,
@@ -87,12 +82,13 @@ export function create(db: Db, input: ExamInput): number {
       input.shuffleQuestions ? 1 : 0,
       input.showAnswers === false ? 0 : 1,
     ],
-  ).lastInsertRowid;
+  );
+  return Number(row?.id ?? 0);
 }
 
-export function update(db: Db, id: number, input: ExamInput): void {
-  const existing = findByIdSync(db, id);
-  db.run(
+export async function update(adb: AsyncDb, id: number, input: ExamInput): Promise<void> {
+  const existing = await findById(adb, id);
+  await adb.run(
     `UPDATE exams SET course_id = ?, title = ?, description = ?, duration_minutes = ?, pass_score = ?, status = ?,
        structure = ?, difficulty_target = ?, total_score = ?,
        start_at = ?, end_at = ?, attempt_limit = ?, shuffle_questions = ?, show_answers = ?
@@ -119,15 +115,15 @@ export function update(db: Db, id: number, input: ExamInput): void {
 }
 
 /** 只更新试卷结构/目标配比（组卷工作台里改大题、分值） */
-export function setStructure(
-  db: Db,
+export async function setStructure(
+  adb: AsyncDb,
   id: number,
   structure: string,
   difficultyTarget?: string,
   totalScore?: number,
-): void {
-  const existing = findByIdSync(db, id);
-  db.run('UPDATE exams SET structure = ?, difficulty_target = ?, total_score = ? WHERE id = ?', [
+): Promise<void> {
+  const existing = await findById(adb, id);
+  await adb.run('UPDATE exams SET structure = ?, difficulty_target = ?, total_score = ? WHERE id = ?', [
     structure,
     difficultyTarget ?? existing?.difficulty_target ?? '',
     totalScore ?? existing?.total_score ?? 100,
@@ -135,6 +131,6 @@ export function setStructure(
   ]);
 }
 
-export function remove(db: Db, id: number): void {
-  db.run('DELETE FROM exams WHERE id = ?', [id]);
+export async function remove(adb: AsyncDb, id: number): Promise<void> {
+  await adb.run('DELETE FROM exams WHERE id = ?', [id]);
 }

@@ -46,7 +46,7 @@ export class ExamService {
   ) {
     const paperCache = new ExamPaperCache(exams);
     this.lifecycle = new ExamLifecycleService(exams, courses, audit, paperCache);
-    this.paperWorkbench = new ExamPaperWorkbench(exams, questions, audit, media, this.lifecycle);
+    this.paperWorkbench = new ExamPaperWorkbench(exams, questions, audit, media, paperCache, this.lifecycle);
     this.paperEditor = new ExamPaperEditService(exams, questions, audit, paperCache);
     this.parallel = new ExamParallelService(exams, questions, audit, this.lifecycle, this.paperEditor);
     this.attempts = new ExamAttemptService(exams, audit, paperCache, this.lifecycle);

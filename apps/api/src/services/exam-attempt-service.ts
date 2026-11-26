@@ -5,7 +5,10 @@
  * 本模块只做权限/时间判断与写入。所有错误文案与重构前逐字一致。
  *
  * P0 阶段 2（批次 1）：取卷/交卷前的**读**（考试、作答次数、最近一次作答、卷面）走 AsyncDb，
- * 因此两个方法都是 async；**交卷落库 `createAttempt` 仍是同步写**（无事务改动），批次 2 再迁。
+ * 因此两个方法都是 async。
+ *
+ * P0 阶段 2（批次 2）：交卷落库 `createAttempt` 也走 AsyncDb，并由仓储用**事务**包住；
+ * 审计（`writeBuffered`）一律在事务提交**之后**写 —— 落库失败/回滚时不能留下「已交卷」审计。
  */
 import { AppError, type Exam, type QuestionType, type User } from '@microclass/shared';
 import type { AuditRepository } from '../db/repositories/auditRepository.js';
@@ -126,8 +129,10 @@ export class ExamAttemptService {
     /**
      * 存库只留判分必需的四元组：题干/选项/解析在成绩页按卷面重建。
      * 否则一份 1000 题的卷要写 3~4MB JSON，几十人同时交卷就把写入排队成秒级。
+     *
+     * 先落库（事务），成功后才写审计：回滚不能留下「已交卷」的审计记录。
      */
-    const attemptId = this.exams.createAttempt({
+    const attemptId = await this.exams.recordAttempt({
       examId,
       userId: viewer.id,
       answers: slimResults(graded.results),

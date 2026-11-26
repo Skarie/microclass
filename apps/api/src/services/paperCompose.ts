@@ -7,9 +7,10 @@
  *       在该范围内挑难度分最贴近目标的题（同分随机），知识点优先不重复；
  *       缺口如实报告（不硬凑、不重复用题）。
  *
- * P0 阶段 2（批次 1）：题库/卷面读取全部 `await`（AsyncDb）。
- * 落库动作（clearQuestions / addQuestions / setQuestionMeta）仍是同步写，
- * **执行顺序与事务边界不变**（批次 2 再迁）。
+ * P0 阶段 2（批次 2）：题库/卷面读取全部 `await`（AsyncDb）；落库收口成
+ * `applyComposition` —— **清空（replaceExisting）+ 批量加题 + 逐题分值/大题在同一个事务**，
+ * 中途失败整批回滚（不会留下「清空后只加了一半」的残卷）。
+ * 挑选阶段仍按「清空后」的口径排除已入卷题目（replaceExisting 时为空集合），与旧行为一致。
  */
 import { AppError, type QuestionType, type User } from '@microclass/shared';
 import { orderCellsForPick } from '../domain/blueprint.js';
@@ -36,9 +37,11 @@ export async function autoCompose(
    */
   const scope: 'course' | 'all' = input.scope === 'all' ? 'all' : 'course';
   const scopeCourseId = scope === 'all' ? undefined : (input.courseId ?? exam.course_id);
-  if (input.replaceExisting) deps.exams.clearQuestions(examId);
-  const existing = new Set(await deps.exams.questionIds(examId));
-  const chosen: number[] = [];
+  // 清空推迟到写事务里；挑选阶段按「清空后」的口径算已入卷集合
+  const existing = new Set<number>(input.replaceExisting ? [] : await deps.exams.questionIds(examId));
+  /** 已选题（id + 题型）：题型用于落每题分值，避免再回表读一次卷面 */
+  const chosen: { id: number; type: string }[] = [];
+  const chosenIds = (): number[] => chosen.map((c) => c.id);
   const detail: { type: string; requested: number; added: number; missing: number }[] = [];
   const difficultyWanted: Record<DifficultyLevel, number> = { easy: 0, medium: 0, hard: 0 };
   const difficultyAdded: Record<DifficultyLevel, number> = { easy: 0, medium: 0, hard: 0 };
@@ -78,10 +81,10 @@ export async function autoCompose(
           ...(input.points && input.points.length > 0 ? { points: input.points } : {}),
           type: cell.type,
           level: cell.level,
-          exclude: [...existing, ...chosen],
+          exclude: [...existing, ...chosenIds()],
         });
         if (picked === undefined) break;
-        chosen.push(picked);
+        chosen.push({ id: picked.id, type: picked.type });
         added += 1;
         difficultyAdded[cell.level] += 1;
       }
@@ -113,10 +116,10 @@ export async function autoCompose(
           ...(input.points && input.points.length > 0 ? { points: input.points } : {}),
           type,
           level,
-          exclude: [...existing, ...chosen],
+          exclude: [...existing, ...chosenIds()],
         });
         if (picked === undefined) continue;
-        chosen.push(picked);
+        chosen.push({ id: picked.id, type: picked.type });
         difficultyAdded[level] += 1;
         added += 1;
       }
@@ -131,12 +134,12 @@ export async function autoCompose(
           ...(input.books && input.books.length > 0 ? { books: input.books } : {}),
           ...(input.chapters && input.chapters.length > 0 ? { chapters: input.chapters } : {}),
           ...(input.points && input.points.length > 0 ? { points: input.points } : {}),
-          exclude: [...existing, ...chosen],
+          exclude: [...existing, ...chosenIds()],
         });
         for (const row of more) {
           if (added >= count) break;
-          if (chosen.includes(row.id)) continue;
-          chosen.push(row.id);
+          if (chosen.some((c) => c.id === row.id)) continue;
+          chosen.push({ id: row.id, type: row.type });
           added += 1;
         }
       }
@@ -145,19 +148,23 @@ export async function autoCompose(
   }
 
   let inserted = 0;
-  if (chosen.length > 0) {
-    inserted = deps.exams.addQuestions(examId, chosen);
+  // replaceExisting 时即使一道题都没挑到也要执行「清空」（与旧行为一致）
+  if (chosen.length > 0 || input.replaceExisting) {
     // 生成后落分值/大题：老师按题型填的数量与分值，不必再逐题点一遍
-    const typeOf = new Map<number, string>();
-    for (const row of await deps.exams.listQuestions(examId)) typeOf.set(row.id, String(row.type));
-    for (const qid of chosen) {
-      const perType = input.scores?.[(typeOf.get(qid) ?? '') as QuestionType];
-      deps.exams.setQuestionMeta(examId, qid, {
+    const meta = new Map<number, { score?: number; section?: string }>();
+    for (const row of chosen) {
+      const perType = input.scores?.[row.type as QuestionType];
+      meta.set(row.id, {
         ...(input.sectionName ? { section: input.sectionName } : {}),
         ...(input.scorePerQuestion ? { score: input.scorePerQuestion } : {}),
         ...(perType !== undefined ? { score: perType } : {}),
       });
     }
+    inserted = await deps.exams.applyComposition(examId, {
+      replaceExisting: input.replaceExisting === true,
+      questionIds: chosenIds(),
+      meta,
+    });
   }
   writeAudit(deps, actor, 'exam.auto_compose', examId, {
     requested,

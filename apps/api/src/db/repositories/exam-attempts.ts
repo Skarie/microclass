@@ -9,11 +9,10 @@
  * 作答行只存 {qid, given, correct, score} 四元组；题干/答案在取卷时按 question_id 回表，
  * 避免题库改题后历史成绩串味（与 exam-grading 的缓存卷面口径一致）。
  *
- * P0 阶段 2（批次 1）：**读方法**（attemptCount / findAttempt / attemptsOf / attemptsByUser）
- * 改走 `AsyncDb`；交卷落库 `createAttempt` 仍是同步 `Db`，批次 2 再迁。
+ * P0 阶段 2（批次 2）：读方法与交卷落库 `createAttempt` 全部走 `AsyncDb`；
+ * 自增改 `INSERT … RETURNING id`（批次 1 的读写混跑已清零）。
  */
 import type { AsyncDb } from '../async.js';
-import type { Db } from '../client.js';
 import type { AttemptInput, ExamAttempt } from './exam-types.js';
 
 /** 成绩单行：作答 + 学生信息 */
@@ -105,11 +104,12 @@ export function attemptInsertParams(input: AttemptInput): unknown[] {
 }
 
 /** 交卷落库：answers 由服务层筛成 {qid, given, correct, score} 四元组后 JSON 序列化 */
-export function createAttempt(db: Db, input: AttemptInput): number {
-  return db.run(
-    'INSERT INTO exam_attempts (exam_id, user_id, answers, score, total, passed, used_seconds) VALUES (?,?,?,?,?,?,?)',
+export async function createAttempt(adb: AsyncDb, input: AttemptInput): Promise<number> {
+  const row = await adb.get<{ id: number | string }>(
+    'INSERT INTO exam_attempts (exam_id, user_id, answers, score, total, passed, used_seconds) VALUES (?,?,?,?,?,?,?) RETURNING id',
     attemptInsertParams(input),
-  ).lastInsertRowid;
+  );
+  return Number(row?.id ?? 0);
 }
 
 /** 成绩单：某场考试的全部作答（含学生信息与统计） */

@@ -5,8 +5,8 @@
  * `exam-paper-edit-service`，平行卷（A/B 卷）在 `exam-parallel-service`。
  * 评审依赖仍以 `ExamPaperDeps` 显式传入，不读门面 `this`。
  *
- * P0 阶段 2（批次 1）：考试/卷面/细目表读取统一走 AsyncDb，本模块方法全部异步；
- * 下游的写动作仍是同步调用（SQL 与事务未动，批次 2 再迁）。
+ * P0 阶段 2（批次 2）：考试/卷面/细目表读取与组卷落库统一走 AsyncDb；
+ * 写动作（智能组卷 / 换题）成功后会失效共享卷面缓存（交卷判分不能按旧卷）。
  */
 import type { Exam, User } from '@microclass/shared';
 import type { AuditRepository } from '../db/repositories/auditRepository.js';
@@ -29,6 +29,7 @@ import {
   type SimilarCandidatesResult,
 } from './exam-paper.js';
 import type { ExamLifecycleService } from './exam-lifecycle-service.js';
+import type { ExamPaperCache } from './exam-paper-cache.js';
 import { buildPaperDocx, buildPaperHtml } from './exam-report.js';
 import type { QuestionMediaStore } from './questionMediaStore.js';
 
@@ -38,6 +39,7 @@ export class ExamPaperWorkbench {
     private readonly questions: QuestionRepository,
     private readonly audit: AuditRepository,
     private readonly media: QuestionMediaStore,
+    private readonly paperCache: ExamPaperCache,
     private readonly lifecycle: ExamLifecycleService,
   ) {}
 
@@ -75,7 +77,10 @@ export class ExamPaperWorkbench {
 
   /** 智能组卷（按题型配额 / 细目表逐格配题） */
   async autoCompose(actor: User, examId: number, input: AutoComposeInput): Promise<AutoComposeResult> {
-    return autoCompose(this.paperDeps, actor, examId, input);
+    const result = await autoCompose(this.paperDeps, actor, examId, input);
+    // 组卷写成功后失效卷面缓存：紧接着的交卷必须按新卷判分
+    this.paperCache.clearPaper(examId);
+    return result;
   }
 
   /** 换题候选（按匹配强度分组，不随机） */
@@ -94,7 +99,9 @@ export class ExamPaperWorkbench {
     questionId: number,
     withId: number,
   ): Promise<{ ok: boolean; reason: string }> {
-    return replaceWith(this.paperDeps, actor, examId, questionId, withId);
+    const result = await replaceWith(this.paperDeps, actor, examId, questionId, withId);
+    if (result.ok) this.paperCache.clearPaper(examId);
+    return result;
   }
 
   /** 细目表参考数据：「知识点 × 题型 × 难度」各有多少可选题 */
@@ -112,6 +119,8 @@ export class ExamPaperWorkbench {
     questionId: number,
     options?: { point?: string; difficulty?: string },
   ): Promise<{ ok: boolean; replacedWith: number | null; reason: string }> {
-    return replaceQuestion(this.paperDeps, actor, examId, questionId, options);
+    const result = await replaceQuestion(this.paperDeps, actor, examId, questionId, options);
+    if (result.ok) this.paperCache.clearPaper(examId);
+    return result;
   }
 }

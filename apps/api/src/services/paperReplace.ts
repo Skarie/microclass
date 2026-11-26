@@ -6,8 +6,8 @@
  * 也没法比一比再决定。这里按匹配强度分组（同知识点同难度 → 同难度 → 相近难度 → 同题型），
  * 每组内按难度分接近程度排序，并带上题干/知识点/题库名。
  *
- * P0 阶段 2（批次 1）：考试/卷面/题池读取走 AsyncDb（候选分组顺序与回退顺序保持）；
- * `replaceQuestion` 落库仍是同步写（含事务），批次 2 再迁。
+ * P0 阶段 2（批次 2）：考试/卷面/题池读取与 `replaceQuestion` 落库都走 AsyncDb
+ * （候选分组顺序与回退顺序保持）；卷面缓存由调用方在写成功后失效。
  */
 import { AppError, type User } from '@microclass/shared';
 import { findExam, writeAudit, type ExamPaperDeps } from './paperCommon.js';
@@ -111,7 +111,7 @@ export async function replaceWith(
   // 目标题必须真实存在于题库（避免前端传来任意 id）
   const exists = deps.questions.findById(withId);
   if (!exists) throw AppError.notFound('要换上的题目不存在');
-  deps.exams.replaceQuestion(examId, questionId, withId);
+  await deps.exams.replaceQuestion(examId, questionId, withId);
   writeAudit(deps, actor, 'exam.replace_question', examId, {
     from: questionId,
     to: withId,
@@ -155,7 +155,7 @@ export async function replaceQuestion(
     if (rows.length === 0) continue;
     const next = rows[Math.floor(Math.random() * rows.length)];
     if (!next) continue;
-    deps.exams.replaceQuestion(examId, questionId, next.id);
+    await deps.exams.replaceQuestion(examId, questionId, next.id);
     writeAudit(deps, actor, 'exam.replace_question', examId, {
       from: questionId,
       to: next.id,

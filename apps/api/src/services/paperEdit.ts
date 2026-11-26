@@ -3,8 +3,9 @@
  *
  * 都是「卷面小幅修改」，与组卷策略无关；每个动作校验考试存在并写审计。
  *
- * P0 阶段 2（批次 1）：考试存在性/卷内题目等**读**走 AsyncDb（校验先行）；
- * 落库（addQuestions/setQuestionMeta/reorder/removeQuestion）仍是同步写，SQL 未动。
+ * P0 阶段 2（批次 2）：落库（addQuestions/setQuestionMeta/reorder/removeQuestion）走 AsyncDb，
+ * 全部 `await` 后再写审计 —— 审计只记录真正成功的改动。
+ * 卷面缓存由调用方（`exam-paper-edit-service`）在写成功后失效。
  */
 import { AppError, type User } from '@microclass/shared';
 import { findExam, writeAudit, type ExamPaperDeps } from './paperCommon.js';
@@ -17,7 +18,7 @@ export async function addQuestions(
   questionIds: number[],
 ): Promise<number> {
   await findExam(deps.exams, examId);
-  const added = deps.exams.addQuestions(examId, questionIds);
+  const added = await deps.exams.addQuestions(examId, questionIds);
   writeAudit(deps, actor, 'exam.add_questions', examId, { added });
   return added;
 }
@@ -30,7 +31,7 @@ export async function addRandom(deps: ExamPaperDeps, actor: User, examId: number
   const picked = shuffle(candidates)
     .slice(0, Math.max(1, count))
     .map((q) => q.id);
-  const added = deps.exams.addQuestions(examId, picked);
+  const added = await deps.exams.addQuestions(examId, picked);
   writeAudit(deps, actor, 'exam.add_random', examId, { requested: count, added });
   return added;
 }
@@ -45,14 +46,14 @@ export async function setQuestionMeta(
 ): Promise<void> {
   await findExam(deps.exams, examId);
   if (!(await deps.exams.questionInExam(examId, questionId))) throw AppError.notFound('这道题不在试卷里');
-  deps.exams.setQuestionMeta(examId, questionId, meta);
+  await deps.exams.setQuestionMeta(examId, questionId, meta);
   writeAudit(deps, actor, 'exam.question_meta', examId, { questionId, ...meta });
 }
 
 /** 重排卷内顺序（拖拽排序） */
 export async function reorder(deps: ExamPaperDeps, actor: User, examId: number, questionIds: number[]): Promise<void> {
   await findExam(deps.exams, examId);
-  deps.exams.reorder(examId, questionIds);
+  await deps.exams.reorder(examId, questionIds);
   writeAudit(deps, actor, 'exam.reorder', examId, { count: questionIds.length });
 }
 
@@ -63,6 +64,6 @@ export async function removeQuestion(
   questionId: number,
 ): Promise<void> {
   await findExam(deps.exams, examId);
-  deps.exams.removeQuestion(examId, questionId);
+  await deps.exams.removeQuestion(examId, questionId);
   writeAudit(deps, actor, 'exam.remove_question', examId, { questionId });
 }
