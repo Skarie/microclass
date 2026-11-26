@@ -22,7 +22,7 @@ export async function registerBankCrudRoutes(app: FastifyInstance, deps: Deps): 
 
   app.post('/banks', { schema: { body: bankBodySchema } }, async (req, reply) => {
     const user = requireTeacherOrAdmin(req, reply);
-    return { ok: true, id: deps.bankService.create(user, req.body as BankDto) };
+    return { ok: true, id: await deps.bankService.create(user, req.body as BankDto) };
   });
 
   /** 题库详情：题库本身 + 题目列表（学员只看得到不挂答案的视图） */

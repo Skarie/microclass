@@ -134,24 +134,24 @@ export class BankRepository {
     return banksMissingSection(this.adb(), kind);
   }
 
-  applyBankSections(updates: { id: number; section: string }[]): number {
-    return setBankSections(this.db, updates);
+  async applyBankSections(updates: { id: number; section: string }[]): Promise<number> {
+    return setBankSections(this.adb(), updates);
   }
 
   /* ---------------- 归属课程（转发 bankBindingQueries） ---------------- */
 
   /** 一键回填归属课程：课时配套题库由课时推导（返回条数） */
-  bindCourseByLesson(): number {
-    return bindCourseByLesson(this.db);
+  async bindCourseByLesson(): Promise<number> {
+    return bindCourseByLesson(this.adb());
   }
 
   /** 按册次批量挂课程（只影响未归属题库） */
-  bindUnboundByBook(book: string, courseId: number | null): number {
-    return bindUnboundByBook(this.db, book, courseId);
+  async bindUnboundByBook(book: string, courseId: number | null): Promise<number> {
+    return bindUnboundByBook(this.adb(), book, courseId);
   }
 
-  setCourseBindings(updates: { bankId: number; courseId: number | null }[]): number {
-    return setCourseBindings(this.db, updates);
+  async setCourseBindings(updates: { bankId: number; courseId: number | null }[]): Promise<number> {
+    return setCourseBindings(this.adb(), updates);
   }
 
   async unboundWithBook(): Promise<{ id: number; book: string; subject: string; kind: string }[]> {
@@ -170,14 +170,6 @@ export class BankRepository {
     return this.adb().get<BankRow>('SELECT * FROM banks WHERE id = ?', [id]);
   }
 
-  /**
-   * 同步版 findById：仅供**必须保持同步**的纯函数/校验路径使用（如 `prepareQuestionInput`）。
-   * B3b 迁移完成后应删除，统一走 async。
-   */
-  findByIdSync(id: number): BankRow | undefined {
-    return this.db.get<BankRow>('SELECT * FROM banks WHERE id = ?', [id]);
-  }
-
   /** 按名字精确查（没有课时归属的题库——章节题库 / 整卷试卷——用它做幂等键） */
   async findByName(name: string): Promise<BankRow | undefined> {
     return this.adb().get<BankRow>('SELECT * FROM banks WHERE name = ? ORDER BY id LIMIT 1', [name]);
@@ -192,9 +184,11 @@ export class BankRepository {
     );
   }
 
-  create(input: BankInput): number {
-    return this.db.run(
-      'INSERT INTO banks (name, lesson_id, kind, subject, book, section, course_id, folder_id) VALUES (?,?,?,?,?,?,?,?)',
+  async create(input: BankInput): Promise<number> {
+    // `INSERT ... RETURNING id`：SQLite 3.35+ 与 PG 都支持，避免依赖 lastInsertRowid
+    const row = await this.adb().get<{ id: number }>(
+      `INSERT INTO banks (name, lesson_id, kind, subject, book, section, course_id, folder_id)
+       VALUES (?,?,?,?,?,?,?,?) RETURNING id`,
       [
         input.name,
         input.lessonId ?? null,
@@ -205,17 +199,18 @@ export class BankRepository {
         input.courseId ?? null,
         input.folderId ?? null,
       ],
-    ).lastInsertRowid;
+    );
+    if (!row) throw new Error('创建题库后未返回 id');
+    return row.id;
   }
 
-  update(id: number, input: BankInput): void {
-    // 写方法仍走同步连接（B3b 再迁），这里读旧值也用同步连接，避免把写路径拉进异步
-    const existing = this.db.get<BankRow>('SELECT * FROM banks WHERE id = ?', [id]);
+  async update(id: number, input: BankInput): Promise<void> {
+    const existing = await this.findById(id);
     // courseId / folderId 用 `undefined` 表示「不动」，显式 `null` 表示「移出」——
     // 写 COALESCE(?, col) 的话永远解绑不了，所以按需拼列。
     const setCourse = input.courseId !== undefined;
     const setFolder = input.folderId !== undefined;
-    this.db.run(
+    await this.adb().run(
       `UPDATE banks SET name = ?, lesson_id = ?, kind = ?, subject = ?, book = ?, section = ?${
         setCourse ? ', course_id = ?' : ''
       }${setFolder ? ', folder_id = ?' : ''} WHERE id = ?`,
@@ -234,8 +229,8 @@ export class BankRepository {
   }
 
   /** 只更新标准化元数据（回填用） */
-  setMetadata(id: number, meta: { kind?: BankKind; subject?: string; book?: string }): void {
-    this.db.run('UPDATE banks SET kind = ?, subject = ?, book = ? WHERE id = ?', [
+  async setMetadata(id: number, meta: { kind?: BankKind; subject?: string; book?: string }): Promise<void> {
+    await this.adb().run('UPDATE banks SET kind = ?, subject = ?, book = ? WHERE id = ?', [
       meta.kind ?? 'lesson',
       meta.subject ?? '',
       meta.book ?? '',
@@ -243,8 +238,8 @@ export class BankRepository {
     ]);
   }
 
-  delete(id: number): void {
-    this.db.run('DELETE FROM banks WHERE id = ?', [id]);
+  async delete(id: number): Promise<void> {
+    await this.adb().run('DELETE FROM banks WHERE id = ?', [id]);
   }
 
   async questionCount(bankId: number): Promise<number> {

@@ -81,7 +81,7 @@ export class BankService {
     };
   }
 
-  create(actor: User, input: BankDto): number {
+  async create(actor: User, input: BankDto): Promise<number> {
     const name = (input.name ?? '').trim();
     if (!name) throw AppError.badRequest('题库名称不能为空');
     const lessonId = resolveLessonId(this.lessons, input.lessonId);
@@ -97,7 +97,7 @@ export class BankService {
     if (folderId !== null && !this.bankFolders.exists(folderId)) {
       throw AppError.badRequest('归属文件夹不存在');
     }
-    const id = this.banks.create({
+    const id = await this.banks.create({
       name,
       lessonId,
       courseId,
@@ -134,7 +134,7 @@ export class BankService {
     if (folderId != null && !this.bankFolders.exists(folderId)) {
       throw AppError.badRequest('归属文件夹不存在');
     }
-    this.banks.update(id, {
+    await this.banks.update(id, {
       name,
       lessonId,
       section,
@@ -151,7 +151,7 @@ export class BankService {
     const bank = await this.banks.findById(id);
     if (!bank) throw AppError.notFound('题库不存在');
     // 题目随题库级联删除（ON DELETE CASCADE）
-    this.banks.delete(id);
+    await this.banks.delete(id);
     this.auditWrite(actor, 'bank.delete', 'bank', id, { name: bank.name });
   }
 

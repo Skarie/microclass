@@ -62,7 +62,7 @@ export class BankCatalogService {
       if (!course) throw AppError.notFound('课程不存在');
       courseName = course.name;
     }
-    const updated = this.banks.bindUnboundByBook(name, courseId);
+    const updated = await this.banks.bindUnboundByBook(name, courseId);
     this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
@@ -87,7 +87,7 @@ export class BankCatalogService {
     unmatchedBooks: { book: string; banks: number }[];
     binding: { bound: number; unbound: number; banks: number };
   }> {
-    const byLesson = this.banks.bindCourseByLesson();
+    const byLesson = await this.banks.bindCourseByLesson();
     const courses = (await this.banks.courseBookKeys()).filter((c) => c.key !== '');
     const unbound = await this.banks.unboundWithBook();
     const updates: { bankId: number; courseId: number }[] = [];
@@ -105,7 +105,7 @@ export class BankCatalogService {
       }
       if (best) updates.push({ bankId: bank.id, courseId: best.id });
     }
-    const byBook = this.banks.setCourseBindings(updates);
+    const byBook = await this.banks.setCourseBindings(updates);
     const stillUnbound = await this.banks.unboundWithBook();
     const grouped = new Map<string, number>();
     for (const bank of stillUnbound) {

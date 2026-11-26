@@ -37,6 +37,6 @@ export async function registerBankCatalogRoutes(app: FastifyInstance, deps: Deps
    */
   app.post('/banks/rebind-courses', async (req, reply) => {
     const actor = requireTeacherOrAdmin(req, reply);
-    return deps.bankService.rebindCourses(actor);
+    return await deps.bankService.rebindCourses(actor);
   });
 }

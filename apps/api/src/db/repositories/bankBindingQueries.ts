@@ -4,18 +4,18 @@
  * 从 `bankRepository` 抽出（与目录查询同因）：写操作 + 统计各成一模块，
  * 仓储只保留题库本身的增删改查，文件行数也能守住 300 行上限。
  */
-import type { Db } from '../client.js';
 import type { AsyncDb } from '../async.js';
 import type { BankKind } from './bankRepository.js';
 import { bookKeyOfCourseName } from './bankNaming.js';
 
 /** 一键回填归属课程：课时配套题库由课时推导（返回条数） */
-export function bindCourseByLesson(db: Db): number {
-  return db.run(
+export async function bindCourseByLesson(db: AsyncDb): Promise<number> {
+  const res = await db.run(
     `UPDATE banks SET course_id = (SELECT l.course_id FROM lessons l WHERE l.id = banks.lesson_id)
      WHERE lesson_id IS NOT NULL
        AND (course_id IS NULL OR course_id <> (SELECT l.course_id FROM lessons l WHERE l.id = banks.lesson_id))`,
-  ).changes;
+  );
+  return res.changes;
 }
 
 /**
@@ -23,8 +23,8 @@ export function bindCourseByLesson(db: Db): number {
  * 匹配口径与 catalogUnboundBooks 的分组完全一致（空册次统一按 "(无册次信息)"），
  * 保证界面上看到 131 个，这里就正好改 131 个。
  */
-export function bindUnboundByBook(db: Db, book: string, courseId: number | null): number {
-  const res = db.run(
+export async function bindUnboundByBook(db: AsyncDb, book: string, courseId: number | null): Promise<number> {
+  const res = await db.run(
     'UPDATE banks SET course_id = ?' +
       ' WHERE course_id IS NULL' +
       " AND COALESCE(NULLIF(book, ''), '(无册次信息)') = ?",
@@ -33,17 +33,26 @@ export function bindUnboundByBook(db: Db, book: string, courseId: number | null)
   return res.changes;
 }
 
-/** 按册次匹配回填归属课程（返回条数；匹配规则由服务层给出 courseId） */
-export function setCourseBindings(db: Db, updates: { bankId: number; courseId: number | null }[]): number {
+/**
+ * 按册次匹配回填归属课程（返回条数；匹配规则由服务层给出 courseId）。
+ *
+ * 事务：`AsyncDb.transaction` 保证 sqlite（BEGIN IMMEDIATE）与 PG（单连接 BEGIN）语义一致；
+ * 回调抛错时整批回滚 —— 见 `test/bank-write-transaction.test.ts`。
+ */
+export async function setCourseBindings(
+  db: AsyncDb,
+  updates: { bankId: number; courseId: number | null }[],
+): Promise<number> {
   if (updates.length === 0) return 0;
   let changed = 0;
-  db.transaction(() => {
+  await db.transaction(async (tx) => {
     for (const item of updates) {
-      changed += db.run('UPDATE banks SET course_id = ? WHERE id = ? AND course_id IS NOT ?', [
+      const res = await tx.run('UPDATE banks SET course_id = ? WHERE id = ? AND course_id IS NOT ?', [
         item.courseId,
         item.bankId,
         item.courseId,
-      ]).changes;
+      ]);
+      changed += res.changes;
     }
   });
   return changed;

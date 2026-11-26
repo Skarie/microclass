@@ -80,7 +80,7 @@ export class BankSectionService {
       plan.push({ id: row.id, section });
       if (samples.length < SAMPLE_LIMIT) samples.push({ id: row.id, name: row.name, section });
     }
-    const filled = dryRun ? plan.length : this.banks.applyBankSections(plan);
+    const filled = dryRun ? plan.length : await this.banks.applyBankSections(plan);
     if (!dryRun) {
       this.audit.write({
         actorId: actor.id,

@@ -320,7 +320,7 @@ describe('交卷编排（ExamService，内存库）', () => {
     stu5 = makeUser('判分学生5');
 
     courseId = built.deps.courses.create({ name: '判分测试课程' });
-    const bankId = built.deps.banks.create({ name: '判分测试题库', courseId });
+    const bankId = await built.deps.banks.create({ name: '判分测试题库', courseId });
     const specs: { type: QuestionType; stem: string; options: string[]; answer: string; score: number }[] = [
       { type: 'single', stem: '单选：常量关键字', options: ['const', 'final'], answer: 'A', score: 10 },
       { type: 'multiple', stem: '多选：基本类型', options: ['int', 'String', 'boolean'], answer: '0,2', score: 10 },

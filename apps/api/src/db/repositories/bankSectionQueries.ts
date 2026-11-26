@@ -4,7 +4,6 @@
  * 与按课程的目录（bankCatalogQueries）并列：这里只看 `banks.book / section`，
  * 不关心课时树，所以没有课程也能把题库分到「册次 → 章节」下。
  */
-import type { Db } from '../client.js';
 import type { AsyncDb } from '../async.js';
 import type { BankKind } from './bankRepository.js';
 import { compareNaturalName } from '../../domain/nameOrder.js';
@@ -163,13 +162,18 @@ export async function banksMissingSection(db: AsyncDb, kind: BankKind | '' = '')
   );
 }
 
-/** 批量写入回填结果；只改仍然为空的题库（避免覆盖老师刚手工填的章节），返回改动条数 */
-export function setBankSections(db: Db, updates: { id: number; section: string }[]): number {
+/**
+ * 批量写入回填结果；只改仍然为空的题库（避免覆盖老师刚手工填的章节），返回改动条数。
+ *
+ * 事务：`AsyncDb.transaction`（sqlite BEGIN IMMEDIATE / PG 单连接 BEGIN），抛错整批回滚。
+ */
+export async function setBankSections(db: AsyncDb, updates: { id: number; section: string }[]): Promise<number> {
   if (updates.length === 0) return 0;
   let changed = 0;
-  db.transaction(() => {
+  await db.transaction(async (tx) => {
     for (const item of updates) {
-      changed += db.run("UPDATE banks SET section = ? WHERE id = ? AND section = ''", [item.section, item.id]).changes;
+      const res = await tx.run("UPDATE banks SET section = ? WHERE id = ? AND section = ''", [item.section, item.id]);
+      changed += res.changes;
     }
   });
   return changed;

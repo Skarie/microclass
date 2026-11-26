@@ -84,7 +84,7 @@ export class BankQuestionService {
   }
 
   async createQuestion(actor: User, input: QuestionDto): Promise<number> {
-    const prepared = prepareQuestionInput(this.inputContext, input);
+    const prepared = await prepareQuestionInput(this.inputContext, input);
     const id = this.questions.create(prepared);
     await this.markManualDifficulty(id, prepared);
     this.audit.write({
@@ -102,7 +102,7 @@ export class BankQuestionService {
     const existing = this.questions.findById(id);
     if (!existing) throw AppError.notFound('题目不存在');
     // 未提交图片路径时保留原图
-    const prepared = prepareQuestionInput(this.inputContext, {
+    const prepared = await prepareQuestionInput(this.inputContext, {
       ...input,
       imagePath: input.imagePath ?? existing.image_path,
     });
