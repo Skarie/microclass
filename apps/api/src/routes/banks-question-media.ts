@@ -22,7 +22,7 @@ export async function registerBankQuestionMediaRoutes(app: FastifyInstance, deps
     const file = await req.file();
     if (!file) throw AppError.badRequest('请选择图片文件');
     const data = await file.toBuffer();
-    const imagePath = deps.bankService.attachImage(user, id, {
+    const imagePath = await deps.bankService.attachImage(user, id, {
       fileName: file.filename,
       data,
       mimeType: file.mimetype,

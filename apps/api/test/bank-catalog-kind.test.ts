@@ -92,7 +92,7 @@ beforeAll(async () => {
     );
   }
   // 原生 SQL 造题绕过了写路径，按运维脚本同样的做法重算一次题库题量（迁移 0019 的预计算列）
-  built.deps.questions.fixBankQuestionCounts();
+  await built.deps.questions.fixBankQuestionCounts();
 });
 
 afterAll(async () => {

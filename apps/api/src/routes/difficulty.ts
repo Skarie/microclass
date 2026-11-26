@@ -56,7 +56,7 @@ export async function registerDifficultyRoutes(app: FastifyInstance, deps: Deps)
     const actor = requireTeacherOrAdmin(req, reply);
     const q = (req.query ?? {}) as { dryRun?: string; minSamples?: string; k?: string };
     return reply.send(
-      deps.difficultyService.calibrate(actor, {
+      await deps.difficultyService.calibrate(actor, {
         dryRun: q.dryRun !== '0',
         ...(q.minSamples ? { minSamples: Number(q.minSamples) } : {}),
         ...(q.k ? { k: Number(q.k) } : {}),

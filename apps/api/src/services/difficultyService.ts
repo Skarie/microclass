@@ -253,7 +253,7 @@ export class DifficultyService {
         buckets: [],
       };
     }
-    const updated = this.questions.setDifficulty(items);
+    const updated = await this.questions.setDifficulty(items);
     if (bankId === undefined) await this.settings.set(CUTS_KEY, JSON.stringify(cuts));
     this.audit.write({
       actorId: actor.id,
@@ -286,17 +286,17 @@ export class DifficultyService {
    * 样本量不足（默认 < 5 次作答）的题不校准，保持先验分；
    * 校准过的题标 `calibrated`（之后的「重算先验」不会把它冲掉）。
    */
-  calibrate(
+  async calibrate(
     actor: User,
     options?: { minSamples?: number; k?: number; dryRun?: boolean },
-  ): {
+  ): Promise<{
     candidates: number;
     calibrated: number;
     minSamples: number;
     k: number;
     dryRun: boolean;
     samples: { id: number; prior: number; next: number; n: number; p: number }[];
-  } {
+  }> {
     const minSamples = Math.max(1, options?.minSamples ?? 5);
     const k = Math.max(1, options?.k ?? 20);
     const dryRun = options?.dryRun !== false;
@@ -323,7 +323,7 @@ export class DifficultyService {
       }
     }
     if (!dryRun && items.length > 0) {
-      this.questions.setDifficulty(items);
+      await this.questions.setDifficulty(items);
       this.audit.write({
         actorId: actor.id,
         actorName: actor.username,

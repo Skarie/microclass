@@ -48,7 +48,7 @@ export async function registerQuestionConflictRoutes(app: FastifyInstance, deps:
     const q = req.query as { dryRun?: string; limit?: string };
     const dryRun = q.dryRun === '0' || q.dryRun === 'false' ? false : true;
     const limit = Number(q.limit ?? 1000) || 1000;
-    return reply.send(deps.conflictService.resolveMajority(actor, { dryRun, limit }));
+    return reply.send(await deps.conflictService.resolveMajority(actor, { dryRun, limit }));
   });
 
   /**
@@ -62,7 +62,7 @@ export async function registerQuestionConflictRoutes(app: FastifyInstance, deps:
     const q = req.query as { dryRun?: string; limit?: string };
     const dryRun = q.dryRun === '0' || q.dryRun === 'false' ? false : true;
     const limit = Number(q.limit ?? 1000) || 1000;
-    return reply.send(deps.conflictService.resolveEquivalent(actor, { dryRun, limit }));
+    return reply.send(await deps.conflictService.resolveEquivalent(actor, { dryRun, limit }));
   });
 
   /** 某一组的全部题目（含题库名、难度、来源），用于判断该信哪个答案 */
@@ -77,7 +77,7 @@ export async function registerQuestionConflictRoutes(app: FastifyInstance, deps:
     const actor = requireTeacherOrAdmin(req, reply);
     const { hash } = req.params as { hash: string };
     const body = (req.body ?? {}) as { answer?: string };
-    return reply.send(deps.conflictService.resolve(actor, hash, String(body.answer ?? '')));
+    return reply.send(await deps.conflictService.resolve(actor, hash, String(body.answer ?? '')));
   });
 
   /** 忽略：确认这一组答案不同是合理的，不再出现在待核对列表 */

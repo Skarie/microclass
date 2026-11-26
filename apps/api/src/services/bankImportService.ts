@@ -70,7 +70,12 @@ export class BankImportService {
     if (parsed.questions.length === 0 && parsed.errors.length === 0) {
       throw AppError.badRequest('没有解析到题目：请确认每道题都有题型与「答案：」行');
     }
-    const { inserted, warnings: imageWarnings } = this.insertDrafts(bankId, bank.lesson_id, parsed.questions, images);
+    const { inserted, warnings: imageWarnings } = await this.insertDrafts(
+      bankId,
+      bank.lesson_id,
+      parsed.questions,
+      images,
+    );
     const warnings = [...parsed.warnings, ...imageWarnings];
     this.audit.write({
       actorId: actor.id,
@@ -96,7 +101,7 @@ export class BankImportService {
     const rows = parseCsv(text);
     if (rows.length === 0) throw AppError.badRequest('CSV 内容为空');
     const { drafts, errors } = parseCsvQuestionRows(rows);
-    const { inserted } = this.insertDrafts(bankId, bank.lesson_id, drafts);
+    const { inserted } = await this.insertDrafts(bankId, bank.lesson_id, drafts);
     this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
@@ -113,12 +118,12 @@ export class BankImportService {
    * `imageIndex` 指向 docx 内嵌图片（1 开始）：存进题目图片目录并写回 `image_path`；
    * 单张图片不合法（格式不在白名单等）时只记 warning，题目照常导入。
    */
-  private insertDrafts(
+  private async insertDrafts(
     bankId: number,
     lessonId: number | null,
     drafts: CsvQuestionRow[],
     images: DocxImageFile[] = [],
-  ): { inserted: number; warnings: string[] } {
+  ): Promise<{ inserted: number; warnings: string[] }> {
     const warnings: string[] = [];
     let savedImages = 0;
 
@@ -165,6 +170,6 @@ export class BankImportService {
       };
     });
 
-    return { inserted: this.questions.insertMany(pending), warnings };
+    return { inserted: await this.questions.insertMany(pending), warnings };
   }
 }

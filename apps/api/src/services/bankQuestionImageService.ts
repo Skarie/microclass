@@ -55,7 +55,7 @@ export class BankQuestionImageService {
     const stem = String(input.stem ?? '').trim();
     // 选择题：选项内容在图片里，这里补字母位让学生能作答、判分照旧
     const options = input.type === 'single' || input.type === 'multiple' ? ['A', 'B', 'C', 'D'] : [];
-    const id = this.questions.create({
+    const id = await this.questions.create({
       bankId: input.bankId,
       lessonId: input.lessonId ?? bank.lesson_id ?? null,
       type: input.type,
@@ -86,7 +86,7 @@ export class BankQuestionImageService {
       mimeType: input.file.mimeType,
       imagesOnly: true,
     });
-    this.questions.setImage(id, saved.relPath);
+    await this.questions.setImage(id, saved.relPath);
     this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
@@ -98,7 +98,7 @@ export class BankQuestionImageService {
     return { id, imagePath: saved.relPath };
   }
 
-  attachImage(actor: User, id: number, file: ImageUpload): string {
+  async attachImage(actor: User, id: number, file: ImageUpload): Promise<string> {
     const question = this.questions.findById(id);
     if (!question) throw AppError.notFound('题目不存在');
     const saved = this.storage.save({
@@ -108,7 +108,7 @@ export class BankQuestionImageService {
       mimeType: file.mimeType,
       imagesOnly: true,
     });
-    this.questions.setImage(id, saved.relPath);
+    await this.questions.setImage(id, saved.relPath);
     this.audit.write({
       actorId: actor.id,
       actorName: actor.username,

@@ -57,7 +57,7 @@ export async function registerBankHealthRoutes(app: FastifyInstance, deps: Deps)
    */
   app.post('/banks/fix-question-counts', async (req, reply) => {
     requireTeacherOrAdmin(req, reply);
-    const fixed = deps.questions.fixBankQuestionCounts();
+    const fixed = await deps.questions.fixBankQuestionCounts();
     return { ok: true, fixed };
   });
 

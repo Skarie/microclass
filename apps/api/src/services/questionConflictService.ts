@@ -140,12 +140,12 @@ export class QuestionConflictService {
   }
 
   /** 选定答案：整组统一成这个答案 */
-  resolve(
+  async resolve(
     actor: User,
     hash: string,
     answer: string,
     options?: { sync?: boolean },
-  ): { updated: number; answer: string } {
+  ): Promise<{ updated: number; answer: string }> {
     const group = this.detail(hash);
     const chosen = String(answer ?? '').trim();
     if (!chosen) throw AppError.badRequest('请选择或填写正确答案');
@@ -154,7 +154,7 @@ export class QuestionConflictService {
     for (const id of ids) {
       const q = this.questions.findById(id);
       if (!q) continue;
-      this.questions.update(id, {
+      await this.questions.update(id, {
         bankId: q.bank_id,
         lessonId: q.lesson_id,
         type: q.type,
@@ -227,16 +227,16 @@ export class QuestionConflictService {
    * 批量按「多数答案」处理待核对组：该组出现次数最多的答案即选定值（并列时不动，留人工判断）。
    * `dryRun` 只统计不写库。
    */
-  resolveMajority(
+  async resolveMajority(
     actor: User,
     options?: { dryRun?: boolean; limit?: number },
-  ): {
+  ): Promise<{
     groups: number;
     questions: number;
     skipped: number;
     dryRun: boolean;
     samples: { stem: string; answer: string; n: number }[];
-  } {
+  }> {
     // 台账可能过期（导入了新题库），但这里不重扫：以台账现状为准，界面会提示去重扫。
     const limit = Math.max(1, Math.min(5000, options?.limit ?? 1000));
     const pending = this.collectPendingGroups(limit);
@@ -256,7 +256,7 @@ export class QuestionConflictService {
       groups += 1;
       questions += row.group_size;
       if (samples.length < 10) samples.push({ stem: row.sample_stem.slice(0, 80), answer: top.answer, n: top.n });
-      if (!dryRun) this.resolve(actor, row.content_hash, top.answer, { sync: false });
+      if (!dryRun) await this.resolve(actor, row.content_hash, top.answer, { sync: false });
     }
     if (!dryRun) this.conflicts.sync();
     return { groups, questions, skipped, dryRun, samples };
@@ -300,16 +300,16 @@ export class QuestionConflictService {
    * 只有组内写法两两等价时才自动处理；真的不同答案（`1260` vs `12600`、`圆心` vs `圆心上`）
    * 一律跳过留人工 —— 真机数据显示，多数票本身也可能是错的（1260 那组就是）。
    */
-  resolveEquivalent(
+  async resolveEquivalent(
     actor: User,
     options?: { dryRun?: boolean; limit?: number },
-  ): {
+  ): Promise<{
     groups: number;
     questions: number;
     skipped: number;
     dryRun: boolean;
     samples: { stem: string; from: string[]; merged: string }[];
-  } {
+  }> {
     const limit = Math.max(1, Math.min(5000, options?.limit ?? 1000));
     const pending = this.collectPendingGroups(limit);
     let groups = 0;
@@ -330,7 +330,7 @@ export class QuestionConflictService {
       questions += row.group_size;
       if (samples.length < 10) samples.push({ stem: row.sample_stem.slice(0, 80), from: variants, merged });
       // 批量场景不逐组 sync（每组一次全表分组太贵），末尾统一同步一次
-      if (!dryRun) this.resolve(actor, row.content_hash, merged, { sync: false });
+      if (!dryRun) await this.resolve(actor, row.content_hash, merged, { sync: false });
     }
     if (!dryRun) this.conflicts.sync();
     return { groups, questions, skipped, dryRun, samples };

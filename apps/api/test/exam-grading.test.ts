@@ -330,7 +330,7 @@ describe('交卷编排（ExamService，内存库）', () => {
     ];
     for (const spec of specs) {
       scoredQids.push(
-        built.deps.questions.create({
+        await built.deps.questions.create({
           bankId,
           type: spec.type,
           stem: spec.stem,

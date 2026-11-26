@@ -42,8 +42,12 @@ afterAll(() => {
 });
 
 describe('整库覆盖', () => {
-  it('命中的题库先删除全部旧题，再写入该小节的新题', () => {
-    const report = runTeacherBankImport(fx.db, fx.media, { subject: '数学', book: BOOK, sourceDir: fx.sourceRoot });
+  it('命中的题库先删除全部旧题，再写入该小节的新题', async () => {
+    const report = await runTeacherBankImport(fx.db, fx.media, {
+      subject: '数学',
+      book: BOOK,
+      sourceDir: fx.sourceRoot,
+    });
     expect(report.banksMatched).toBe(1);
     expect(report.banksCreated).toBe(1);
     expect(report.imported).toBe(4);
@@ -61,13 +65,17 @@ describe('整库覆盖', () => {
     ).toMatchObject({ question_count: 2 });
   });
 
-  it('重复导入幂等：题量与题库/文件夹数量都不变', () => {
+  it('重复导入幂等：题量与题库/文件夹数量都不变', async () => {
     const before = {
       questions: fx.db.get<{ c: number }>('SELECT COUNT(*) AS c FROM questions')?.c,
       banks: fx.db.get<{ c: number }>('SELECT COUNT(*) AS c FROM banks')?.c,
       folders: fx.db.get<{ c: number }>('SELECT COUNT(*) AS c FROM bank_folders')?.c,
     };
-    const report = runTeacherBankImport(fx.db, fx.media, { subject: '数学', book: BOOK, sourceDir: fx.sourceRoot });
+    const report = await runTeacherBankImport(fx.db, fx.media, {
+      subject: '数学',
+      book: BOOK,
+      sourceDir: fx.sourceRoot,
+    });
     expect(report.banksMatched).toBe(2);
     expect(report.banksCreated).toBe(0);
     expect(report.imported).toBe(4);

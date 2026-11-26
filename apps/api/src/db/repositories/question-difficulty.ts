@@ -7,6 +7,7 @@
  * - `answerStats` 从随堂练习与考试的 answers JSON 汇总，简答题（correct=null）不计入。
  */
 import type { Db } from '../client.js';
+import type { AsyncDb } from '../async.js';
 import type {
   AnswerStat,
   DifficultyFeatureOptions,
@@ -93,13 +94,13 @@ export function answerStats(db: Db): Map<number, AnswerStat> {
 }
 
 /** 批量写难度结果（score + 三档 + 来源 + 校准信息） */
-export function setDifficulty(db: Db, items: DifficultyUpdateItem[]): number {
+export async function setDifficulty(db: AsyncDb, items: DifficultyUpdateItem[]): Promise<number> {
   if (items.length === 0) return 0;
   let updated = 0;
-  withBusyRetry(() =>
-    db.transaction(() => {
+  await withBusyRetry(() =>
+    db.transaction(async (tx) => {
       for (const it of items) {
-        db.run(
+        await tx.run(
           `UPDATE questions SET difficulty_score = ?, difficulty = ?, difficulty_source = ?,
              difficulty_n = ?, difficulty_p = ?, difficulty_at = unixepoch() WHERE id = ?`,
           [it.score, it.difficulty, it.source, it.n ?? 0, it.p ?? null, it.id],
@@ -112,8 +113,8 @@ export function setDifficulty(db: Db, items: DifficultyUpdateItem[]): number {
 }
 
 /** 单题难度（老师手动指定：来源标 manual，之后重算不会覆盖） */
-export function setManualDifficulty(db: Db, id: number, difficulty: string, score: number): void {
-  db.run(
+export async function setManualDifficulty(db: AsyncDb, id: number, difficulty: string, score: number): Promise<void> {
+  await db.run(
     `UPDATE questions SET difficulty = ?, difficulty_score = ?, difficulty_source = 'manual',
        difficulty_at = unixepoch() WHERE id = ?`,
     [difficulty, score, id],

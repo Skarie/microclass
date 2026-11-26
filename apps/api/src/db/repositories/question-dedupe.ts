@@ -7,6 +7,7 @@
  */
 import { parseOptions, questionFingerprint } from '../../domain/question.js';
 import type { Db } from '../client.js';
+import type { AsyncDb } from '../async.js';
 import { clampLimit } from './question-query.js';
 import { withBusyRetry } from './question-write.js';
 
@@ -119,24 +120,24 @@ export function duplicateIdsInBank(db: Db, bankId: number, limit = 5000): Duplic
  * 老数据的 `content_hash` 就与新算法不一致 —— 查重会把不同的看图题当成同一题。
  * 按 id 分页重算，跑第二遍得到同样的结果（幂等），返回实际更新的行数。
  */
-export function rehashContentHash(
-  db: Db,
+export async function rehashContentHash(
+  db: AsyncDb,
   batchSize = 2000,
   onProgress?: (done: number, total: number) => void,
-): number {
-  const total = db.get<{ c: number }>('SELECT COUNT(*) AS c FROM questions')?.c ?? 0;
+): Promise<number> {
+  const total = (await db.get<{ c: number }>('SELECT COUNT(*) AS c FROM questions'))?.c ?? 0;
   let lastId = 0;
   let updated = 0;
   for (;;) {
-    const rows = db.all<{ id: number; stem: string; options: string }>(
+    const rows = await db.all<{ id: number; stem: string; options: string }>(
       'SELECT id, stem, options FROM questions WHERE id > ? ORDER BY id LIMIT ?',
       [lastId, batchSize],
     );
     if (rows.length === 0) break;
-    withBusyRetry(() =>
-      db.transaction(() => {
+    await withBusyRetry(() =>
+      db.transaction(async (tx) => {
         for (const r of rows) {
-          db.run('UPDATE questions SET content_hash = ? WHERE id = ?', [
+          await tx.run('UPDATE questions SET content_hash = ? WHERE id = ?', [
             questionFingerprint(r.stem, parseOptions(r.options)),
             r.id,
           ]);

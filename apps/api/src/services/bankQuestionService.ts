@@ -85,7 +85,7 @@ export class BankQuestionService {
 
   async createQuestion(actor: User, input: QuestionDto): Promise<number> {
     const prepared = await prepareQuestionInput(this.inputContext, input);
-    const id = this.questions.create(prepared);
+    const id = await this.questions.create(prepared);
     await this.markManualDifficulty(id, prepared);
     this.audit.write({
       actorId: actor.id,
@@ -106,7 +106,7 @@ export class BankQuestionService {
       ...input,
       imagePath: input.imagePath ?? existing.image_path,
     });
-    this.questions.update(id, prepared);
+    await this.questions.update(id, prepared);
     await this.markManualDifficulty(id, prepared);
     this.audit.write({
       actorId: actor.id,
@@ -139,13 +139,13 @@ export class BankQuestionService {
     });
     // 人工选的三档直接采用；分数取「模型分与该档区间中点」的均值，保证排序上也落在这一档
     const mid = difficulty === 'easy' ? 20 : difficulty === 'medium' ? 50 : 82;
-    this.questions.setManualDifficulty(id, difficulty, Math.round((scored.score + mid) / 2));
+    await this.questions.setManualDifficulty(id, difficulty, Math.round((scored.score + mid) / 2));
   }
 
-  removeQuestion(actor: User, id: number): void {
+  async removeQuestion(actor: User, id: number): Promise<void> {
     const existing = this.questions.findById(id);
     if (!existing) throw AppError.notFound('题目不存在');
-    this.questions.delete(id);
+    await this.questions.delete(id);
     this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
@@ -159,12 +159,12 @@ export class BankQuestionService {
    * 批量删除题目（多选后用）。
    * 只删**属于该题库**的 id，其它一律跳过（防止误传 id 跨库删除）。
    */
-  removeQuestions(actor: User, bankId: number, ids: number[]): { deleted: number; skipped: number } {
+  async removeQuestions(actor: User, bankId: number, ids: number[]): Promise<{ deleted: number; skipped: number }> {
     const inBank = this.questions
       .findByIds(ids)
       .filter((q) => q.bank_id === bankId)
       .map((q) => q.id);
-    const deleted = this.questions.deleteMany(inBank);
+    const deleted = await this.questions.deleteMany(inBank);
     this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
@@ -188,7 +188,7 @@ export class BankQuestionService {
       value === undefined ? undefined : String(value).trim().slice(0, 120);
     const chapter = normalize(patch.chapter);
     const section = normalize(patch.section);
-    const updated = this.questions.setSections(bankId, ids, {
+    const updated = await this.questions.setSections(bankId, ids, {
       ...(chapter === undefined ? {} : { chapter }),
       ...(section === undefined ? {} : { section }),
     });

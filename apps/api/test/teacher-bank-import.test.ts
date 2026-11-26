@@ -39,8 +39,8 @@ afterAll(() => {
 });
 
 describe('dry-run 只统计不写库', () => {
-  it('返回完整报告，但库里没有题库/题目/文件夹，也不落题图', () => {
-    const report = runTeacherBankImport(fx.db, fx.media, {
+  it('返回完整报告，但库里没有题库/题目/文件夹，也不落题图', async () => {
+    const report = await runTeacherBankImport(fx.db, fx.media, {
       subject: '数学',
       book: BOOK,
       sourceDir: fx.sourceRoot,
@@ -67,8 +67,8 @@ describe('dry-run 只统计不写库', () => {
     expect(fx.media.stats().files).toBe(0);
   });
 
-  it('课程匹配不到 → 整册跳过并报告', () => {
-    const report = runTeacherBankImport(fx.db, fx.media, {
+  it('课程匹配不到 → 整册跳过并报告', async () => {
+    const report = await runTeacherBankImport(fx.db, fx.media, {
       subject: '化学',
       book: BOOK,
       sourceDir: fx.sourceRoot,
@@ -83,8 +83,8 @@ describe('dry-run 只统计不写库', () => {
 describe('正式导入', () => {
   let bankA = 0;
 
-  it('新建两个章节题库，写入 4 道题', () => {
-    const report = runTeacherBankImport(fx.db, fx.media, {
+  it('新建两个章节题库，写入 4 道题', async () => {
+    const report = await runTeacherBankImport(fx.db, fx.media, {
       subject: '数学',
       book: BOOK,
       sourceDir: fx.sourceRoot,
@@ -104,7 +104,7 @@ describe('正式导入', () => {
     expect(bankA).toBeGreaterThan(0);
   });
 
-  it('题目字段：题型/答案/解析合并/难度换算/source_id/配图 URL', () => {
+  it('题目字段：题型/答案/解析合并/难度换算/source_id/配图 URL', async () => {
     const rows = fx.db.all<QuestionRow>('SELECT * FROM questions WHERE bank_id = ? ORDER BY sort', [bankA]);
     expect(rows).toHaveLength(2);
     const first = rows[0];
@@ -126,7 +126,7 @@ describe('正式导入', () => {
     expect(fx.media.stats().files).toBe(1);
   });
 
-  it('缺图保留原相对路径并计数，不阻断导入', () => {
+  it('缺图保留原相对路径并计数，不阻断导入', async () => {
     const fill = fx.db.get<QuestionRow>('SELECT * FROM questions WHERE source_id = ?', ['511917']);
     expect(fill?.type).toBe('fill');
     expect(fill?.answer).toBe('7；-7');
@@ -134,7 +134,7 @@ describe('正式导入', () => {
     expect(fill?.has_image).toBe(0);
   });
 
-  it('未知题型归简答题，判断题答案落成 T/F', () => {
+  it('未知题型归简答题，判断题答案落成 T/F', async () => {
     const material = fx.db.get<QuestionRow>('SELECT * FROM questions WHERE source_id = ?', ['511921']);
     expect(material?.type).toBe('short');
     const judge = fx.db.get<QuestionRow>('SELECT * FROM questions WHERE source_id = ?', ['511920']);
@@ -142,7 +142,7 @@ describe('正式导入', () => {
     expect(judge?.answer).toBe('F');
   });
 
-  it('新建题库归属「年级 / 册次 / 章节」文件夹，命名「章节 · 小节」', () => {
+  it('新建题库归属「年级 / 册次 / 章节」文件夹，命名「章节 · 小节」', async () => {
     const created = fx.db.get<{
       id: number;
       name: string;

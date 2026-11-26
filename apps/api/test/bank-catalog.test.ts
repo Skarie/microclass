@@ -110,7 +110,7 @@ beforeAll(async () => {
       [bankId, `题库 ${bankId} 的题`, `hash-${bankId}`],
     );
   }
-  deps.questions.fixBankQuestionCounts();
+  await deps.questions.fixBankQuestionCounts();
 });
 
 afterAll(async () => {

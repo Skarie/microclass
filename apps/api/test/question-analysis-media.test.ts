@@ -19,27 +19,27 @@ const SHA = 'a'.repeat(40);
 const IMG = `/api/v1/question-media/${SHA}.jpeg`;
 
 describe('解析纯图片判定', () => {
-  it('只有图片（哪怕带换行/空格）算纯图片', () => {
+  it('只有图片（哪怕带换行/空格）算纯图片', async () => {
     expect(hasMediaOnlyAnalysis(`![](${IMG})`)).toBe(true);
     expect(hasMediaOnlyAnalysis(`\n\n![](${IMG})\n\n`)).toBe(true);
   });
 
-  it('图 + 一个字以上就不算（本题库绝大多数是有文字的，别误判）', () => {
+  it('图 + 一个字以上就不算（本题库绝大多数是有文字的，别误判）', async () => {
     expect(hasMediaOnlyAnalysis(`![](${IMG})\n\n故答案为 4`)).toBe(false);
     expect(hasMediaOnlyAnalysis('解：原式 = 4')).toBe(false);
   });
 
-  it('空解析、没有图片的解析都不算「只有图片」', () => {
+  it('空解析、没有图片的解析都不算「只有图片」', async () => {
     expect(hasMediaOnlyAnalysis('')).toBe(false);
     expect(hasMediaOnlyAnalysis('解：原式 = 4')).toBe(false);
   });
 
-  it('图片来源是外部图床也算（真机有 11 道题的解析指向阿里云 OSS）', () => {
+  it('图片来源是外部图床也算（真机有 11 道题的解析指向阿里云 OSS）', async () => {
     expect(hasMediaOnlyAnalysis('![题目图片](https://oss.example.com/a/b.png)')).toBe(true);
     expect(hasMediaOnlyAnalysis('![题目图片](https://oss.example.com/a/b.png) 故答案为 4')).toBe(false);
   });
 
-  it('剥离图片后剩下的字数按「去掉空白」算', () => {
+  it('剥离图片后剩下的字数按「去掉空白」算', async () => {
     expect(textWithoutImages(`\n ![](${IMG}) \n`)).toBe('');
     expect(textWithoutImages(`![](${IMG})x`)).toBe('x');
   });
@@ -171,7 +171,7 @@ describe('解析纯图片标记（写库 + 筛选 + 体检）', () => {
     expect(json<{ total: number }>(after).total).toBe(0);
   });
 
-  it('回填历史数据：外部图床的「纯图片解析」也要标上（真机有 11 道）', () => {
+  it('回填历史数据：外部图床的「纯图片解析」也要标上（真机有 11 道）', async () => {
     // 直接造一条老数据（绕过写库逻辑，模拟导入进来的历史行）
     db.run(
       `INSERT INTO questions (bank_id, type, stem, options, answer, analysis, content_hash, has_image, analysis_media_only)
@@ -179,7 +179,7 @@ describe('解析纯图片标记（写库 + 筛选 + 体检）', () => {
       [bankId, '历史题（外链图解析）', '![题目图片](https://oss.example.com/a/b.png)'],
     );
     const repo = new QuestionRepository(db);
-    const updated = repo.backfillAnalysisMediaOnly(500);
+    const updated = await repo.backfillAnalysisMediaOnly(500);
     expect(updated).toBeGreaterThanOrEqual(1);
     const flagged = db.get<{ c: number }>(
       "SELECT COUNT(*) AS c FROM questions WHERE analysis_media_only = 1 AND analysis LIKE '%oss.example.com%'",

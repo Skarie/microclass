@@ -15,6 +15,7 @@
  */
 import type { Question } from '@microclass/shared';
 import type { Db } from '../client.js';
+import { createSqliteAsyncDb, type AsyncDb } from '../async.js';
 import * as dedupe from './question-dedupe.js';
 import type { DuplicateGroupRow, DuplicateIdGroup } from './question-dedupe.js';
 import * as difficultyRepo from './question-difficulty.js';
@@ -45,7 +46,16 @@ export type * from './question-types.js';
 export type { DuplicateGroupRow, DuplicateIdGroup } from './question-dedupe.js';
 
 export class QuestionRepository {
-  constructor(private readonly db: Db) {}
+  /** 读方法继续用同步 Db；写方法走 asyncDb（P0 阶段 2，B3b） */
+  constructor(
+    private readonly db: Db,
+    private readonly asyncDb?: AsyncDb,
+  ) {}
+
+  /** 已迁移的写方法要求注入 asyncDb；测试里没注入时退回 sqlite 包装 */
+  private adb(): AsyncDb {
+    return this.asyncDb ?? createSqliteAsyncDb(this.db);
+  }
 
   listByBank(bankId: number, filter?: QuestionFilter, page?: QuestionPage): Question[] {
     return query.listByBank(this.db, bankId, filter, page);
@@ -76,25 +86,25 @@ export class QuestionRepository {
     return query.listByLesson(this.db, lessonId);
   }
 
-  create(input: QuestionInput): number {
-    return write.createQuestion(this.db, input);
+  async create(input: QuestionInput): Promise<number> {
+    return write.createQuestion(this.adb(), input);
   }
 
-  update(id: number, input: QuestionInput): void {
-    write.updateQuestion(this.db, id, input);
+  async update(id: number, input: QuestionInput): Promise<void> {
+    return write.updateQuestion(this.adb(), id, input);
   }
 
   /** 批量改题库内题目的章节/小节（只影响该题库，返回更新条数） */
-  setSections(bankId: number, ids: number[], patch: { chapter?: string; section?: string }): number {
-    return write.setQuestionsSections(this.db, bankId, ids, patch);
+  async setSections(bankId: number, ids: number[], patch: { chapter?: string; section?: string }): Promise<number> {
+    return write.setQuestionsSections(this.adb(), bankId, ids, patch);
   }
 
   /** 只更新标准化元数据（回填历史数据用，不动题面与答案） */
-  setMetadata(
+  async setMetadata(
     id: number,
     meta: Pick<QuestionInput, 'subject' | 'stage' | 'book' | 'chapter' | 'point' | 'sourcePath' | 'contentHash'>,
-  ): void {
-    write.setQuestionMetadata(this.db, id, meta);
+  ): Promise<void> {
+    return write.setQuestionMetadata(this.adb(), id, meta);
   }
 
   /* ---------------- 难度模型（迁移 0016） ---------------- */
@@ -120,13 +130,13 @@ export class QuestionRepository {
     return difficultyRepo.answerStats(this.db);
   }
 
-  setDifficulty(items: DifficultyUpdateItem[]): number {
-    return difficultyRepo.setDifficulty(this.db, items);
+  async setDifficulty(items: DifficultyUpdateItem[]): Promise<number> {
+    return difficultyRepo.setDifficulty(this.adb(), items);
   }
 
   /** 单题难度（老师手动指定，来源 manual） */
-  setManualDifficulty(id: number, difficulty: string, score: number): void {
-    difficultyRepo.setManualDifficulty(this.db, id, difficulty, score);
+  async setManualDifficulty(id: number, difficulty: string, score: number): Promise<void> {
+    return difficultyRepo.setManualDifficulty(this.adb(), id, difficulty, score);
   }
 
   /** 难度分布与来源统计（体检 / 重算预览用） */
@@ -134,17 +144,17 @@ export class QuestionRepository {
     return stats.difficultyStats(this.db, bankId, cuts);
   }
 
-  setImage(id: number, imagePath: string): void {
-    write.setQuestionImage(this.db, id, imagePath);
+  async setImage(id: number, imagePath: string): Promise<void> {
+    return write.setQuestionImage(this.adb(), id, imagePath);
   }
 
-  delete(id: number): void {
-    write.deleteQuestion(this.db, id);
+  async delete(id: number): Promise<void> {
+    return write.deleteQuestion(this.adb(), id);
   }
 
   /** 批量插入（CSV 导入），返回写入条数 */
-  insertMany(inputs: QuestionInput[]): number {
-    return write.insertManyQuestions(this.db, inputs);
+  async insertMany(inputs: QuestionInput[]): Promise<number> {
+    return write.insertManyQuestions(this.adb(), inputs);
   }
 
   /* ---------------- 体检 / 统计 / 检索 ---------------- */
@@ -161,24 +171,24 @@ export class QuestionRepository {
     return stats.countByMeta(this.db, bankId, column, knownTotal);
   }
 
-  backfillAnalysisMediaOnly(batchSize = 2000): number {
-    return maintenance.backfillAnalysisMediaOnly(this.db, batchSize);
+  async backfillAnalysisMediaOnly(batchSize = 2000): Promise<number> {
+    return maintenance.backfillAnalysisMediaOnly(this.adb(), batchSize);
   }
 
-  backfillHasImage(batchSize = 5000): number {
-    return maintenance.backfillHasImage(this.db, batchSize);
+  async backfillHasImage(batchSize = 5000): Promise<number> {
+    return maintenance.backfillHasImage(this.adb(), batchSize);
   }
 
-  rehashContentHash(batchSize = 2000, onProgress?: (done: number, total: number) => void): number {
-    return dedupe.rehashContentHash(this.db, batchSize, onProgress);
+  async rehashContentHash(batchSize = 2000, onProgress?: (done: number, total: number) => void): Promise<number> {
+    return dedupe.rehashContentHash(this.adb(), batchSize, onProgress);
   }
 
-  countMissingContentHash(): number {
-    return maintenance.countMissingContentHash(this.db);
+  async countMissingContentHash(): Promise<number> {
+    return maintenance.countMissingContentHash(this.adb());
   }
 
-  backfillContentHash(batchSize = 2000): number {
-    return maintenance.backfillContentHash(this.db, batchSize);
+  async backfillContentHash(batchSize = 2000): Promise<number> {
+    return maintenance.backfillContentHash(this.adb(), batchSize);
   }
 
   searchByMeta(options: SearchMetaOptions): QuestionWithBankName[] {
@@ -197,11 +207,11 @@ export class QuestionRepository {
     return dedupe.duplicateIdsInBank(this.db, bankId, limit);
   }
 
-  deleteMany(ids: number[]): number {
-    return write.deleteManyQuestions(this.db, ids);
+  async deleteMany(ids: number[]): Promise<number> {
+    return write.deleteManyQuestions(this.adb(), ids);
   }
 
-  fixBankQuestionCounts(): number {
-    return maintenance.fixBankQuestionCounts(this.db);
+  async fixBankQuestionCounts(): Promise<number> {
+    return maintenance.fixBankQuestionCounts(this.adb());
   }
 }

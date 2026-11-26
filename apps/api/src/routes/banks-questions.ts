@@ -66,7 +66,7 @@ export async function registerBankQuestionRoutes(app: FastifyInstance, deps: Dep
 
   app.delete('/questions/:id', async (req, reply) => {
     const user = requireTeacherOrAdmin(req, reply);
-    deps.bankService.removeQuestion(user, questionIdOf(req));
+    await deps.bankService.removeQuestion(user, questionIdOf(req));
     return { ok: true };
   });
 
@@ -86,6 +86,6 @@ export async function registerBankQuestionRoutes(app: FastifyInstance, deps: Dep
     const user = requireTeacherOrAdmin(req, reply);
     const bankId = bankIdOf(req);
     const { ids } = req.body as { ids: number[] };
-    return deps.bankService.removeQuestions(user, bankId, ids);
+    return await deps.bankService.removeQuestions(user, bankId, ids);
   });
 }

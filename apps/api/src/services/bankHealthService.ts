@@ -138,7 +138,7 @@ export class BankHealthService {
     if (options?.dryRun !== false || plan.removable === 0) {
       return { dryRun: true, groups: plan.groups, removable: plan.removable, removed: 0, samples: plan.samples };
     }
-    const removed = this.questions.deleteMany(groups.flatMap((g) => g.removeIds));
+    const removed = await this.questions.deleteMany(groups.flatMap((g) => g.removeIds));
     this.audit.write({
       actorId: actor.id,
       actorName: actor.username,

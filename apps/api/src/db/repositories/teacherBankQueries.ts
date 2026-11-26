@@ -6,6 +6,7 @@
  * `domain/teacherBankMatch`，编排在 `services/teacherBankImportService`。
  */
 import type { Db } from '../client.js';
+import { createSqliteAsyncDb, type AsyncDb } from '../async.js';
 import type { QuestionInput } from './question-types.js';
 import { withBusyRetry } from './question-write.js';
 import { bookKeyOfCourseName, normalizeBookKey } from './bankNaming.js';
@@ -43,7 +44,14 @@ export function findTeacherCourse(db: Db, subject: string, book: string): Teache
 }
 
 export class TeacherBankRepository {
-  constructor(private readonly db: Db) {}
+  constructor(
+    private readonly db: Db,
+    private readonly asyncDb?: AsyncDb,
+  ) {}
+
+  private adb(): AsyncDb {
+    return this.asyncDb ?? createSqliteAsyncDb(this.db);
+  }
 
   /** 该课程下的题库（匹配只看这些，避免串到别的册次） */
   candidates(courseId: number): TeacherBankCandidate[] {
@@ -56,28 +64,30 @@ export class TeacherBankRepository {
    * 按层级建文件夹（年级 / 册次 / 章节），返回最深一级 id。
    * 同名同级已存在就复用（重复导入不会堆文件夹）。
    */
-  ensureFolderPath(names: readonly string[]): number | null {
+  async ensureFolderPath(names: readonly string[]): Promise<number | null> {
     let parentId: number | null = null;
     for (const raw of names) {
       const name = String(raw ?? '').trim();
       if (name === '') continue;
-      const found = this.findChildFolder(parentId, name);
+      const found = await this.findChildFolder(parentId, name);
       if (found !== null) {
         parentId = found;
         continue;
       }
-      parentId = this.db.run('INSERT INTO bank_folders (parent_id, name, sort) VALUES (?,?,?)', [
-        parentId,
-        name,
-        this.nextFolderSort(parentId),
-      ]).lastInsertRowid;
+      const sort = await this.nextFolderSort(parentId);
+      const row: { id: number } | undefined = await this.adb().get<{ id: number }>(
+        'INSERT INTO bank_folders (parent_id, name, sort) VALUES (?,?,?) RETURNING id',
+        [parentId, name, sort],
+      );
+      if (!row) throw new Error('创建文件夹后未返回 id');
+      parentId = row.id;
     }
     return parentId;
   }
 
   /** 同级同名文件夹 id（`parent_id` 可为 NULL） */
-  private findChildFolder(parentId: number | null, name: string): number | null {
-    const row = this.db.get<{ id: number }>(
+  private async findChildFolder(parentId: number | null, name: string): Promise<number | null> {
+    const row = await this.adb().get<{ id: number }>(
       'SELECT id FROM bank_folders WHERE parent_id IS ? AND name = ? ORDER BY id LIMIT 1',
       [parentId, name],
     );
@@ -85,21 +95,23 @@ export class TeacherBankRepository {
   }
 
   /** 同级末尾的 sort（空目录返回 0） */
-  private nextFolderSort(parentId: number | null): number {
-    return (
-      this.db.get<{ s: number }>('SELECT COALESCE(MAX(sort), -1) + 1 AS s FROM bank_folders WHERE parent_id IS ?', [
-        parentId,
-      ])?.s ?? 0
+  private async nextFolderSort(parentId: number | null): Promise<number> {
+    const row = await this.adb().get<{ s: number }>(
+      'SELECT COALESCE(MAX(sort), -1) + 1 AS s FROM bank_folders WHERE parent_id IS ?',
+      [parentId],
     );
+    return row?.s ?? 0;
   }
 
   /** 新建章节题库（kind=chapter，不挂课时） */
-  createBank(input: NewTeacherBankInput): number {
-    return this.db.run(
+  async createBank(input: NewTeacherBankInput): Promise<number> {
+    const row = await this.adb().get<{ id: number }>(
       `INSERT INTO banks (name, kind, subject, book, section, course_id, folder_id)
-       VALUES (?, 'chapter', ?, ?, ?, ?, ?)`,
+       VALUES (?, 'chapter', ?, ?, ?, ?, ?) RETURNING id`,
       [input.name, input.subject, input.book, input.section, input.courseId, input.folderId],
-    ).lastInsertRowid;
+    );
+    if (!row) throw new Error('创建题库后未返回 id');
+    return row.id;
   }
 
   /** 题库当前题量 */
@@ -113,27 +125,31 @@ export class TeacherBankRepository {
    * 注意：`questions` 上的外键是 ON DELETE CASCADE，删题会同时把题从已组好的试卷
    * （`exam_questions`）与错题本里移出 —— 这正是「以新数据为准」的预期语义。
    */
-  replaceBankQuestions(bankId: number, inputs: readonly TeacherQuestionRow[]): number {
+  async replaceBankQuestions(bankId: number, inputs: readonly TeacherQuestionRow[]): Promise<number> {
     return this.writeQuestions(bankId, inputs, true);
   }
 
   /** 只插入（新建题库用） */
-  insertBankQuestions(bankId: number, inputs: readonly TeacherQuestionRow[]): number {
+  async insertBankQuestions(bankId: number, inputs: readonly TeacherQuestionRow[]): Promise<number> {
     return this.writeQuestions(bankId, inputs, false);
   }
 
-  private writeQuestions(bankId: number, inputs: readonly TeacherQuestionRow[], replace: boolean): number {
+  private async writeQuestions(
+    bankId: number,
+    inputs: readonly TeacherQuestionRow[],
+    replace: boolean,
+  ): Promise<number> {
     if (inputs.length === 0) return 0;
     let inserted = 0;
-    withBusyRetry(() =>
-      this.db.transaction(() => {
+    await withBusyRetry(() =>
+      this.adb().transaction(async (tx) => {
         inserted = 0;
-        if (replace) this.db.run('DELETE FROM questions WHERE bank_id = ?', [bankId]);
+        if (replace) await tx.run('DELETE FROM questions WHERE bank_id = ?', [bankId]);
         for (const input of inputs) {
-          this.insertRow(bankId, input);
+          await this.insertRow(tx, bankId, input);
           inserted += 1;
         }
-        this.db.run(
+        await tx.run(
           'UPDATE banks SET question_count = (SELECT COUNT(*) FROM questions WHERE bank_id = ?) WHERE id = ?',
           [bankId, bankId],
         );
@@ -147,8 +163,8 @@ export class TeacherBankRepository {
    * `source_id`（迁移 0027）与 `difficulty_score`（迁移 0016）；
    * 批量导入不走逐题 `bumpBankCount`，题量在批次末尾重算一次。
    */
-  private insertRow(bankId: number, input: TeacherQuestionRow): void {
-    this.db.run(
+  private async insertRow(tx: AsyncDb, bankId: number, input: TeacherQuestionRow): Promise<void> {
+    await tx.run(
       `INSERT INTO questions
          (bank_id, lesson_id, type, stem, image_path, options, answer, analysis, sort, difficulty,
           difficulty_score, subject, stage, book, chapter, section, point, source_path, source_no, source_id,

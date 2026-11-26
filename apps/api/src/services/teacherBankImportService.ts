@@ -107,11 +107,11 @@ function initialReport(dryRun: boolean, courseName: string | null): TeacherBankI
 }
 
 /** 导入一个册次；返回统计报告（dry-run 时 `imported` 不出现） */
-export function runTeacherBankImport(
+export async function runTeacherBankImport(
   db: Db,
   media: QuestionMediaStore,
   input: TeacherBankImportInput,
-): TeacherBankImportReport {
+): Promise<TeacherBankImportReport> {
   const dryRun = input.dryRun === true;
   const course = findTeacherCourse(db, input.subject, input.book);
   const report = initialReport(dryRun, course?.name ?? null);
@@ -160,8 +160,8 @@ export function runTeacherBankImport(
     } else {
       report.banksCreated += 1;
       if (!dryRun) {
-        const folderId = repo.ensureFolderPath([parseGrade(course.name), book, chapter]);
-        bankId = repo.createBank({
+        const folderId = await repo.ensureFolderPath([parseGrade(course.name), book, chapter]);
+        bankId = await repo.createBank({
           name: teacherBankName(chapter, section),
           subject,
           book,
@@ -174,7 +174,9 @@ export function runTeacherBankImport(
     if (bankId !== null) usedBankIds.add(bankId);
     if (!dryRun && bankId !== null) {
       imported +=
-        match.action === 'replace' ? repo.replaceBankQuestions(bankId, rows) : repo.insertBankQuestions(bankId, rows);
+        match.action === 'replace'
+          ? await repo.replaceBankQuestions(bankId, rows)
+          : await repo.insertBankQuestions(bankId, rows);
     }
     if (report.samples.length < maxSamples) {
       report.samples.push({
