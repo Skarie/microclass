@@ -1,37 +1,41 @@
 # PostgreSQL 迁移进度与交接文档
 
-> 目的：换会话/换人也能无损接手。**最后更新：2026-11-27（lessons/courses 批次）**
+> 目的：换会话/换人也能无损接手。**最后更新：2026-11-27（users/auth + progress/notes/watch 批次）**
 
 ## 0. 一句话现状
 
-数据访问层已抽象出 `AsyncDb`（sqlite / PG 双栈）。已迁移：**公告、题库（banks，读写全量）、题目写入（questions 写）、设置（settings 快照）、课时/课程（lessons/courses，读写全量）**。
-生产仍 `MC_DB=sqlite`（2.4.1），**未切 PG**。剩余：users/auth/progress/notes/favorites/watch、exams/analytics/attempts。
+数据访问层已抽象出 `AsyncDb`（sqlite / PG 双栈）。已迁移：**公告、题库（banks，读写全量）、题目写入（questions 写）、设置（settings 快照）、课时/课程（lessons/courses，读写全量）、用户/鉴权（users/auth，读写全量）、学习进度/观看区间/笔记（progress/watch/notes，读写全量）**。
+生产仍 `MC_DB=sqlite`（2.4.1），**未切 PG**。剩余：**exams/analytics/attempts**（含 stats、activity 两组只读聚合）。
 
 ## 1. 已完成域（按 commit）
 
-| commit    | 域                   | 关键点                                                                        |
-| --------- | -------------------- | ----------------------------------------------------------------------------- |
-| `66e4e8f` | PG 运行形态          | 同机容器 `microclass-db`、数据目录 `/vol1/1000/microclass-pg`、DDL/装载工具链 |
-| `3779721` | announcements + 地基 | `AsyncDb`、pg 连接池、driver 单例、`settings` 异步写 + 启动快照读             |
-| `0e95c6a` | banks 读（A）        | 目录/章节 7 方法                                                              |
-| `ed78803` | banks 读（B）        | `listBanks/countBanks/findBankWithStats`                                      |
-| `acc72c6` | banks 读（C）        | `findById/findByName/kindStats/questionCount/绑定统计` + 10 个服务 async 化   |
-| `88f0d48` | banks 写             | 9 方法；`AsyncDb.transaction` 改造；回滚测试                                  |
-| `b201ec4` | questions 写         | 16 方法；`RETURNING id`；批量写事务；回滚测试                                 |
-| `da4a0ad` | lessons/courses 读写 | 36 方法；`RETURNING id`；删除/重排/改绑/收藏/分类走事务；服务与路由补 await   |
-| `a667f09` | 稳定性补丁           | SQLite 页缓存 256 MB / mmap 2 GB / 只读 `query_only`                          |
-| `cac6d05` | 部署护栏             | api healthcheck `start_period` 60 s、`retries` 5                              |
-| `0aa7300` | 2.4.0                | 版本与 CHANGELOG                                                              |
+| commit    | 域                   | 关键点                                                                                             |
+| --------- | -------------------- | -------------------------------------------------------------------------------------------------- |
+| `66e4e8f` | PG 运行形态          | 同机容器 `microclass-db`、数据目录 `/vol1/1000/microclass-pg`、DDL/装载工具链                      |
+| `3779721` | announcements + 地基 | `AsyncDb`、pg 连接池、driver 单例、`settings` 异步写 + 启动快照读                                  |
+| `0e95c6a` | banks 读（A）        | 目录/章节 7 方法                                                                                   |
+| `ed78803` | banks 读（B）        | `listBanks/countBanks/findBankWithStats`                                                           |
+| `acc72c6` | banks 读（C）        | `findById/findByName/kindStats/questionCount/绑定统计` + 10 个服务 async 化                        |
+| `88f0d48` | banks 写             | 9 方法；`AsyncDb.transaction` 改造；回滚测试                                                       |
+| `b201ec4` | questions 写         | 16 方法；`RETURNING id`；批量写事务；回滚测试                                                      |
+| `da4a0ad` | lessons/courses 读写 | 36 方法；`RETURNING id`；删除/重排/改绑/收藏/分类走事务；服务与路由补 await                        |
+| `e95226b` | users / auth         | 10 方法；`RETURNING id`；**鉴权链路 `onRequest` 的 `users.findById` 补 await**；authService 全异步 |
+| `8faa2dc` | progress/notes/watch | 16 方法；区间 record 走事务（中途失败整批回滚）；笔记 `RETURNING id`；路由补 await                 |
+| `a667f09` | 稳定性补丁           | SQLite 页缓存 256 MB / mmap 2 GB / 只读 `query_only`                                               |
+| `cac6d05` | 部署护栏             | api healthcheck `start_period` 60 s、`retries` 5                                                   |
+| `0aa7300` | 2.4.0                | 版本与 CHANGELOG                                                                                   |
 
 ## 2. 剩余域（实测规模）
 
-| 域                                                  | 仓储方法数                                        | 备注                                                                  |
-| --------------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------- |
-| users / auth / progress / notes / favorites / watch | user 10、progress 6、notes/favorites/watch 各 5~8 | 刷题提交、观看进度的写路径多；`authService` 已 async（settings 快照） |
-| exams / analytics / attempts                        | exam 32、analytics 8、attempts ~10                | 组卷/交卷跨表写多，事务边界要逐个确认                                 |
+| 域                     | 仓储方法数                           | 备注                                                                                                 |
+| ---------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| exams                  | exam 32、exam-pool/facets/stats 若干 | 组卷/交卷跨表写多，事务边界要逐个确认；`attemptRepository`（提交/错题本 ~10）与交卷同批              |
+| analytics              | analytics 8、`ActivityRepository` 3  | 只读聚合；`activityRepository` 用 `date(...,'unixepoch','localtime')`，PG 方言待改（见 §4 方言 #21） |
+| stats（课时/课程统计） | `StatsRepository` 3                  | 在 `noteRepository.ts` 里，仍同步 `Db`；读 `lesson_progress`/`attempts`，跟着 analytics 批次一起改   |
 
-> lessons/courses 已迁完（`da4a0ad`）；它牵出的服务（stats/quiz/practiceLink/exam-lifecycle 等）也跟着 async 化了，
-> 下一域改 users/progress 时注意这些服务的调用点仍要 `await`。
+> users/auth（`e95226b`）、progress/notes/watch（`8faa2dc`）已迁完；收藏（favorites）在 lessons/courses 批次（`da4a0ad`）内已迁。
+> 已迁域牵出的服务（stats/quiz/practiceLink/exam-lifecycle/lessonUnlock/note 等）都 async 化了，
+> 下一域改 exams/analytics 时注意这些服务的调用点仍要 `await`；`reply.send(<Promise>)` 依旧是 tsc 抓不到的坑。
 
 ## 3. 每域改造模板（照抄即可）
 
@@ -73,10 +77,13 @@ await this.adb().transaction(async (tx) => {
 6. `CAST(title AS INTEGER)`（lessons 自然序）：SQLite 非数字前缀 → 0，**PG 会直接报错**；切流前必须按方言生成排序表达式
 7. int8（`COUNT/SUM/MAX`、`RETURNING id`）经 node-postgres 默认返回 **string**；建议在 `pg/pool.ts` 加 `types.setTypeParser(20, Number)`（所有已迁移域共同待办）
 8. 课时扫描的 `findMissingLessons` 判定回调**保持同步**（只做 `fs` 判定、不碰库）；落库步骤已 await —— 不要为了「全 async」把它改成异步，会打乱扫描顺序
+9. **`unixepoch()`（方言 #19）**：`progressRepository.upsert` / `markQuizDone` 的 SQL 里直接用 `unixepoch()`（不只是 DEFAULT）；PG 无此函数，切流前换 `EXTRACT(EPOCH FROM now())::bigint`
+10. **`MAX(a, b)` 标量形式（方言 #20）**：`lesson_progress` 的 upsert `DO UPDATE SET finished = MAX(finished, excluded.finished)`、`quiz_best = MAX(...)` —— SQLite 是标量两参 `max()`，PG 里 `MAX` 是聚合会直接报错；切流前改 `GREATEST(a, b)`（PG）或 `CASE WHEN`
+11. **`date(col,'unixepoch','localtime')`（方言 #21）**：`activityRepository`（学习日历）用的 SQLite 修饰符语法；PG 需 `to_char(to_timestamp(col) AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD')`。属 analytics 批次，未改
 
 ## 5. 测试基线
 
-- `npx vitest run`：**953 passed / 7 skipped**（基线 939/6 + lessons/courses 新增 14 条；skip 里含 PG 集成测试，需 `MC_PG_TEST_URL`）
+- `npx vitest run`：**966 passed / 7 skipped**（基线 939/6 → +lessons/courses 14 → +users/auth 4 → +progress/notes/watch 9；skip 里含 PG 集成测试，需 `MC_PG_TEST_URL`）
 - `npx playwright test`：**40/40**
 - `npx eslint .`：0 error（4 warning 为既有 console）
 - `npm run build`、`node tools/check-file-size.mjs`（app.ts 382 行基线，624 个文件）
@@ -139,11 +146,12 @@ await this.adb().transaction(async (tx) => {
 
 ## 7.2 下次会话的起点
 
-1. 继续剩余域：users/auth/progress/notes/favorites/watch → exams/analytics/attempts
-   （lessons/courses 已于 `da4a0ad` 完成；每域独立提交、sqlite 全绿、更新本文件进度表）
+1. 继续剩余域：**exams/attempts** → **analytics/stats/activity**（users/auth 于 `e95226b`、progress/notes/watch 于 `8faa2dc` 已完成；
+   每域独立提交、sqlite 全绿、更新本文件进度表）
 2. 每域收尾照旧扫一遍 `reply.send(Promise)` / `{ id: service.x() }` 这类漏 await（本轮又抓到十余处，
-   `tsc` 全部不报错）
-3. 全部域迁完后再排 PG 切流窗口（01:00–06:00），Runbook 见 `docs/postgres-migration.md` §12.2
+   `tsc` 全部不报错；`requireUser` 保持同步返回 `req.authUser`，只有 `users.findById` 需要 await）
+3. 全部域迁完后再排 PG 切流窗口（01:00–06:00），Runbook 见 `docs/postgres-migration.md` §12.2；
+   切流前先清 §4 的方言 TODO（#19 `unixepoch()`、#20 `MAX(a,b)`、#21 `date(...,'unixepoch')`、#16 自然序、#17 int8 parser）
 
 ## 7.3 2.4.1 发布记录（2026-11-27 23:00）
 
@@ -162,19 +170,19 @@ await this.adb().transaction(async (tx) => {
 > ⚠️ 冷页 54.6 s 仍是隐患：部署/重启后第一批访问 `/banks/catalog` 的用户会等近 1 分钟。
 > 后续可考虑「启动后后台预热 catalog 相关表」（低优先级，不在切流前动）。
 
-3. 全部域迁完 + 本地复测通过，才安排 PG 切流窗口（01:00–06:00）
-
 ## 8. 关键文件索引
 
-| 主题                 | 文件                                                              |
-| -------------------- | ----------------------------------------------------------------- |
-| 异步数据端口         | `apps/api/src/db/async.ts`                                        |
-| 驱动选择 / 单例      | `apps/api/src/db/driver.ts`                                       |
-| PG 连接池            | `apps/api/src/db/pg/pool.ts`                                      |
-| 方言小工具（likeCI） | `apps/api/src/db/sql.ts`                                          |
-| PG DDL 生成          | `ops/scripts/pg/gen-schema.mjs`、`post-schema.pg.sql`             |
-| 装载/校验            | `ops/scripts/pg/load-pg.sh`、`verify-parity.sh`、`export-tsv.mjs` |
-| 备份                 | `ops/deploy/pg-backup.sh`、`ops/deploy/backup.sh`                 |
-| 预发 IO 门槛         | `ops/scripts/pg/guard-io.sh`                                      |
-| 迁移总文档           | `docs/postgres-migration.md`                                      |
-| lessons/courses 事务 | `apps/api/test/lesson-course-write-transaction.test.ts`           |
+| 主题                      | 文件                                                              |
+| ------------------------- | ----------------------------------------------------------------- |
+| 异步数据端口              | `apps/api/src/db/async.ts`                                        |
+| 驱动选择 / 单例           | `apps/api/src/db/driver.ts`                                       |
+| PG 连接池                 | `apps/api/src/db/pg/pool.ts`                                      |
+| 方言小工具（likeCI）      | `apps/api/src/db/sql.ts`                                          |
+| PG DDL 生成               | `ops/scripts/pg/gen-schema.mjs`、`post-schema.pg.sql`             |
+| 装载/校验                 | `ops/scripts/pg/load-pg.sh`、`verify-parity.sh`、`export-tsv.mjs` |
+| 备份                      | `ops/deploy/pg-backup.sh`、`ops/deploy/backup.sh`                 |
+| 预发 IO 门槛              | `ops/scripts/pg/guard-io.sh`                                      |
+| 迁移总文档                | `docs/postgres-migration.md`                                      |
+| lessons/courses 事务      | `apps/api/test/lesson-course-write-transaction.test.ts`           |
+| users/auth 鉴权链路       | `apps/api/test/auth-async.test.ts`                                |
+| progress/notes/watch 事务 | `apps/api/test/progress-write-transaction.test.ts`                |
