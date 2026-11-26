@@ -2,10 +2,19 @@
 # 按 .image-tag 记录的版本重建 microclass 容器，并校验实际运行的镜像标签。
 #
 # 用法：bash redeploy.sh [版本号]   # 不传则读 <部署目录>/.image-tag
+#
+# 加固（2026-11-27，生产事故「network … not found」）：
+#   1. compose 调用**统一带 -p microclass-prod**。宿主机上还留着历史项目 `microclass`，
+#      一旦容器名被它占住（同名 microclass-api），不带 -p 时 compose 会踩到那张旧网络；
+#   2. 启动失败且日志出现 `network … not found` / `container name … already in use` 时，
+#      自动 `down --remove-orphans`（**绝不带 -v**，数据卷必须保留）后重试一次；
+#   3. 重试仍失败会把 compose 日志尾部打出来，便于直接定位。
 set -eu
 
 DEPLOY_DIR="${MC_DEPLOY_DIR:-/vol1/1000/microclass-deploy}"
 COMPOSE_FILE="${MC_COMPOSE_FILE:-compose.evo4.yml}"
+PROJECT="${MC_COMPOSE_PROJECT:-microclass-prod}"
+COMPOSE=(docker compose -p "$PROJECT" -f "$COMPOSE_FILE")
 
 cd "$DEPLOY_DIR"
 if [ "${1:-}" != "" ]; then
@@ -22,9 +31,26 @@ docker image inspect "microclass:$VERSION" >/dev/null 2>&1 || {
   exit 2
 }
 
-echo "== 目标版本：$VERSION"
+echo "== 目标版本：$VERSION（项目 $PROJECT）"
 export MC_VERSION="$VERSION"
-docker compose -f "$COMPOSE_FILE" up -d --force-recreate --no-deps api 2>&1 | tail -4
+
+# 起容器：失败时判断是不是「网络/容器名」这类可自愈的编排问题
+up_api() {
+  "${COMPOSE[@]}" up -d --force-recreate --no-deps api 2>&1 | tee /tmp/microclass-up.log | tail -4
+  return "${PIPESTATUS[0]}"
+}
+
+if ! up_api; then
+  if grep -qE 'network .* not found|container name .* is already in use|already exists' /tmp/microclass-up.log; then
+    echo "== 检测到编排层故障（network 丢失 / 容器名冲突），重建项目容器（保留数据卷）"
+    "${COMPOSE[@]}" down --remove-orphans 2>&1 | tail -3
+    up_api
+  else
+    echo "== 启动失败（非网络问题），见 /tmp/microclass-up.log" >&2
+    tail -20 /tmp/microclass-up.log >&2
+    exit 1
+  fi
+fi
 
 for i in $(seq 1 40); do
   code=$(curl -sS -m 3 -o /dev/null -w '%{http_code}' http://127.0.0.1:8091/api/v1/readyz 2>/dev/null || echo 000)
