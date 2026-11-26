@@ -89,6 +89,40 @@ await this.adb().transaction(async (tx) => {
 见 `docs/postgres-migration.md` **§12.2 切流预演草案**（窗口、前置检查、停 API 顺序、增量同步、10 条验证、回滚命令）。
 本文件只记录进度，不重复 Runbook 细节。
 
+## 7.1 ⚠️ 2.4.0 发布事故与回滚记录（2026-11-26 22:28）
+
+**结论：2.4.0 已回滚，生产现为 `microclass:2.3.3`（`MC_DB=sqlite`），稳定。**
+
+| 时间        | 事件                                                                                                                                                                   |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 22:25       | `microclass:2.4.0` 构建完成；`microclass:2.3.3-stable` 已打标                                                                                                          |
+| 22:28       | `redeploy.sh` 切到 2.4.0，readyz 通过                                                                                                                                  |
+| 22:28–22:38 | 10 分钟观察：20 样本中 19 个正常（healthz ≤4 ms、courses ≤16 ms、util 20%），**首个样本 000**                                                                          |
+| 22:39       | 稳态复核：`/banks/catalog`、`/banks/catalog-sections`、`/settings`、`/announcements`、`/lessons/:id/quiz`、8092 healthz **持续 000（>25 s 超时）**，容器转 `unhealthy` |
+| 22:41       | **回滚**：`.image-tag=2.3.3-stable` + `MC_VERSION=2.3.3` + `redeploy.sh`                                                                                               |
+| 22:42       | 回滚后全部接口 200（含 catalog / settings / announcements / 8092），healthy                                                                                            |
+| 22:45       | 版本字符串修回 `2.3.3`（`2.3.3` 与 `2.3.3-stable` 同一 sha）；重复抽检 3 次均正常（未登录返回 401 属预期）                                                             |
+
+**现象特征**（供后续定位）：2.4.0 下 `courses`、`banks?limit=5` 正常且很快，但**一旦请求 `banks/catalog` 等接口，
+后续所有请求（含纯内存的 `/settings`、8092 代理）全部超时** → 事件循环被同步操作卡死，不是单接口慢。
+
+**最可疑点**（按 C 批改动推断）：
+
+1. `bankCatalogService.catalog()` 里 `courseBindingStats` 已改 async，若某处仍按同步用（或反之），
+   可能拿到 Promise 而未消费，配合 sqlite 同步查询放大了阻塞；
+2. `banks/catalog` 的 `catalogCourses/catalogUnbound/catalogUnboundBooks` 三条聚合在 1.2 GB 库 + 机械盘上冷页读取，
+   若在**主线程同步**执行会阻塞事件循环（2.3.3 同样有这些查询，但 2.4.0 的 `settings.load()` 预热/顺序变化可能改变了冷页分布）；
+3. 需在**本地 sqlite 副本**上逐条计时与 `EXPLAIN QUERY PLAN`，不要在 NAS 起预发。
+
+**复现建议（本地，安全）**：用 `build/e2e-data/*` 或生产库副本，`node --experimental-sqlite` 直接跑
+`catalogCourses` 等三条 SQL 并计时；再起本地 API（`MC_DATA_DIR` 指向副本）打 `/banks/catalog` 复现卡死。
+
+## 7.2 下次会话的起点
+
+1. 先本地定位 2.4.0 卡死（见上），修复后重发 2.4.x
+2. 再继续剩余域：lessons/courses → users/auth/progress/notes/favorites/watch → exams/analytics/attempts
+3. 全部域迁完 + 本地复测通过，才安排 PG 切流窗口（01:00–06:00）
+
 ## 8. 关键文件索引
 
 | 主题                 | 文件                                                              |
