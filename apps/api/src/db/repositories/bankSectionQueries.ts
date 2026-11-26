@@ -80,9 +80,9 @@ export async function catalogSectionsByBook(db: AsyncDb, kind: BankKind | '' = '
             COUNT(*) AS "bankCount",
             COALESCE(SUM(b.question_count), 0) AS "questionCount",
             MAX(CASE WHEN b.course_id IS NULL THEN 1 ELSE 0 END) AS unbound
-     FROM banks b WHERE (?1 = '' OR b.kind = ?1)
+     FROM banks b WHERE (? = '' OR b.kind = ?)
      GROUP BY book, section`,
-    [kind],
+    [kind, kind],
   );
   const books = new Map<string, SectionBook>();
   for (const row of rows) {
@@ -117,10 +117,10 @@ export async function catalogSectionsByCourse(db: AsyncDb, kind: BankKind | '' =
             COALESCE(SUM(b.question_count), 0) AS "questionCount",
             0 AS unbound
      FROM banks b JOIN courses c ON c.id = b.course_id
-     WHERE (?1 = '' OR b.kind = ?1)
+     WHERE (? = '' OR b.kind = ?)
      GROUP BY c.id, book, section
      ORDER BY c.name, c.id`,
-    [kind],
+    [kind, kind],
   );
   const courses = new Map<number, SectionCourse>();
   for (const row of rows) {
@@ -156,9 +156,9 @@ export async function banksMissingSection(db: AsyncDb, kind: BankKind | '' = '')
   return db.all<BankMissingSectionRow>(
     `SELECT b.id, b.name, COALESCE(b.book, '') AS book, b.lesson_id AS "lessonId", COALESCE(l.group_name, '') AS "groupName"
        FROM banks b LEFT JOIN lessons l ON l.id = b.lesson_id
-       WHERE b.section = '' AND (?1 = '' OR b.kind = ?1)
+       WHERE b.section = '' AND (? = '' OR b.kind = ?)
        ORDER BY b.id`,
-    [kind],
+    [kind, kind],
   );
 }
 

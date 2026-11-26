@@ -1,15 +1,17 @@
 # PostgreSQL 迁移进度与交接文档
 
-> 目的：换会话/换人也能无损接手。**最后更新：2026-11-27（收尾批次：5 个小仓储 + PG 集成测试实跑）**
+> 目的：换会话/换人也能无损接手。**最后更新：2026-11-27（2.4.2 切流完成：生产 `MC_DB=pg`，24 项验证全绿）**
 
 ## 0. 一句话现状
 
 数据访问层已抽象出 `AsyncDb`（sqlite / PG 双栈）。已迁移：**公告、题库（banks，读写全量）、题目（questions，读写全量）、设置（settings 快照）、课时/课程（lessons/courses，读写全量）、用户/鉴权（users/auth，读写全量）、学习进度/观看区间/笔记（progress/watch/notes，读写全量）、考试（exams，读写全量 + 组卷事务）、刷题记录/错题本（attempts/wrong_questions，读写全量 + 交卷事务）、学情分析/学习统计/学习日历（analytics/stats/activity，只读聚合）、易错题挑题（`QuestionStatsRepository`，只读聚合）、冲突题台账（`QuestionConflictRepository`）、题组（`QuestionGroupRepository`）、知识点（`KnowledgeRepository`）、标签（`TagRepository`）、题库文件夹（`BankFolderRepository`）**。
-生产仍 `MC_DB=sqlite`（2.4.1），**未切 PG**（本轮没有做任何切流动作）。
-**代码侧迁移已全部收口**：主链路 + 5 个小仓储都已走 `AsyncDb`，体检子进程在 `MC_DB=pg` 时不再打开只读 SQLite。
+生产已切 PG（2026-11-27 02:59，`MC_DB=pg`，镜像 `microclass:2.4.2`）：24 项验证全绿、观察 20 分钟无异常；
+回滚点 `microclass:2.4.1`（sqlite 分支）/`microclass:2.3.3-stable`。记录见 §7.11，可复跑的命令见 `docs/pg-cutover-runbook.md`。
+**代码侧迁移已全部收口**：主链路 + 全部小仓储（含审计/练习链接/体检缓存）都走 `AsyncDb`，
+体检子进程在 `MC_DB=pg` 时只连 PG、不再打开只读 SQLite；`/readyz` 也改探当前驱动。
 **PG 集成测试已在真库实跑通过（51/51，`microclass_test`）** —— 见 §7.9 与 `docs/postgres-migration.md` §11.1。
-剩下的是**切流动作**：预演（`docs/postgres-migration.md` §12.2）、数据一致性校验、备份、回滚演练、镜像重建；
-以及 3 个仍用同步 `Db` 的非业务仓储（审计/体检缓存/练习链接，见 §7.9.3）。
+切流前的数据一致性（30 表行数 + 10 组聚合指纹）、备份（SQLite 库 tar + `pg_dump -Fc`）、
+回滚路径都已实测，证据清单见 Runbook §9。
 
 ## 1. 已完成域（按 commit）
 
@@ -43,9 +45,9 @@
 | ~~易错题统计（`QuestionStatsRepository`）~~                          | ~~2 方法 / 3 调用点~~   | **已完成（`ab535fb`）**：`json_each/json_extract` → `jsonArrayJoin/jsonIntField/jsonBoolIntField`（#24）；缓存命中不查库，`cachedAt()` 保持同步快照语义 |
 | ~~`QuestionConflictRepository` / `QuestionGroupRepository`~~         | ~~冲突台账 + 题组~~     | **已完成（收尾批次）**：台账扫描/复核 + 题组 CRUD 全部 `AsyncDb`；`unixepoch()` 4 处 → `nowSeconds`（#19）；契约见 `test/repo-async-final.test.ts`      |
 | ~~`KnowledgeRepository` / `TagRepository` / `BankFolderRepository`~~ | ~~同步 `Db` 小仓储~~    | **已完成（收尾批次）**：知识点 `RETURNING id` + 批量事务、标签 `ON CONFLICT DO NOTHING` + citext、文件夹 `IS NOT DISTINCT FROM`（#26/#27/#28）          |
-| `auditRepository`（审计）                                            | 同步 `Db` + 内存缓冲    | **未迁**：PG 模式下审计仍写 SQLite。切流前必须决定「接受分库」还是「迁 AsyncDb」（建议后者，否则切流后审计与业务不同库）                                |
-| `bankHealthCacheRepository`（体检缓存）                              | 同步 `Db`               | **未迁**：丢了只是重算，风险低；但 PG 模式下「体检结果」会落在 SQLite，切流清单里标注                                                                   |
-| `practiceLinkQueries`（练习链接）                                    | 同步 `Db`               | **未迁**：业务数据（低频写入）；PG 模式下会写 SQLite，切流前需迁或确认可弃                                                                              |
+| `auditRepository`（审计）                                            | 同步 `Db` + 内存缓冲    | **已完成（2.4.2）**：`write`/`flush`/`recent` 全异步 + 71 个调用点补 `await`；`writeBuffered` 仍攒批；审计与业务同库（PG）                              |
+| `bankHealthCacheRepository`（体检缓存）                              | 同步 `Db`               | **已完成（2.4.2）**：`get`/`save`/`checkpoint` 异步；`checkpoint()` 在 PG 模式为空操作（`PRAGMA` 是 SQLite 专有）                                       |
+| `practiceLinkQueries`（练习链接）                                    | 同步 `Db`               | **已完成（2.4.2）**：10 方法异步；#27 `IS NOT DISTINCT FROM`、#22 `ON CONFLICT DO NOTHING`、#14 `RETURNING id`、int8 收敛                               |
 
 > exams（读写全量，含组卷事务）与 attempts/错题本（含交卷事务）已在 `37fbadd` 迁完；
 > 收藏（favorites）在 lessons/courses 批次（`da4a0ad`）内已迁；analytics/stats/activity 在 `9be51a7` 迁完；
@@ -148,8 +150,8 @@ await this.adb().transaction(async (tx) => {
 
 ## 5. 测试基线
 
-- `npx vitest run`：**1114 passed / 30 skipped**（收尾批次 +61；skip 从 7 → 30 是新增 `pg-core.test.ts` 14 条与
-  `pg-final-repos.test.ts` 9 条默认 skip，设 `MC_PG_TEST_URL` 才会跑）
+- `npx vitest run`：**1128 passed / 30 skipped**（2.4.2 新增 `test/repo-async-audit-links.test.ts` 14 条；
+  skip 的 30 条是 3 个 PG 套件，设 `MC_PG_TEST_URL` 才会跑）
   - 收尾批次新增 `test/repo-async-final.test.ts` **61 条**：5 个仓储 52 个方法「返回 Promise 且只经 AsyncDb」逐条钉、
     int8 收敛（台账计数/组计数/标签题目数/文件夹汇总/RETURNING id）、#26/#27/#28 表达式契约、
     #29 源码扫描守卫（禁止裸 camelCase 别名）、#30 upsert SQL 守卫（自引用写全表名）、
@@ -455,17 +457,15 @@ worker 也走 `AsyncDb`（只读连接）；新增 `question-read-async.test.ts`
 
 > 这 4 条都是「SQLite 全绿、切 PG 才炸」的典型：**每个域迁完必须真库跑一遍**，`tsc` + sqlite 测试都抓不到。
 
-### 7.9.3 切流前剩余清单（本批收尾后）
+### 7.9.3 切流前剩余清单（**已在 2.4.2 全部关闭**，见 §7.11）
 
-代码侧已经全部迁完，**剩下都是「动作」**（完整版见 `docs/postgres-migration.md` §12.3）：
-
-1. **审计日志仍在 SQLite**（`auditRepository` 同步 `Db` + 内存缓冲）—— 切流后审计与业务不同库，需先决定：迁 `AsyncDb`（建议）或明确接受分库；
-2. `bankHealthCacheRepository`（体检缓存，可丢）与 `practiceLinkQueries`（练习链接，业务数据，**建议迁**）仍是同步 `Db`；
-3. **切流预演（§12.2）没做**：停 API → 备份 SQLite → `MC_DB=pg` → 起新镜像 → 10 条验证 → 回滚路径，需要用户确认窗口；
-4. 数据一致性未校验：`verify-parity.sh` 10 组指纹 + `schema_migrations` 对齐（重活，只在窗口内跑）；
-5. 备份（`pg_dump -Fc` + SQLite 卷 tar）与回滚演练未做；
-6. **新镜像未构建**：`.image-tag` 仍是 `2.4.1`（本批代码含 #29/#30/#31 修复，切流前要 `build-image.sh` 重新出镜像）；
-7. 难度 `preview`/`calibrate` 在 PG 下是逐题小查询（N 次），切流后按真机数据量再评估批量取。
+1. ~~审计日志仍在 SQLite~~ → 2.4.2 迁 `AsyncDb`（`write`/`flush`/`recent` 异步，71 个调用点补 `await`）；
+2. ~~体检缓存 / 练习链接仍同步 `Db`~~ → 两者都迁 `AsyncDb`（缓存 `checkpoint()` 在 PG 侧空操作）；
+3. ~~切流预演没做~~ → 已完成真实切流（停 api → 备份 → 同步 → parity → 切库 → 24 项验证 → 观察）；
+4. ~~数据一致性未校验~~ → `verify-parity.sh` **10/10 指纹一致** + 30 表行数一致 + `schema_migrations` 31=31；
+5. ~~备份与回滚演练未做~~ → SQLite 库 tar（311 MB）+ `pg_dump -Fc`（121 MB）+ sha256，回滚命令见 Runbook §6；
+6. ~~新镜像未构建~~ → `microclass:2.4.2`（sha `c1279ce13772`，含 #29/#30/#31 + readyz 修复）；
+7. 难度 `preview`/`calibrate` 在 PG 下仍是逐题小查询（N 次），切流后按真机数据量再评估批量取（未变）。
 
 ## 7.10 生产事故：compose 网络丢失导致 API 起不来（2026-11-27，已修复，加固 `8d6a34f`）
 
@@ -499,6 +499,49 @@ docker compose -p microclass-prod -f compose.evo4.yml up -d
 **加固**（随本批提交）：`ops/deploy/redeploy.sh` 统一带 `-p microclass-prod`，并在启动失败且日志含
 `network … not found` / `container name … already in use` 时自动执行 `down --remove-orphans`（**不带 `-v`**）后重试一次；
 `docs/deploy.md` 增加「network not found」排障小节。
+
+## 7.11 2.4.2：最后 3 处仓储迁移 + 生产切流记录（2026-11-27 02:21–03:2x）
+
+### 7.11.1 代码（`6a08282` + `c72677e`）
+
+| 项                    | 内容                                                                                                                                                                                                                                                    |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auditRepository`     | `write` / `flush` / `recent` 全异步；`writeBuffered` 仍「200 ms 或 50 条」攒批（`void this.flush()`）；`onClose` 里 `await flush()`；**71 个调用点**补 `await`（含 5 个内部 helper 改 async）                                                           |
+| `practiceLinkQueries` | 10 方法异步；#27 `question_id IS ?` → `nullSafeEq`、#22 `INSERT OR IGNORE` → `ON CONFLICT (link_id, lesson_id) DO NOTHING`、#14 `RETURNING id`；id/外键 int8 边界收敛；`PracticeLinkService.list/remove/dto/writeAudit` 随之为 async                    |
+| `bankHealthCache`     | `get`/`save`/`checkpoint` 异步；`checkpoint()` 在 PG 模式直接返回（`PRAGMA` 是 SQLite 专有）；`BankHealthCoordinator.get/status/ensureFresh/snapshot` 异步，路由补 `await`                                                                              |
+| `/readyz`             | 改探**当前驱动**（`getAsyncDb(...).get('SELECT 1')`）并回报 `driver`：原先只 ping 同步 SQLite，`MC_DB=pg` 后 PG 挂了也永远 200，而 `redeploy.sh` 拿它当发布闸门                                                                                         |
+| 装配                  | `app.ts`：`new AuditRepository(db, asyncDb)`；`bankHealthSetup` 内部 `getAsyncDb(config, db)`（app.ts 行数基线不再增长）；`routes/practiceLinks` 注入进程级 asyncDb                                                                                     |
+| 测试                  | 新增 `test/repo-async-audit-links.test.ts` **14 条**：3 仓储「返回 Promise 且只经 AsyncDb」（同步 `Db` 桩一碰就抛）、#14/#22/#27 表达式、int8 收敛、审计攒批与失败吞掉、checkpoint 双驱动、协调器异步、装配源码断言、readyz driver、sqlite 真库读写一轮 |
+| 门禁                  | vitest **1128 passed / 30 skipped**、E2E **40/40**、typecheck 0、eslint 0 error、prettier、build、size guard（625 文件 / 技术债 20）                                                                                                                    |
+
+### 7.11.2 切流前动作（实测）
+
+| 步骤                    | 时间              | 结果                                                                                                                                                              |
+| ----------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 构建 `microclass:2.4.2` | 02:07–02:21       | 首版 sha `0a186d46…`；后因 readyz 修复于 02:52–02:58 重建为 sha `c1279ce13772`                                                                                    |
+| 停 api（PG 不动）       | 02:21:38→02:21:44 | `Exited (0)`，8091 释放，PG healthy                                                                                                                               |
+| 行数基线                | 02:21:51          | 30 表合计 **454,135 行**                                                                                                                                          |
+| 备份 SQLite 库 tar      | 02:32–02:35       | 311 MB，sha256 `0303f4c3…a201db`（卷内另有 6.7 GB media-cache / 2.7 GB uploads，只读且切流不写；全卷 14 GB tar 实测 ~1.2 MB/s，窗口内不可行，已放弃并删除半成品） |
+| `pg_dump -Fc`           | 02:35–02:36       | 121 MB，sha256 `c09c691e…7bb395`                                                                                                                                  |
+| `gen-schema`+`export`   | 02:36–02:44       | 512 MB TSV；`questions` 396,505 行 415 s（机械盘冷页，比文档的 150 s 慢）                                                                                         |
+| `load-pg`（首次）       | 02:44             | **失败**：TSV 是 root 0600，postgres(999) `Permission denied`（`chmod -R a+rX` 后重试）                                                                           |
+| `load-pg`（重试）       | 02:44–02:46       | **30/30 表行数一致**，`questions` 77 s，序列 setval 完成                                                                                                          |
+| `verify-parity.sh`      | 02:46–02:48       | **10/10 指纹一致**；`schema_migrations` sqlite=31 pg=31；耗时对照：`count(*) questions` SQLite 422.5 ms → PG 25.9 ms，单课时 50 题 16.8 ms → 4.1 ms               |
+
+> 教训：`export-tsv` 产物默认 0600（root），`docker cp` 进容器后 PG 读不了 —— 同步脚本里必须 `chmod -R a+rX`。
+
+### 7.11.3 切流与验证
+
+| 项              | 结果                                                                                                                                                                                                                                                                                                                                                                      |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 切库 + redeploy | 02:59:37 开始，**02:59:46 完成（9 s）**，`readyz=200` 第 6 秒，运行镜像 `microclass:2.4.2`                                                                                                                                                                                                                                                                                |
+| 预热            | catalog 2.8 ms、catalog-sections 2.2 ms、courses 1.7 ms、settings 1.9 ms、announcements 1.7 ms（对照 2.4.1 SQLite 冷页 54.6 s）                                                                                                                                                                                                                                           |
+| 24 项验证       | **24/24 全绿**（`verify10-20261127-030008.log`）：version 2.4.2、healthz/readyz、登录 694 ms、课程 53 条/22.8 ms、题库首屏 5 条/共 13,258、题目详情 2.6 ms、刷题取题 85.7 ms + 提交 1.28 s（attempts 13→15，**写进 PG**）、组卷建卷/抽题/读回/删除、设置、公告建改删、**审计 29,538→29,541 落 PG**、8092 两接口、`schema_migrations` 31=31、PG 连接 2（active/idle 各 1） |
+| 回滚点          | L1 `2.4.2 + MC_DB=sqlite`（推荐）· L2 `2.4.1` · L3 `2.3.3-stable`；SQLite 卷全程未动                                                                                                                                                                                                                                                                                      |
+
+### 7.11.4 观察与性能
+
+（观察 20 分钟后回填：healthz / courses / banks 的 P50/P95、容器重启、PG 连接数、COMMIT 抖动复测）
 
 ## 8. 关键文件索引
 

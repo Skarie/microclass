@@ -4,10 +4,21 @@
 
 ## [Unreleased]
 
-### 2.4.2：PG 切流准备（最后 3 处同步仓储迁 AsyncDb + 切流动作）（2026-11-27）
+### 2.4.2：PG 切流（生产已切 `MC_DB=pg`）（2026-11-27）
 
-**主题**：把最后 3 处仍用同步 `Db` 的仓储迁到 `AsyncDb`，让 `MC_DB=pg` 下审计/练习链接/体检缓存
-不再落回 SQLite；本版只做「切流准备」，默认行为仍是 `MC_DB=sqlite`。
+**主题**：把最后 3 处仍用同步 `Db` 的仓储迁到 `AsyncDb`（`MC_DB=pg` 下审计/练习链接/体检缓存
+不再落回 SQLite），并**于 2026-11-27 02:59 完成生产切流**：`MC_DB=pg`、镜像 `microclass:2.4.2`、
+24 项验证全绿、观察 20 分钟无异常。切流前 SQLite 与 PG 的 30 表行数（454,135 行）与 10 组聚合指纹完全一致。
+
+**切流结果**
+
+- `microclass:2.4.2`（sha `c1279ce13772`）运行在 PG 上；`readyz` 报 `driver=pg`；
+- 24 项验证含写路径证据：刷题提交 `attempts` 13→15、审计 `audit_logs` 29,538→29,541（**全部落 PG**）、
+  组卷建/抽/读/删、公告建/改/删、`schema_migrations` 31=31、PG 连接 2；
+- 预热对照：`/banks/catalog` 2.8 ms（2.4.1 SQLite 冷页 **54.6 s**）、`/courses` 1.7 ms；
+- 备份：SQLite 库 tar 311 MB（sha `0303f4c3…`）+ `pg_dump -Fc` 121 MB（sha `c09c691e…`）；
+- 回滚点：`2.4.2 + MC_DB=sqlite`（L1）/ `2.4.1`（L2）/ `2.3.3-stable`（L3），SQLite 卷全程未动；
+- 可复跑命令与证据路径：**`docs/pg-cutover-runbook.md`**。
 
 **代码**
 
@@ -19,18 +30,19 @@ DO NOTHING`、#14 `lastInsertRowid` → `RETURNING id`，id/外键 int8 在仓�
 - `bankHealthCacheRepository`：`get` / `save` / `checkpoint` 异步；`checkpoint()` 在 PG 模式是空操作
   （`PRAGMA wal_checkpoint` 是 SQLite 专有，PG 没有 WAL 文件回收语义）；`BankHealthCoordinator` 的
   `get` / `status` / `ensureFresh` 随之异步，`/banks/health` 与 `/banks/health/status` 补 `await`；
-- 新契约测试 `apps/api/test/repo-async-audit-links.test.ts`（13 条）：3 个仓储「返回 Promise 且只经
+- 新契约测试 `apps/api/test/repo-async-audit-links.test.ts`（14 条）：3 个仓储「返回 Promise 且只经
   `AsyncDb`」（同步 `Db` 桩一碰就抛）、4 个方言表达式、int8 收敛、装配层注入断言、sqlite 真库读写一轮
   （create → findById、课时关联幂等、覆盖式设置）；
 - `/readyz` 改探**当前驱动**（`AsyncDb`）并回报 `driver`：原先只 ping 同步 SQLite，`MC_DB=pg` 之后
   即使 PG 挂了也永远 200，而 `redeploy.sh` 正是拿 readyz 当部署成功闸门。
 
-**质量**：`vitest 1127 passed / 30 skipped`、E2E **40/40**、typecheck 0 error、eslint 0 error、
+**质量**：`vitest 1128 passed / 30 skipped`、E2E **40/40**、typecheck 0 error、eslint 0 error、
 prettier、build、size guard（625 文件 / 技术债 20）。
 
-**切流准备（同批次一起交付，详见 `docs/pg-migration-progress.md` §7.11）**：`microclass:2.4.2` 镜像、
-`verify-parity.sh`（30 表行数 + 10 组指纹）、备份（SQLite 卷 tar + `pg_dump -Fc` + sha256）、
-最终 Runbook（步骤 / 时间 / 验证清单 / 回滚命令）。
+**切流动作（详见 `docs/pg-cutover-runbook.md` 与 `docs/pg-migration-progress.md` §7.11）**：
+`microclass:2.4.2` 镜像、`verify-parity.sh`（30 表行数 + 10 组指纹）、备份（SQLite 库 tar + `pg_dump -Fc` + sha256）、
+最终 Runbook（步骤 / 时间 / 验证清单 / 回滚命令）；`load-pg.sh` 顺手加了「导出产物 `chmod a+rX`」
+（切流时踩到 root 0600 导致 COPY `Permission denied`）。
 
 ### 2.4.1：修复 SQLite `mmap_size` 过大导致的请求阻塞（2026-11-27）
 

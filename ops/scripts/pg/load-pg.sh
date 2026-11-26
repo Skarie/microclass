@@ -40,6 +40,9 @@ echo "✓ citext 与 3 个触发器已就绪"
 
 echo
 echo "=== 4) 装载 TSV ==="
+# 导出产物通常是 root 创建的 0600：docker cp 进容器后 postgres(999) 读不了，
+# COPY 会报 "could not open file ... Permission denied"（2026-11-27 切流踩过）。放开只读权限。
+chmod -R a+rX "$EXPORT_DIR" 2>/dev/null || true
 docker exec "$PG_CONTAINER" mkdir -p /tmp/pg-export
 docker cp "$EXPORT_DIR/." "$PG_CONTAINER:/tmp/pg-export/" >/dev/null
 start_all=$(date +%s)

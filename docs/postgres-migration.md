@@ -107,8 +107,9 @@ bash ops/scripts/pg/verify-parity.sh /path/microclass.db
 
 1. **仓储层 async 化**：已完成公告/题库/题目（读写全量，`ab535fb`）/设置/课时课程/用户鉴权/进度笔记/考试/刷题/学情统计/易错题挑题等域；
    `QuestionRepository` 的 19 个读方法与 `QuestionStatsRepository` 已在本批迁完（见 §9 末尾与
-   `docs/pg-migration-progress.md` §7.8）。**剩余同步 `Db` 小仓储**：`QuestionConflictRepository`、`QuestionGroupRepository`、
-   `KnowledgeRepository`、`TagRepository`、`BankFolderRepository`（按域逐个清，不阻塞主链路）。
+   `docs/pg-migration-progress.md` §7.8）。~~**剩余同步 `Db` 小仓储**~~：`QuestionConflictRepository`、`QuestionGroupRepository`、
+   `KnowledgeRepository`、`TagRepository`、`BankFolderRepository` 已在收尾批次（`614a241`）迁完；
+   `auditRepository` / `bankHealthCacheRepository` / `practiceLinkQueries` 在 2.4.2 迁完 —— **业务代码已无同步 `Db` 读写**。
 2. **迁移脚本停止使用**：`schema_migrations` 由 PG 侧迁移工具管理（或保留同一张表，改为执行 PG 方言 SQL）。
 3. **`unixepoch()` 语义**：现库大量 `INTEGER` 时间戳（epoch 秒），PG 端保持 `bigint` 以免全量改代码；
    后续可平滑升级到 `timestamptz`。
@@ -233,7 +234,7 @@ sudo /vol1/1000/microclass-deploy/backup.sh      # 先手动跑一次确认
 | 16  | `CAST(title AS INTEGER)` 非数字 → 0          | **直接报错**（invalid input syntax for integer）   | **已处理（questions 读批次，`ab535fb`）**：`db/sql.ts` 的 `naturalNumberPrefix(col, driver)` —— sqlite 原样 `CAST(title AS INTEGER)`；pg `COALESCE(NULLIF(substring(trim(title) from '^[+-]?[0-9]+'), '')::bigint, 0)`（取同样的前导数字，取不到为 0）。只用于 `lessonRepository` 的自然序（`listAll`/`listByCourse`）                                                                                                                        |
 | 17  | `COUNT/SUM/MAX`、`RETURNING id` 是数字       | int8 经 node-postgres 默认返回 **string**          | **已处理**：各域仓储边界 `Number()`（含 analytics/stats/activity、questions 读的计数/聚合）+ **全局兜底**（questions 读批次，`ab535fb`）：`pg/pool.ts` 的 `types.setTypeParser(20, Number)`；契约见 `test/question-read-async.test.ts`                                                                                                                                                                                                        |
 | 18  | `db.transaction(() => …)` 同步回调           | 必须 async                                         | lessons/courses 的 `delete`/`deleteMany`/`reorder`/`batchAssign`/课程删除/收藏/分类已改 `AsyncDb.transaction(async tx)`，回调里语句一律走 `tx`                                                                                                                                                                                                                                                                                                |
-| 19  | `unixepoch()`（SQL 里直接用）                | 无此函数                                           | **已处理（批次 2 + `ab535fb` 补漏）**：`db/sql.ts` 的 `nowSeconds(driver)` 按驱动生成（sqlite `unixepoch()` / pg `(EXTRACT(EPOCH FROM now()))::bigint`），已覆盖 `wrong_questions` 的 upsert/掌握标记、`attempts` 相关写、`progressRepository.upsert`/`markQuizDone`、`question-difficulty` 的难度落库；表 DEFAULT 仍由生成器处理（#5）。**残留**：`questionConflictRepository` 4 处（该仓储未迁）                                            |
+| 19  | `unixepoch()`（SQL 里直接用）                | 无此函数                                           | **已处理（批次 2 + `ab535fb` 补漏）**：`db/sql.ts` 的 `nowSeconds(driver)` 按驱动生成（sqlite `unixepoch()` / pg `(EXTRACT(EPOCH FROM now()))::bigint`），已覆盖 `wrong_questions` 的 upsert/掌握标记、`attempts` 相关写、`progressRepository.upsert`/`markQuizDone`、`question-difficulty` 的难度落库；表 DEFAULT 仍由生成器处理（#5）。**残留已清零**：`questionConflictRepository` 4 处在收尾批次（`614a241`）改 `nowSeconds`              |
 | 20  | `MAX(a, b)` 两参标量形式                     | `MAX` 只有聚合，`MAX(a,b)` 直接报错                | **已处理（questions 读批次，`ab535fb`）**：`db/sql.ts` 的 `maxOf(a, b, driver)` —— sqlite `MAX(a,b)` / pg `GREATEST(a,b)`；用于 `lesson_progress` 的 `finished = maxOf('finished','excluded.finished')` 与 `quiz_best`。NULL 语义差异：SQLite 标量 `max()` 遇 NULL 返回 NULL，PG `GREATEST` 忽略 NULL（写路径保证非 NULL）                                                                                                                    |
 | 21  | `date(col,'unixepoch','localtime')`          | 无修饰符语法                                       | **已处理（analytics 批次）**：`db/sql.ts` 的 `unixDay(col, driver, { local })` —— sqlite 原样 / pg `to_char(to_timestamp(col) AT TIME ZONE 'Asia/Shanghai' \| 'UTC','YYYY-MM-DD')`；日历用 `Asia/Shanghai`、学情趋势保持 UTC 日                                                                                                                                                                                                               |
 | 22  | `INSERT OR IGNORE` / `INSERT OR REPLACE`     | 无此语法（只有 `ON CONFLICT`）                     | **已处理（批次 2，`37fbadd`）**：`exam-questions.addQuestions` → `ON CONFLICT (exam_id, question_id) DO NOTHING`；`replaceQuestion` → 先 `DELETE` 旧题 + `INSERT … ON CONFLICT DO UPDATE`（等价 REPLACE，保持位置/分值/大题）；组卷 `applyComposition` 同事务复用。契约：`test/exam-write-async.test.ts`                                                                                                                                      |
@@ -291,19 +292,21 @@ sudo /vol1/1000/microclass-deploy/backup.sh      # 先手动跑一次确认
 > 契约见 `apps/api/test/exam-read-async.test.ts`、`apps/api/test/exam-write-async.test.ts`、`apps/api/test/analytics-async.test.ts`、
 > `apps/api/test/question-read-async.test.ts`；**全局 `types.setTypeParser(20, Number)` 已在 `ab535fb` 落到 `pg/pool.ts`（#17）**。
 >
-> **✅ 跨库点已清零（`ab535fb` + 收尾批次）**：`QuestionRepository` 的 19 个读方法已改 `AsyncDb` + `async`，
+> **跨库点已清零（`ab535fb` + 收尾批次 + 2.4.2 切流批次）**：`QuestionRepository` 的 19 个读方法已改 `AsyncDb` + `async`，
 > 且 `app.ts` 注入 `asyncDb`（读写同批修，不会出现「写 PG、读 SQLite」）；
 > `bankHealthPayload` 的 worker 也拿到同一个 `AsyncDb`（PG 模式下体检从 PG 算）。
 > 记录见 `docs/pg-migration-progress.md` §7.8，契约见 `apps/api/test/question-read-async.test.ts`
 > （含「create → findById 读后写可见」与「同步 Db 被打死时读方法仍工作」）。
-> **收尾批次（`2026-11-27`）已把 5 个小仓储全部迁完**：`QuestionConflictRepository`（含 4 处 #19）、
+> **收尾批次（`614a241`）已把 5 个小仓储迁完**：`QuestionConflictRepository`（含 4 处 #19）、
 > `QuestionGroupRepository`、`KnowledgeRepository`、`TagRepository`、`BankFolderRepository`；
 > 同时把体检子进程改成「`MC_DB=pg` 时不打开只读 SQLite（`MC_HEALTH_DB` 不再是必需项）」。
 > 记录见 `docs/pg-migration-progress.md` §7.9，契约见 `apps/api/test/repo-async-final.test.ts`。
-> **仍然只读 SQLite 的只剩「非业务表 + 一次性脚本」**：`auditRepository`（审计内存缓冲 + 同步落库）、
-> `bankHealthCacheRepository`（体检结果持久缓存）、`practiceLinkQueries`（练习链接，低频）、
-> `db/bankFolderReorg.ts` / `bankFolderBackfill.ts` / `practiceLinkBackfill.ts`（运维脚本）。
-> 切流清单里要标注：**PG 模式下审计日志仍写 SQLite**（如需保留审计，切流前必须迁）。
+> **2.4.2 切流批次把最后 3 处也迁完了**：`auditRepository`（审计）、`bankHealthCacheRepository`（体检缓存）、
+> `practiceLinkQueries`（练习链接）；并把 `/readyz` 改成探当前驱动。
+> 记录见 `docs/pg-migration-progress.md` §7.11，契约见 `apps/api/test/repo-async-audit-links.test.ts`。
+> **仍然只用同步 SQLite 的只剩「一次性运维脚本」**：`db/bankFolderReorg.ts` / `bankFolderBackfill.ts` /
+> `practiceLinkBackfill.ts`（迁移数据钩子 / 运维脚本，`MC_DB=pg` 时不会被业务请求触发）。
+> 生产已于 2026-11-27 02:59 切到 `MC_DB=pg`（`microclass:2.4.2`），见 `docs/pg-cutover-runbook.md`。
 
 ## 10. 环境备注
 
@@ -457,7 +460,15 @@ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8091/api/v1/healthz
 **做任何预发前，必须同时满足**：1 和 2 为空、3 无构建、4 通过、5 为 200。
 否则先等（或用 `MC_IO_WAIT=1 guard-io.sh` 等盘），**不要“顺手跑一下”**。
 
-### 12.2 切流预演草案（需要用户确认窗口后才执行）
+### 12.2 切流 Runbook（**已于 2026-11-27 02:59 执行**）
+
+最终版（含实测时间线、24 项验证、回滚命令、证据路径）见 **`docs/pg-cutover-runbook.md`**。
+本节的草案保留作背景；实际执行与本节的差异只有三处：
+
+1. 停 api 用 `docker compose -p microclass-prod -f compose.evo4.yml stop api`（必须带 `-p`）；
+2. 同步是**全量重装**（`gen-schema`+`export-tsv`+`load-pg`，合计 1m47s 装载 + 7m06s 导出），
+   不是增量（窗口够用，全量更可信）；
+3. 验证从 10 条扩到 **24 条**（多了「写路径落 PG 的证据」：attempts 增长、审计增长、组卷建/删、公告建改删）。
 
 **前置条件**
 
@@ -507,20 +518,18 @@ echo 2.3.2-stable > /vol1/1000/microclass-deploy/.image-tag && sudo bash /vol1/1
 
 > 切流后 SQLite 只作历史归档，`MC_DB=sqlite` 分支保留至少两个版本以便回滚。
 
-### 12.3 切流前剩余清单（2026-11-27 收尾批次后）
+### 12.3 切流前剩余清单（**2026-11-27 02:59 已全部关闭**）
 
-**代码侧已完成**：11 个域全部迁到 `AsyncDb`（含本轮 5 个小仓储）；PG 集成测试 51/51 在 `microclass_test` 实跑通过（§11.1）；
-`MC_DB=sqlite` 全绿（vitest 1114 passed / 30 skipped、E2E 40、typecheck、eslint、prettier、build、size guard）。
+**结果**：生产已 `MC_DB=pg`（镜像 `microclass:2.4.2`，commit `c72677e`），24 项验证全绿，观察 20 分钟无异常。
+执行记录见 `docs/pg-migration-progress.md` §7.11，可复跑命令见 `docs/pg-cutover-runbook.md`。
 
-**还差这些（都是「动作」，不是「改代码」）**：
-
-| #   | 前置项                               | 说明 / 风险                                                                                                                                                                                             |
-| --- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | **审计日志仍在 SQLite**              | `auditRepository` 是同步 `Db` + 内存缓冲。切到 `MC_DB=pg` 后业务数据进 PG，但审计仍写 `microclass.db` —— 要么接受「审计与业务分库」，要么切流前把审计迁到 `AsyncDb`（建议后者）                         |
-| 2   | 体检结果缓存 / 练习链接仍同步 `Db`   | `bankHealthCacheRepository`、`practiceLinkQueries`。体检缓存丢了只是重算；**练习链接是业务数据**，切流前需确认是否需要迁                                                                                |
-| 3   | 切流预演（§12.2）未执行              | 需用户确认窗口（建议 01:00–06:00，预留 60 分钟）。仓库代码没动过生产 API，本轮**没有**做停 API / 切 `.env` / 起新镜像                                                                                   |
-| 4   | 数据一致性未验证                     | `verify-parity.sh`（10 组指纹）+ `schema_migrations` 对齐，需在窗口内跑（会扫全表，属重活）                                                                                                             |
-| 5   | 备份未做                             | `pg_dump -Fc` + SQLite 卷 tar，都要落到 `/vol1/1000/microclass-backup/`（**不要放 NVMe**）                                                                                                              |
-| 6   | 回滚演练未做                         | `echo <旧tag> > .image-tag && bash redeploy.sh` 能否 1 分钟内恢复                                                                                                                                       |
-| 7   | 新镜像未构建                         | `.image-tag` 目前是 `2.4.1`；本批代码（含 #29/#30/#31 修复）需要重新出镜像并 `build-image.sh`，否则切流跑的还是旧代码                                                                                   |
-| 8   | ⚠️ 生产 API 容器当前是 `Exited` 状态 | 本轮巡检时 `microclass-api`（image `microclass:2.3.0`）显示 `Exited (255) 6 days ago`，而 `.image-tag` 是 `2.4.1`。**与本轮改动无关**（本轮全程未启停生产容器），但切流前必须先弄清楚 8091 现在由谁提供 |
+| #   | 前置项                             | 关闭方式（2.4.2）                                                                                                                  |
+| --- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | ~~审计日志仍在 SQLite~~            | `auditRepository` 迁 `AsyncDb`（`write`/`flush`/`recent` 异步 + 71 个调用点 `await`）；验证时 `audit_logs` 29,538→29,541 全部落 PG |
+| 2   | ~~体检缓存 / 练习链接仍同步 `Db`~~ | 两者迁 `AsyncDb`：练习链接 #22/#27/#14 + int8；体检缓存 `checkpoint()` 在 PG 为空操作                                              |
+| 3   | ~~切流预演（§12.2）未执行~~        | 已真实执行：停 api → 备份 → 全量同步 → parity → 切库 → 24 项验证 → 观察                                                            |
+| 4   | ~~数据一致性未验证~~               | 30/30 表行数一致（454,135 行）+ **10/10 聚合指纹一致** + `schema_migrations` 31=31                                                 |
+| 5   | ~~备份未做~~                       | `/vol1/1000/microclass-backup/`：SQLite 库 tar 311 MB、`pg_dump -Fc` 121 MB，sha256 已记录（Runbook §7）                           |
+| 6   | ~~回滚演练未做~~                   | 回滚三级（`2.4.2+sqlite` / `2.4.1` / `2.3.3-stable`）命令已固定；`redeploy.sh` 实测 9 秒完成并 readyz 通过                         |
+| 7   | ~~新镜像未构建~~                   | `microclass:2.4.2` sha `c1279ce13772`（含 #29/#30/#31 + readyz 探当前驱动）                                                        |
+| 8   | ~~生产 API 容器 `Exited` 之谜~~    | 已查清：上一轮网络故障修复后容器重建（`microclass:2.4.1`，restarts=0）；本次切流前 `microclass-api` 为 `Up (healthy)`              |

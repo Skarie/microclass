@@ -43,12 +43,12 @@ export async function catalogCourses(db: AsyncDb, kind: BankKind | '' = ''): Pro
             COALESCE(SUM(b.question_count), 0) AS "questionCount",
             COUNT(DISTINCT CASE WHEN l.group_name <> '' THEN l.group_name END) AS "chapterCount"
      FROM courses c
-     LEFT JOIN banks b ON b.course_id = c.id AND (?1 = '' OR b.kind = ?1)
+     LEFT JOIN banks b ON b.course_id = c.id AND (? = '' OR b.kind = ?)
      LEFT JOIN lessons l ON l.id = b.lesson_id
      GROUP BY c.id
-     HAVING bankCount > 0
+     HAVING COUNT(DISTINCT b.id) > 0
      ORDER BY c.name`,
-    [kind],
+    [kind, kind],
   );
 }
 
@@ -59,8 +59,8 @@ export async function catalogUnbound(
 ): Promise<{ bankCount: number; questionCount: number }> {
   const row = await db.get<{ bankCount: number; questionCount: number }>(
     `SELECT COUNT(*) AS "bankCount", COALESCE(SUM(b.question_count), 0) AS "questionCount"
-       FROM banks b WHERE b.course_id IS NULL AND (?1 = '' OR b.kind = ?1)`,
-    [kind],
+       FROM banks b WHERE b.course_id IS NULL AND (? = '' OR b.kind = ?)`,
+    [kind, kind],
   );
   return row ?? { bankCount: 0, questionCount: 0 };
 }
@@ -74,9 +74,9 @@ export async function catalogUnboundBooks(
     `SELECT COALESCE(NULLIF(b.book, ''), '(无册次信息)') AS book,
             COUNT(*) AS "bankCount",
             COALESCE(SUM(b.question_count), 0) AS "questionCount"
-     FROM banks b WHERE b.course_id IS NULL AND (?1 = '' OR b.kind = ?1)
-     GROUP BY book ORDER BY bankCount DESC`,
-    [kind],
+     FROM banks b WHERE b.course_id IS NULL AND (? = '' OR b.kind = ?)
+     GROUP BY book ORDER BY COUNT(*) DESC`,
+    [kind, kind],
   );
 }
 

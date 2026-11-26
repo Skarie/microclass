@@ -82,7 +82,7 @@ export async function courseBindingStats(
     `SELECT COALESCE(SUM(CASE WHEN course_id IS NOT NULL THEN 1 ELSE 0 END), 0) AS bound,
             COALESCE(SUM(CASE WHEN course_id IS NULL THEN 1 ELSE 0 END), 0) AS unbound,
             COUNT(*) AS banks
-     FROM banks b WHERE (?1 = '' OR b.kind = ?1)`,
-    [kind],
+     FROM banks b WHERE (? = '' OR b.kind = ?)`,
+    [kind, kind],
   );
 }
