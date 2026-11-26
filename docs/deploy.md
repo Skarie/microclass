@@ -704,6 +704,56 @@ curl -s -o /dev/null -w '%{http_code} %{content_type}\n' $BASE/admin/exams # 200
 | 数据"没了"                 | 数据卷没挂载（容器重建即丢）                        | 必须 `-v <卷>:/app/data`                      |
 | 迁移报错/启动失败          | 数据目录权限、磁盘满、库损坏                        | 看日志；用备份恢复（5.4）                     |
 | 时间/时区不对              | 容器时区                                            | `-e TZ=Asia/Shanghai`                         |
+| `network … not found`      | 见 7.1（compose 网络丢失 / 项目名混用）             | 按 7.1 处理，**不要 `down -v`**               |
+
+### 7.1 `failed to set up container networking: network <id> not found`
+
+**症状**：`docker compose up -d` 直接失败；`docker ps -a` 里 `microclass-api` 是 `Exited (255)`；
+8092 反代返回 502 `upstream_unavailable`；watchdog 每 2 分钟 `docker restart` 也救不回来。
+
+**根因**：宿主机上同时存在历史项目 `microclass`（网络 `microclass_default`）与现行项目 `microclass-prod`
+（网络 `microclass-prod_default`）。老网络被删除（`docker network prune` / NAS 重启 / 旧项目「重构」）后，
+老容器仍引用那个已消失的 NetworkID；而 `microclass-api` 这个**容器名**被老容器占着，新项目创建不了同名容器。
+
+**排查（只读，先看清三件事）**：
+
+```bash
+cd /vol1/1000/microclass-deploy
+docker compose -p microclass-prod -f compose.evo4.yml config | head -3   # 确认项目名
+docker network ls | grep -i microclass                                   # 现存网络
+docker ps -a --filter name=microclass --format '{{.Names}} {{.Status}} {{.Image}} net=[{{.Networks}}]'
+docker inspect microclass-api --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{$v.NetworkID}}{{end}}'
+docker network inspect microclass-prod_default --format '{{.Id}}'        # 对比上面的 NetworkID
+docker inspect microclass-api --format '{{index .Config.Labels "com.docker.compose.project"}}'  # 老项目= microclass
+```
+
+**恢复（保留数据卷）**：
+
+```bash
+# 1) 清掉引用已删除网络的老容器（名字占用 + 坏网络引用）
+docker rm -f microclass-api
+
+# 2) 若有「容器已不存在但进程还在」的孤儿（cgroup 指向不存在的容器 ID）：
+#    cat /proc/<pid>/cgroup → docker inspect <cid> 报 No such object → 可 kill -9 <pid>
+
+# 3) 重建本项目（**不要 -v**；数据卷 microclass_data / PG 的 /vol1/1000/microclass-pg 都不受影响）
+docker compose -p microclass-prod -f compose.evo4.yml down --remove-orphans
+docker compose -p microclass-prod -f compose.evo4.yml up -d
+
+# 4) 验证
+docker ps --filter name=microclass
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8091/api/v1/healthz   # 200
+curl -s http://127.0.0.1:8091/api/v1/version                                     # version 对齐 .image-tag
+docker network ls | grep -i microclass                                           # 只剩 microclass-prod_default
+```
+
+**加固（已随 2026-11-27 修复入库）**：
+
+- `ops/deploy/redeploy.sh` 统一 `-p microclass-prod`，并在启动失败且日志含
+  `network … not found` / `container name … already in use` 时自动 `down --remove-orphans`（**不带 `-v`**）后重试一次；
+- 手工操作也请一律带 `-p microclass-prod`，不要依赖目录名/文件 `name:` 兜底；
+- 检查是否有 fnOS 计划任务 / 旧脚本在建同名项目（`docker compose ls -a`、`crontab -l`）；
+- **永远不要对生产用 `docker compose down -v`**：`microclass_data` 里是 SQLite 库与会话密钥。
 
 ---
 

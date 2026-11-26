@@ -1,12 +1,15 @@
 # PostgreSQL 迁移进度与交接文档
 
-> 目的：换会话/换人也能无损接手。**最后更新：2026-11-27（questions 读批次，`ab535fb`）**
+> 目的：换会话/换人也能无损接手。**最后更新：2026-11-27（收尾批次：5 个小仓储 + PG 集成测试实跑）**
 
 ## 0. 一句话现状
 
-数据访问层已抽象出 `AsyncDb`（sqlite / PG 双栈）。已迁移：**公告、题库（banks，读写全量）、题目（questions，**读写全量**）、设置（settings 快照）、课时/课程（lessons/courses，读写全量）、用户/鉴权（users/auth，读写全量）、学习进度/观看区间/笔记（progress/watch/notes，读写全量）、考试（exams，读写全量 + 组卷事务）、刷题记录/错题本（attempts/wrong_questions，读写全量 + 交卷事务）、学情分析/学习统计/学习日历（analytics/stats/activity，只读聚合）、易错题挑题（`QuestionStatsRepository`，只读聚合）**。
-生产仍 `MC_DB=sqlite`（2.4.1），**未切 PG**。**代码侧迁移已收口（`ab535fb`）**：questions 的 19 个读方法 + `QuestionStatsRepository` 已迁、方言 #16/#17/#20/#24 已清。
-剩下的是**验证与切流**（不是改代码）：PG 集成测试（需 `MC_PG_TEST_URL`）、切流预演（`docs/postgres-migration.md` §12.2）、以及零散的未迁小仓储（`QuestionConflictRepository` / `QuestionGroupRepository` / `KnowledgeRepository` 仍是同步 `Db`，见 §2）。
+数据访问层已抽象出 `AsyncDb`（sqlite / PG 双栈）。已迁移：**公告、题库（banks，读写全量）、题目（questions，读写全量）、设置（settings 快照）、课时/课程（lessons/courses，读写全量）、用户/鉴权（users/auth，读写全量）、学习进度/观看区间/笔记（progress/watch/notes，读写全量）、考试（exams，读写全量 + 组卷事务）、刷题记录/错题本（attempts/wrong_questions，读写全量 + 交卷事务）、学情分析/学习统计/学习日历（analytics/stats/activity，只读聚合）、易错题挑题（`QuestionStatsRepository`，只读聚合）、冲突题台账（`QuestionConflictRepository`）、题组（`QuestionGroupRepository`）、知识点（`KnowledgeRepository`）、标签（`TagRepository`）、题库文件夹（`BankFolderRepository`）**。
+生产仍 `MC_DB=sqlite`（2.4.1），**未切 PG**（本轮没有做任何切流动作）。
+**代码侧迁移已全部收口**：主链路 + 5 个小仓储都已走 `AsyncDb`，体检子进程在 `MC_DB=pg` 时不再打开只读 SQLite。
+**PG 集成测试已在真库实跑通过（51/51，`microclass_test`）** —— 见 §7.9 与 `docs/postgres-migration.md` §11.1。
+剩下的是**切流动作**：预演（`docs/postgres-migration.md` §12.2）、数据一致性校验、备份、回滚演练、镜像重建；
+以及 3 个仍用同步 `Db` 的非业务仓储（审计/体检缓存/练习链接，见 §7.9.3）。
 
 ## 1. 已完成域（按 commit）
 
@@ -26,18 +29,23 @@
 | `37fbadd` | exams 写 + attempts      | exam 写 12 方法 + 组卷事务；attempts/错题本读写 + 交卷事务；`RETURNING id`；方言 #19/#22/#23；19 条新测试         |
 | `9be51a7` | analytics/stats/activity | 13 个只读方法 async；方言 #21 `unixDay`；方言 #24 JSON 展开；int8 `Number()`；16 条新测试                         |
 | `ab535fb` | questions 读 + 易错题    | 19 个读方法 async + `app.ts` 注入 `asyncDb`；`QuestionStatsRepository` 改方言 JSON；方言 #16/#17/#20；31 条新测试 |
+| `614a241` | 收尾：5 个小仓储         | 冲突台账/题组/知识点/标签/文件夹全迁 `AsyncDb`；体检子进程不再开 SQLite；方言 #26–#31；PG 集成测试 51/51 实跑     |
+| `8d6a34f` | 部署加固                 | `redeploy.sh` 带 `-p microclass-prod` + 网络丢失自愈重试（数据卷保留）；排障见 `docs/deploy.md` §7.1              |
 | `a667f09` | 稳定性补丁               | SQLite 页缓存 256 MB / mmap 2 GB / 只读 `query_only`                                                              |
 | `cac6d05` | 部署护栏                 | api healthcheck `start_period` 60 s、`retries` 5                                                                  |
 | `0aa7300` | 2.4.0                    | 版本与 CHANGELOG                                                                                                  |
 
 ## 2. 剩余域（实测规模）
 
-| 域                                                                  | 规模                         | 备注                                                                                                                                                     |
-| ------------------------------------------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ~~questions 读（`QuestionRepository`）~~                            | ~~19 方法 / 47 调用点~~      | **已完成（`ab535fb`）**：读写同批走 `AsyncDb`，`app.ts` 注入 `asyncDb`；契约见 `test/question-read-async.test.ts`（含「create → findById 能读到」）      |
-| ~~易错题统计（`QuestionStatsRepository`）~~                         | ~~2 方法 / 3 调用点~~        | **已完成（`ab535fb`）**：`json_each/json_extract` → `jsonArrayJoin/jsonIntField/jsonBoolIntField`（#24）；缓存命中不查库，`cachedAt()` 保持同步快照语义  |
-| `QuestionConflictRepository` / `QuestionGroupRepository`            | 冲突台账 + 题组，仍同步 `Db` | 冲突题核对（`question_conflicts` 台账、全库指纹扫描）与题组成员关系未迁；内部还有 `unixepoch()`（#19）。属于「切流后再说」的小域，PG 模式下会退回 SQLite |
-| `KnowledgeRepository` / `TagRepository` / `BankFolderRepository` 等 | 同步 `Db` 小仓储             | 同上：只读小表、写入低频；未迁不阻塞切流，但要在切流清单里标注「这些表仍读 SQLite」                                                                      |
+| 域                                                                   | 规模                    | 备注                                                                                                                                                    |
+| -------------------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ~~questions 读（`QuestionRepository`）~~                             | ~~19 方法 / 47 调用点~~ | **已完成（`ab535fb`）**：读写同批走 `AsyncDb`，`app.ts` 注入 `asyncDb`；契约见 `test/question-read-async.test.ts`（含「create → findById 能读到」）     |
+| ~~易错题统计（`QuestionStatsRepository`）~~                          | ~~2 方法 / 3 调用点~~   | **已完成（`ab535fb`）**：`json_each/json_extract` → `jsonArrayJoin/jsonIntField/jsonBoolIntField`（#24）；缓存命中不查库，`cachedAt()` 保持同步快照语义 |
+| ~~`QuestionConflictRepository` / `QuestionGroupRepository`~~         | ~~冲突台账 + 题组~~     | **已完成（收尾批次）**：台账扫描/复核 + 题组 CRUD 全部 `AsyncDb`；`unixepoch()` 4 处 → `nowSeconds`（#19）；契约见 `test/repo-async-final.test.ts`      |
+| ~~`KnowledgeRepository` / `TagRepository` / `BankFolderRepository`~~ | ~~同步 `Db` 小仓储~~    | **已完成（收尾批次）**：知识点 `RETURNING id` + 批量事务、标签 `ON CONFLICT DO NOTHING` + citext、文件夹 `IS NOT DISTINCT FROM`（#26/#27/#28）          |
+| `auditRepository`（审计）                                            | 同步 `Db` + 内存缓冲    | **未迁**：PG 模式下审计仍写 SQLite。切流前必须决定「接受分库」还是「迁 AsyncDb」（建议后者，否则切流后审计与业务不同库）                                |
+| `bankHealthCacheRepository`（体检缓存）                              | 同步 `Db`               | **未迁**：丢了只是重算，风险低；但 PG 模式下「体检结果」会落在 SQLite，切流清单里标注                                                                   |
+| `practiceLinkQueries`（练习链接）                                    | 同步 `Db`               | **未迁**：业务数据（低频写入）；PG 模式下会写 SQLite，切流前需迁或确认可弃                                                                              |
 
 > exams（读写全量，含组卷事务）与 attempts/错题本（含交卷事务）已在 `37fbadd` 迁完；
 > 收藏（favorites）在 lessons/courses 批次（`da4a0ad`）内已迁；analytics/stats/activity 在 `9be51a7` 迁完；
@@ -140,17 +148,17 @@ await this.adb().transaction(async (tx) => {
 
 ## 5. 测试基线
 
-- `npx vitest run`：**1053 passed / 7 skipped**（基线 939/6 → +lessons/courses 14 → +users/auth 4 → +progress/notes/watch 9 → +exams 只读 21 → +exams 写/交卷 19 → +analytics/stats/activity 16 → +questions 读 31；
-  本批新增 `test/question-read-async.test.ts` 31 条：19 个读方法「返回 Promise 且不碰同步 Db」逐条钉、
-  int8 收敛（count/health/pointStats/duplicateGroups）、**真 SQLite 的 create → findById 读后写可见**、
-  「同步 Db 被打死时读方法仍工作」（证明只经 AsyncDb）、`app.ts` 注入 `asyncDb` 的结构断言、
-  易错题 JSON 方言（sqlite 文本不变 / pg 无 `json_each`）、方言 #16/#17/#20 表达式契约；
-  analytics 批次的 `test/analytics-async.test.ts` 14 条与 `test/analytics-date-parity.test.ts` 2 条、
-  批次 2 的 `test/exam-write-async.test.ts` 10 条与 `test/exam-write-transaction.test.ts` 9 条、
-  `test/exam-read-async.test.ts` 的 21 条均保持；skip 里含 PG 集成测试，需 `MC_PG_TEST_URL`）
+- `npx vitest run`：**1114 passed / 30 skipped**（收尾批次 +61；skip 从 7 → 30 是新增 `pg-core.test.ts` 14 条与
+  `pg-final-repos.test.ts` 9 条默认 skip，设 `MC_PG_TEST_URL` 才会跑）
+  - 收尾批次新增 `test/repo-async-final.test.ts` **61 条**：5 个仓储 52 个方法「返回 Promise 且只经 AsyncDb」逐条钉、
+    int8 收敛（台账计数/组计数/标签题目数/文件夹汇总/RETURNING id）、#26/#27/#28 表达式契约、
+    #29 源码扫描守卫（禁止裸 camelCase 别名）、#30 upsert SQL 守卫（自引用写全表名）、
+    `app.ts` 注入断言、以及**路由层返回真实结构而非 `{}`**（题组/标签/文件夹/冲突台账/课程详情 knowledge——漏 await 会变 `{}`）
+  - 真 PG 侧新增 `test/pg-core.test.ts`（14）+ `test/pg-final-repos.test.ts`（9），装置在 `test/helpers/pgTestDb.ts`
+    - `test/fixtures/pg-schema.sql`；实跑结果见 §7.9.2
 - `npx playwright test`：**40/40**
 - `npm run typecheck`、`npx eslint .`：0 error（4 warning 为既有 console）
-- `npm run build`、`npx prettier --check .`、`node tools/check-file-size.mjs`（624 个文件）
+- `npm run build`、`npx prettier --check .`、`node tools/check-file-size.mjs`（**625 文件 / 技术债 20**）
 
 ## 6. 严禁事项（血泪教训）
 
@@ -395,26 +403,128 @@ worker 也走 `AsyncDb`（只读连接）；新增 `question-read-async.test.ts`
 - **难度 `preview`/`calibrate` 的 PG 行为**：SQL 文本未变（无新方言），但 `calibrate` 现在逐题 `await`，
   PG 下是 N 次小查询（原先同步同数量）—— 若真机上候选人很多，切流后再评估批量取。
 
+## 7.9 收尾批次：5 个小仓储 + 体检子进程 + PG 集成测试实跑（2026-11-27，`614a241`）
+
+### 7.9.1 本批做了什么
+
+| 项                    | 内容                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 冲突题台账            | `QuestionConflictRepository` 11 方法全改 `AsyncDb`/`async`：`sync`（全库分组 + 台账写入改 `AsyncDb.transaction`，**事务内所有语句走 `tx`**，题干样例查询也跟着走 `tx`）、`staleness`、`list`（**顺带返回本页答案分布**，省掉一次 `answersFor` 往返）、`questions`/`answers`/`answersFor`/`find`/`upsertStatus`/`counts`。**4 处 `unixepoch()` → `nowSeconds(driver)`**（#19：`markSynced` 2 处 + `upsertStatus` 2 处）                                                                                                                                                                                                  |
+| 冲突台账拆文件        | 只读 SQL 拆到新文件 `question-conflict-queries.ts`（`listConflicts`/`conflictQuestions`/`conflictAnswers`/`answersForHashes`/`findConflict`/`conflictCounts`）：本文件在行数守卫基线里（304 行只能减不能增），拆完 **304 → 262**，已从 `tools/file-size-baseline.json` 删除（技术债 21 → 20）                                                                                                                                                                                                                                                                                                                           |
+| 题组                  | `QuestionGroupRepository` 15 方法 async；`create` 改 `INSERT … RETURNING id`（#14）；`datetime('now')` → `nowText(driver)`（#26）；`ORDER BY … i.rowid` → `insertionOrder(alias, driver)`（#28：sqlite `rowid` / pg `question_id`）；列表关键词改 `likeCI`（#8）                                                                                                                                                                                                                                                                                                                                                        |
+| 知识点                | `KnowledgeRepository` 9 方法 async；`create` 用 `RETURNING id`；`createMany` 改 `AsyncDb.transaction(async tx)` 且**逐条走 `tx`**（`create(input, tx)`）；`maxSort`/`created_at` 等 int8 收敛（#17）                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 标签                  | `TagRepository` 11 方法 async；`INSERT OR IGNORE` → `ON CONFLICT DO NOTHING`（#22，两库同一句）；`name COLLATE NOCASE` → `nocase(col, driver)`（#6：PG 侧 `tags.name` 是 citext）；列表/回显排序与搜索统一 `likeCI`；`RETURNING id`；`questionCount`/`tagIdsOfQuestions` 的 int8 收敛                                                                                                                                                                                                                                                                                                                                   |
+| 题库文件夹            | `BankFolderRepository`（`bankFolderQueries.ts`）12 方法 async；`parent_id IS ?` → `nullSafeEq(col, driver)`（#27：PG 的 `IS` 不接受参数，改 `IS NOT DISTINCT FROM`）；`insert` 用 `RETURNING id`；`directCounts`/`unfiled`/`courseSummary` 的 `COUNT/SUM` 收敛成 number                                                                                                                                                                                                                                                                                                                                                 |
+| DI（读写同批）        | `app.ts`：`new KnowledgeRepository(asyncDb)`、`new QuestionConflictRepository(asyncDb)`；`BankService` 里 `new BankFolderRepository(banks.asyncPort())`（`BankRepository` 新增 `asyncPort()`，**保证文件夹与题库用同一个 asyncDb**）；`routes/questionGroups.ts`/`routes/tags.ts` 用 `getAsyncDb(deps.config, deps.db)` 取进程级单例（`app.ts` 已到行数基线，不再加字段）                                                                                                                                                                                                                                               |
+| 调用点 await          | 12 个服务 + 6 个路由：`questionConflictService`（freshness/rescan/list/detail/ignore/reopen/collectPendingGroups 全 async）、`questionGroupService`、`tagService`、`bankFolderService`（tree/exists/create/update/remove/nodeOf/isDescendant）、`bankService.create/update`、`courseKnowledgeService`、`lessonKnowledgeService`、`lessonKnowledgeExportService`、`knowledgeImportService`、`knowledgeImportPlanner`（`nextSort` → async）、`lessonService`（detail 的 knowledge、update/removeKnowledge 转发）；路由 `questionConflicts`×8、`questionGroups`×7、`tags`×6、`banks-folders`×5、`knowledge`×3、`courses`×1 |
+| `reply.send(Promise)` | 全量扫过：`questionConflicts` 的 `reply.send(...)` **全部补 `await`**（原来 detail/ignore/reopen/rescan 是「同步值」，迁完变 Promise，漏 await 会返回 `{}`）；顺手扫了 `utils/range`、`courseCover`、`banks-question-media`（都是 stream，同步）与 `difficulty`（已 await）                                                                                                                                                                                                                                                                                                                                             |
+| 体检子进程            | `workers/bankHealthChild.ts`：`MC_DB=pg` 时**只连 PG**（`AsyncDb` 即连接池），`db` 传 `null`、**不打开只读 SQLite**，`MC_HEALTH_DB` 不再是必需项（sqlite 模式行为完全不变）。配套：`QuestionRepository`/`BankRepository` 的 `db` 参数放宽为 `Db \| null`，`adb()` 在「既没 asyncDb 又没 db」时抛明确错误（而不是静默退回 SQLite）                                                                                                                                                                                                                                                                                       |
+| 新方言                | #26 `nowText`、#27 `nullSafeEq`、#28 `insertionOrder`（新增到 `db/sql.ts`）；#29 camelCase 别名加引号（33 处）、#30 `ON CONFLICT DO UPDATE` 自引用写全表名、#31 `gen-schema.mjs` 补 `ON DELETE CASCADE` —— 后 3 条都是**真库跑出来的 bug**，详见 `docs/postgres-migration.md` §9 与 §11.1                                                                                                                                                                                                                                                                                                                               |
+| 测试                  | 新增 `test/repo-async-final.test.ts` 61 条（52 个方法「返回 Promise 且只经 AsyncDb」逐条钉、int8 收敛、4 个新方言表达式、#29 源码扫描守卫、#30 upsert SQL 守卫、`app.ts` 注入断言、**路由返回真实结构而非 `{}`**）；新增 `test/pg-core.test.ts` 14 条 + `test/pg-final-repos.test.ts` 9 条（真 PG，见 §7.9.2）；`test/helpers/pgTestDb.ts`（测试库守卫 + 整份 schema 重建）与 `test/fixtures/pg-schema.sql`（生成器产出的同构 schema）                                                                                                                                                                                  |
+| PG 集成测试           | **在 NAS 的一次性容器里对 `microclass_test` 实跑：5 个文件 / 51 条全过**（详见 §7.9.2）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| 门禁                  | vitest **1114 passed / 30 skipped**（+61 passed；skip 从 7 → 30 是因为新增 2 个 PG 套件默认 skip）；E2E **40/40**；typecheck 0；eslint **0 error**（4 既有 warning）；prettier；build；size guard（**625 文件 / 技术债 20**）                                                                                                                                                                                                                                                                                                                                                                                           |
+
+### 7.9.2 PG 集成测试实跑（真库，一次性容器）
+
+**环境**：NAS `FN-EVO4-4723`；一次性容器 `--rm --network microclass-prod_default --cpus 2 --memory 2g`（node:22-alpine）；
+连 `db:5432` 的 **`microclass_test`**（**不是生产库 `microclass`**）；源码只读挂载后容器内 `npm ci`；
+跑前 `ops/scripts/pg/guard-io.sh` 报 `/vol1 util=20%`（阈值 70）。生产 `microclass-api` 未被本测试启停（测试库与生产库同实例但不同 database）。
+
+**结果：`Test Files 5 passed (5) / Tests 51 passed (51)`**
+
+| 文件                                      | 条数 | 覆盖                                                                                                                                                                                                   |
+| ----------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `pg-core.test.ts`                         | 14   | questions 读写（RETURNING/int8/聚合）、banks 事务回滚、刷题交卷事务、考试交卷事务、progress 区间（GREATEST + 先删后插回滚）、analytics 全方言（JSON 展开/UTC 日/int8/主观题排除）                      |
+| `pg-final-repos.test.ts`                  | 9    | 本批 5 个仓储在真 PG 上的行为：冲突台账 `sync/staleness/list/upsertStatus`、题组行序与计数、知识点 `createMany` 事务、标签 citext + `ON CONFLICT`、文件夹 `IS NOT DISTINCT FROM` + 汇总 + **级联删除** |
+| `pg-announcements.test.ts`                | 4    | 既有基线                                                                                                                                                                                               |
+| `bank-write-transaction.test.ts`          | 9    | 8 条 sqlite + 1 条 PG 分支（`BEGIN/ROLLBACK` 整批回滚）                                                                                                                                                |
+| `lesson-course-write-transaction.test.ts` | 15   | 14 条 sqlite + 1 条 PG 分支（`RETURNING id` + 事务回滚）                                                                                                                                               |
+
+**这一轮真库跑出来的 4 个真 bug（都已修，且都补了守卫测试）**：
+
+1. **`MAX(0, question_count + ?)`**（`question-write.bumpBankCount`）—— PG `function max(integer, bigint) does not exist`。
+   **影响：PG 模式下新建/删除题目直接 500**。改 `maxOf('0', 'question_count + ?', driver)`（#20 残留）。
+2. **camelCase 别名被 PG 小写**（7 文件 33 处 `AS questionCount` → `questioncount`）——
+   **影响：题库列表的 `folderId/courseName/lessonTitle`、目录计数、题组/标签/文件夹计数全部静默 `undefined`/0，不报错**。
+   全部加双引号（#29），并在 `repo-async-final.test.ts` 里加「源码扫描：禁止裸 camelCase 别名」守卫。
+3. **`ON CONFLICT DO UPDATE SET x = x + 1` 歧义引用**（`wrong_questions`、`lesson_progress`）——
+   PG `column reference "wrong_count" is ambiguous`。**影响：刷题交卷、进度上报直接失败**。改全表名（#30）+ SQL 文本守卫。
+4. **`gen-schema.mjs` 丢掉 `ON DELETE CASCADE`**（21 个外键退化成 `NO ACTION`）——
+   **影响：PG 下删题组/题库/标签报外键冲突，删除功能不可用**。生成器改为搬运 `PRAGMA foreign_key_list` 的
+   `on_delete`/`on_update`（#31），测试 fixture 重新生成并验证「删题组级联删成员」。
+
+> 这 4 条都是「SQLite 全绿、切 PG 才炸」的典型：**每个域迁完必须真库跑一遍**，`tsc` + sqlite 测试都抓不到。
+
+### 7.9.3 切流前剩余清单（本批收尾后）
+
+代码侧已经全部迁完，**剩下都是「动作」**（完整版见 `docs/postgres-migration.md` §12.3）：
+
+1. **审计日志仍在 SQLite**（`auditRepository` 同步 `Db` + 内存缓冲）—— 切流后审计与业务不同库，需先决定：迁 `AsyncDb`（建议）或明确接受分库；
+2. `bankHealthCacheRepository`（体检缓存，可丢）与 `practiceLinkQueries`（练习链接，业务数据，**建议迁**）仍是同步 `Db`；
+3. **切流预演（§12.2）没做**：停 API → 备份 SQLite → `MC_DB=pg` → 起新镜像 → 10 条验证 → 回滚路径，需要用户确认窗口；
+4. 数据一致性未校验：`verify-parity.sh` 10 组指纹 + `schema_migrations` 对齐（重活，只在窗口内跑）；
+5. 备份（`pg_dump -Fc` + SQLite 卷 tar）与回滚演练未做；
+6. **新镜像未构建**：`.image-tag` 仍是 `2.4.1`（本批代码含 #29/#30/#31 修复，切流前要 `build-image.sh` 重新出镜像）；
+7. 难度 `preview`/`calibrate` 在 PG 下是逐题小查询（N 次），切流后按真机数据量再评估批量取。
+
+## 7.10 生产事故：compose 网络丢失导致 API 起不来（2026-11-27，已修复，加固 `8d6a34f`）
+
+**现象**：用户报 `docker compose up` 失败 `failed to set up container networking: network 123cf6… not found`；
+8091 全站不可用（8092 前端反代返回 502 `upstream_unavailable`），watchdog 每 2 分钟 `docker restart microclass-api` 均失败。
+
+**根因**（三层叠加）：
+
+1. 宿主机上有**两套历史项目**：老项目 `microclass`（网络 `microclass_default`，ID `123cf6…`）与新项目 `microclass-prod`（网络 `microclass-prod_default`）。
+   老网络 `microclass_default` 已被删除（`docker network ls` 里不存在），但老容器 `microclass-api`（image `microclass:2.3.0`）仍引用那个已消失的 NetworkID；
+2. `microclass-api` 这个**容器名**被老容器占着，`compose -p microclass-prod up` 无法创建同名容器；而 `redeploy.sh` 调 compose 时**没带 `-p`**，靠文件里的 `name:` 兜底，一旦项目名/网络名漂移就会踩到老容器；
+3. 另有一个「容器已被删除、进程还在」的孤儿 API 进程（pid 707273，cgroup 指向已不存在的容器 `778463b8…`），
+   仍在旧 netns 里监听 172.26.0.2:8091（宿主不可达）—— 它不占宿主端口，但会误导排查、并占着数据卷里的 SQLite 句柄。
+
+**修复动作**（全程 `-v` 未使用，数据卷 `microclass_data` / `/vol1/1000/microclass-pg` 原样保留）：
+
+```bash
+cd /vol1/1000/microclass-deploy
+kill -9 707273                                   # 孤儿进程（其容器已不存在）
+docker rm -f microclass-api                      # 老项目残留容器（引用已删除网络）
+docker volume inspect microclass_data            # 确认卷与 microclass.db 仍在
+docker compose -p microclass-prod -f compose.evo4.yml down --remove-orphans   # 不带 -v
+docker compose -p microclass-prod -f compose.evo4.yml up -d
+```
+
+**验证结果**：`microclass-api` `Up (healthy)`（image `microclass:2.4.1`）、`microclass-db` healthy，两者都在 `microclass-prod_default`；
+8091/8092/8093 的 `healthz`/`readyz` 全 200（healthz 1.3 ms），`version=2.4.1`；admin 登录 200 + `Set-Cookie`；
+`/courses` 200（17 KB）、`/banks` 200（135 KB，冷缓存 3.1 s）、`/tags` 200、`/question-groups` 200；8092 前端首页 200。
+网络列表只剩 `microclass-prod_default`，无引用旧网络的残留容器。
+
+**加固**（随本批提交）：`ops/deploy/redeploy.sh` 统一带 `-p microclass-prod`，并在启动失败且日志含
+`network … not found` / `container name … already in use` 时自动执行 `down --remove-orphans`（**不带 `-v`**）后重试一次；
+`docs/deploy.md` 增加「network not found」排障小节。
+
 ## 8. 关键文件索引
 
-| 主题                                                                             | 文件                                                              |
-| -------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| 异步数据端口                                                                     | `apps/api/src/db/async.ts`                                        |
-| 驱动选择 / 单例                                                                  | `apps/api/src/db/driver.ts`                                       |
-| PG 连接池                                                                        | `apps/api/src/db/pg/pool.ts`                                      |
-| 方言小工具（likeCI / nowSeconds / unixDay / JSON / naturalNumberPrefix / maxOf） | `apps/api/src/db/sql.ts`                                          |
-| PG DDL 生成                                                                      | `ops/scripts/pg/gen-schema.mjs`、`post-schema.pg.sql`             |
-| 装载/校验                                                                        | `ops/scripts/pg/load-pg.sh`、`verify-parity.sh`、`export-tsv.mjs` |
-| 备份                                                                             | `ops/deploy/pg-backup.sh`、`ops/deploy/backup.sh`                 |
-| 预发 IO 门槛                                                                     | `ops/scripts/pg/guard-io.sh`                                      |
-| 迁移总文档                                                                       | `docs/postgres-migration.md`                                      |
-| lessons/courses 事务                                                             | `apps/api/test/lesson-course-write-transaction.test.ts`           |
-| users/auth 鉴权链路                                                              | `apps/api/test/auth-async.test.ts`                                |
-| progress/notes/watch 事务                                                        | `apps/api/test/progress-write-transaction.test.ts`                |
-| exams 读写契约                                                                   | `apps/api/test/exam-read-async.test.ts`                           |
-| exams 写方言契约（批次 2）                                                       | `apps/api/test/exam-write-async.test.ts`                          |
-| exams/attempts 事务与回滚                                                        | `apps/api/test/exam-write-transaction.test.ts`                    |
-| 卷面缓存口径                                                                     | `apps/api/test/exam-paper-cache.test.ts`                          |
-| analytics 只经 AsyncDb + 方言                                                    | `apps/api/test/analytics-async.test.ts`                           |
-| analytics/activity 日期与 int8 对照                                              | `apps/api/test/analytics-date-parity.test.ts`                     |
-| questions 读只经 AsyncDb + 读后写可见 + 方言 16/17/20                            | `apps/api/test/question-read-async.test.ts`                       |
+| 主题                                                                             | 文件                                                               |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| 异步数据端口                                                                     | `apps/api/src/db/async.ts`                                         |
+| 驱动选择 / 单例                                                                  | `apps/api/src/db/driver.ts`                                        |
+| PG 连接池                                                                        | `apps/api/src/db/pg/pool.ts`                                       |
+| 方言小工具（likeCI / nowSeconds / unixDay / JSON / naturalNumberPrefix / maxOf） | `apps/api/src/db/sql.ts`                                           |
+| PG DDL 生成                                                                      | `ops/scripts/pg/gen-schema.mjs`、`post-schema.pg.sql`              |
+| 装载/校验                                                                        | `ops/scripts/pg/load-pg.sh`、`verify-parity.sh`、`export-tsv.mjs`  |
+| 备份                                                                             | `ops/deploy/pg-backup.sh`、`ops/deploy/backup.sh`                  |
+| 预发 IO 门槛                                                                     | `ops/scripts/pg/guard-io.sh`                                       |
+| 迁移总文档                                                                       | `docs/postgres-migration.md`                                       |
+| lessons/courses 事务                                                             | `apps/api/test/lesson-course-write-transaction.test.ts`            |
+| users/auth 鉴权链路                                                              | `apps/api/test/auth-async.test.ts`                                 |
+| progress/notes/watch 事务                                                        | `apps/api/test/progress-write-transaction.test.ts`                 |
+| exams 读写契约                                                                   | `apps/api/test/exam-read-async.test.ts`                            |
+| exams 写方言契约（批次 2）                                                       | `apps/api/test/exam-write-async.test.ts`                           |
+| exams/attempts 事务与回滚                                                        | `apps/api/test/exam-write-transaction.test.ts`                     |
+| 卷面缓存口径                                                                     | `apps/api/test/exam-paper-cache.test.ts`                           |
+| analytics 只经 AsyncDb + 方言                                                    | `apps/api/test/analytics-async.test.ts`                            |
+| analytics/activity 日期与 int8 对照                                              | `apps/api/test/analytics-date-parity.test.ts`                      |
+| questions 读只经 AsyncDb + 读后写可见 + 方言 16/17/20                            | `apps/api/test/question-read-async.test.ts`                        |
+| 收尾 5 仓储只经 AsyncDb + 新方言 #26–#30 契约                                    | `apps/api/test/repo-async-final.test.ts`                           |
+| PG 集成测试装置（建库守卫 + 同构 schema）                                        | `apps/api/test/helpers/pgTestDb.ts`、`test/fixtures/pg-schema.sql` |
+| PG 核心链路实跑（questions/banks/交卷/progress/analytics）                       | `apps/api/test/pg-core.test.ts`                                    |
+| PG 收尾仓储实跑（冲突/题组/知识点/标签/文件夹）                                  | `apps/api/test/pg-final-repos.test.ts`                             |
+| compose 网络故障排障（network not found）                                        | `docs/deploy.md` §「network not found」、`ops/deploy/redeploy.sh`  |
