@@ -12,15 +12,15 @@ export class NoteService {
     private readonly lessons: LessonRepository,
   ) {}
 
-  list(viewer: User, lessonId: number): { notes: LessonNote[]; count: number } {
-    const lesson = this.lessons.findById(lessonId);
+  async list(viewer: User, lessonId: number): Promise<{ notes: LessonNote[]; count: number }> {
+    const lesson = await this.lessons.findById(lessonId);
     if (!lesson) throw AppError.notFound('课时不存在');
     const notes = this.notes.listByLesson(viewer.id, lessonId);
     return { notes, count: notes.length };
   }
 
-  create(viewer: User, lessonId: number, input: { pos?: number; text: string }): number {
-    const lesson = this.lessons.findById(lessonId);
+  async create(viewer: User, lessonId: number, input: { pos?: number; text: string }): Promise<number> {
+    const lesson = await this.lessons.findById(lessonId);
     if (!lesson) throw AppError.notFound('课时不存在');
     const text = String(input.text ?? '').trim();
     if (!text) throw AppError.badRequest('笔记内容不能为空');

@@ -102,7 +102,7 @@ export class PracticeLinkService {
   async create(actor: User, input: PracticeLinkInput): Promise<PracticeLinkDto> {
     const target = await this.normalizeTarget(input);
     const lessonIds = this.normalizeLessonIds(input.lessonIds);
-    this.assertLessons(lessonIds);
+    await this.assertLessons(lessonIds);
     // 同目标重复关联：不报错，复用已有 link 并补上缺少的课时
     const existing = this.links.findByTarget(target);
     const link = existing ?? this.links.insert(target);
@@ -112,11 +112,11 @@ export class PracticeLinkService {
     return this.dto(link);
   }
 
-  update(actor: User, id: number, lessonIds: number[]): PracticeLinkDto {
+  async update(actor: User, id: number, lessonIds: number[]): Promise<PracticeLinkDto> {
     const row = this.links.findById(id);
     if (!row) throw AppError.notFound('实践关联不存在');
     const normalized = this.normalizeLessonIds(lessonIds);
-    this.assertLessons(normalized);
+    await this.assertLessons(normalized);
     this.links.setLessonIds(id, normalized);
     this.writeAudit(actor, 'practice_link.update', id, { lessonIds: normalized });
     return this.dto(row);
@@ -135,7 +135,7 @@ export class PracticeLinkService {
 
   /** 某课时关联的练习内容：题库/章节/小节进 banks，单题进 questions */
   async lessonPractice(lessonId: number): Promise<LessonPracticeResult> {
-    if (!this.lessons.findById(lessonId)) throw AppError.notFound('课时不存在');
+    if (!(await this.lessons.findById(lessonId))) throw AppError.notFound('课时不存在');
     const rows = this.links.listByLesson(lessonId);
     const banks: LessonPracticeBank[] = [];
     const seenBank = new Set<string>();
@@ -195,9 +195,9 @@ export class PracticeLinkService {
     return [...new Set(ids)];
   }
 
-  private assertLessons(lessonIds: number[]): void {
+  private async assertLessons(lessonIds: number[]): Promise<void> {
     for (const id of lessonIds) {
-      if (!this.lessons.findById(id)) throw AppError.badRequest('关联的课时不存在');
+      if (!(await this.lessons.findById(id))) throw AppError.badRequest('关联的课时不存在');
     }
   }
 

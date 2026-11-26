@@ -319,7 +319,7 @@ describe('交卷编排（ExamService，内存库）', () => {
     stu4 = makeUser('判分学生4');
     stu5 = makeUser('判分学生5');
 
-    courseId = built.deps.courses.create({ name: '判分测试课程' });
+    courseId = await built.deps.courses.create({ name: '判分测试课程' });
     const bankId = await built.deps.banks.create({ name: '判分测试题库', courseId });
     const specs: { type: QuestionType; stem: string; options: string[]; answer: string; score: number }[] = [
       { type: 'single', stem: '单选：常量关键字', options: ['const', 'final'], answer: 'A', score: 10 },
@@ -339,7 +339,7 @@ describe('交卷编排（ExamService，内存库）', () => {
         }),
       );
     }
-    scoredExamId = examService.create(admin, {
+    scoredExamId = await examService.create(admin, {
       courseId,
       title: '判分测试考试',
       durationMinutes: 30,
@@ -410,12 +410,12 @@ describe('交卷编排（ExamService，内存库）', () => {
     expect(result.manual).toBe(0);
   });
 
-  it('结束时间后 2 分钟缓冲内仍可交卷，超过缓冲则拒绝', () => {
+  it('结束时间后 2 分钟缓冲内仍可交卷，超过缓冲则拒绝', async () => {
     const now = Math.floor(Date.now() / 1000);
     const firstQid = scoredQids[0];
     if (firstQid === undefined) throw new Error('测试题目未创建');
 
-    const withinBuffer = examService.create(admin, {
+    const withinBuffer = await examService.create(admin, {
       courseId,
       title: '结束时间缓冲考试',
       endAt: now - 60,
@@ -426,7 +426,7 @@ describe('交卷编排（ExamService，内存库）', () => {
     const ok = examService.submit(stu4, withinBuffer, [{ qid: firstQid, answer: 'A' }]);
     expect(ok).toMatchObject({ score: 1, total: 1, need: 1, passed: true });
 
-    const expired = examService.create(admin, {
+    const expired = await examService.create(admin, {
       courseId,
       title: '已过缓冲考试',
       endAt: now - 200,

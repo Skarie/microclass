@@ -17,13 +17,13 @@ export async function registerCourseRoutes(app: FastifyInstance, deps: Deps): Pr
     const user = requireUser(req, reply);
     const id = Number((req.params as { id: string }).id);
     if (Number.isNaN(id)) throw AppError.badRequest('课程 ID 非法');
-    const course = deps.courses.findById(id);
+    const course = await deps.courses.findById(id);
     if (!course) throw AppError.notFound('课程不存在');
     if (course.published !== 1 && user.role === 'student') throw AppError.notFound('课程未发布');
-    const lessons = deps.lessonService.listForViewer(user, id);
+    const lessons = await deps.lessonService.listForViewer(user, id);
     // 课程级共享知识点：学生端课程详情页也要能看到
     return {
-      course: { ...course, fav: deps.courses.isFavorite(user.id, id) },
+      course: { ...course, fav: await deps.courses.isFavorite(user.id, id) },
       lessons,
       knowledge: deps.knowledge.listByCourse(id),
     };
@@ -56,7 +56,7 @@ export async function registerCourseRoutes(app: FastifyInstance, deps: Deps): Pr
         categoryId?: number | null;
         published?: boolean;
       };
-      const id = deps.courseService.create(user, body);
+      const id = await deps.courseService.create(user, body);
       return { ok: true, id };
     },
   );
@@ -71,14 +71,14 @@ export async function registerCourseRoutes(app: FastifyInstance, deps: Deps): Pr
       categoryId?: number | null;
       published?: boolean;
     };
-    deps.courseService.update(user, id, body);
+    await deps.courseService.update(user, id, body);
     return { ok: true };
   });
 
   app.delete('/courses/:id', async (req, reply) => {
     const user = requireAdmin(req, reply);
     const id = Number((req.params as { id: string }).id);
-    deps.courseService.remove(user, id);
+    await deps.courseService.remove(user, id);
     return { ok: true };
   });
 
@@ -90,12 +90,12 @@ export async function registerCourseRoutes(app: FastifyInstance, deps: Deps): Pr
     const user = requireTeacherOrAdmin(req, reply);
     const id = Number((req.params as { id: string }).id);
     if (Number.isNaN(id)) throw AppError.badRequest('课程 ID 非法');
-    const course = deps.courseService.detail(user, id).course;
+    const course = (await deps.courseService.detail(user, id)).course;
     return {
       course,
       // 管理端保持老师拖拽后的手动顺序，不按章节序号重排
-      lessons: deps.lessonService.listForViewer(user, id, { chapterOrder: false }),
-      folder: deps.lessonService.courseFolderInfo(id),
+      lessons: await deps.lessonService.listForViewer(user, id, { chapterOrder: false }),
+      folder: await deps.lessonService.courseFolderInfo(id),
     };
   });
 
@@ -108,7 +108,7 @@ export async function registerCourseRoutes(app: FastifyInstance, deps: Deps): Pr
     const id = Number((req.params as { id: string }).id);
     if (Number.isNaN(id)) throw AppError.badRequest('课程 ID 非法');
     const body = req.body as { rootId?: string | null; path?: string };
-    const folder = deps.lessonService.bindCourseFolder(user, id, {
+    const folder = await deps.lessonService.bindCourseFolder(user, id, {
       rootId: body.rootId === undefined ? null : body.rootId,
       ...(body.path === undefined ? {} : { path: body.path }),
     });
@@ -136,7 +136,7 @@ export async function registerCourseRoutes(app: FastifyInstance, deps: Deps): Pr
     if (body.chapterMode !== undefined && !['first', 'full', 'none'].includes(body.chapterMode)) {
       throw AppError.badRequest('chapterMode 只能是 first / full / none');
     }
-    const result = deps.lessonService.scanCourseFolder(user, id, {
+    const result = await deps.lessonService.scanCourseFolder(user, id, {
       ...(body.dryRun === undefined ? {} : { dryRun: body.dryRun }),
       ...(body.removeMissing === undefined ? {} : { removeMissing: body.removeMissing }),
       ...(body.onDuplicate === undefined ? {} : { onDuplicate: body.onDuplicate as 'skip' | 'assign' }),
@@ -160,7 +160,7 @@ export async function registerCourseRoutes(app: FastifyInstance, deps: Deps): Pr
     if (!Array.isArray(body.ids)) throw AppError.badRequest('ids 必须是课时 ID 数组');
     const ids = body.ids.map((v) => Number(v));
     if (ids.some((v) => !Number.isInteger(v) || v <= 0)) throw AppError.badRequest('课时 ID 非法');
-    return { ok: true, ...deps.lessonService.reorderLessons(user, id, ids) };
+    return { ok: true, ...(await deps.lessonService.reorderLessons(user, id, ids)) };
   });
 
   /** 知识点讲义导出：整门课程按「章节 → 课时」组织（Markdown / Word） */
@@ -168,7 +168,7 @@ export async function registerCourseRoutes(app: FastifyInstance, deps: Deps): Pr
     requireTeacherOrAdmin(req, reply);
     const id = Number((req.params as { id: string }).id);
     if (Number.isNaN(id)) throw AppError.badRequest('课程 ID 非法');
-    const { filename, body } = deps.lessonService.knowledgeToMarkdown({ courseId: id });
+    const { filename, body } = await deps.lessonService.knowledgeToMarkdown({ courseId: id });
     return reply.headers(textHeaders(filename, 'text/markdown; charset=utf-8')).send(body);
   });
 
@@ -176,14 +176,14 @@ export async function registerCourseRoutes(app: FastifyInstance, deps: Deps): Pr
     requireTeacherOrAdmin(req, reply);
     const id = Number((req.params as { id: string }).id);
     if (Number.isNaN(id)) throw AppError.badRequest('课程 ID 非法');
-    const { filename, body } = deps.lessonService.knowledgeToDocx({ courseId: id });
+    const { filename, body } = await deps.lessonService.knowledgeToDocx({ courseId: id });
     return reply.headers(docxHeaders(filename)).send(body);
   });
 
   app.post('/courses/:id/fav', async (req, reply) => {
     const user = requireUser(req, reply);
     const id = Number((req.params as { id: string }).id);
-    const fav = deps.courseService.toggleFavorite(user, id);
+    const fav = await deps.courseService.toggleFavorite(user, id);
     return { ok: true, fav };
   });
 
@@ -200,13 +200,13 @@ export async function registerCourseRoutes(app: FastifyInstance, deps: Deps): Pr
       mimeType: file.mimetype,
       imagesOnly: true,
     });
-    deps.courseService.setCover(user, id, saved.relPath);
+    await deps.courseService.setCover(user, id, saved.relPath);
     return { ok: true, cover: saved.relPath };
   });
 
   app.get('/categories', async (req, reply) => {
     requireUser(req, reply);
-    return { categories: deps.courses.listCategories() };
+    return { categories: await deps.courses.listCategories() };
   });
 
   app.post(
@@ -224,7 +224,7 @@ export async function registerCourseRoutes(app: FastifyInstance, deps: Deps): Pr
     async (req, reply) => {
       const user = requireTeacherOrAdmin(req, reply);
       const body = req.body as { name: string };
-      const id = deps.courseService.createCategory(user, body.name);
+      const id = await deps.courseService.createCategory(user, body.name);
       return { ok: true, id };
     },
   );
@@ -232,7 +232,7 @@ export async function registerCourseRoutes(app: FastifyInstance, deps: Deps): Pr
   app.delete('/categories/:id', async (req, reply) => {
     const user = requireAdmin(req, reply);
     const id = Number((req.params as { id: string }).id);
-    deps.courseService.deleteCategory(user, id);
+    await deps.courseService.deleteCategory(user, id);
     return { ok: true };
   });
 }

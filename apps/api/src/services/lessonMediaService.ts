@@ -31,20 +31,20 @@ export class LessonMediaService {
    *                      用于自动推断章节：取其所在目录的第一段作为章节名。
    * @param input.groupName 显式指定章节；给了它就不看 relPath。
    */
-  createFromUpload(actor: User, input: UploadLessonInput): number {
+  async createFromUpload(actor: User, input: UploadLessonInput): Promise<number> {
     const title = normalizeUploadTitle(input.title);
     if (!title) throw AppError.badRequest('标题不能为空');
 
     // 章节推断：显式指定 > 相对路径的顶层目录 > 空（未分章）
     const groupName = inferUploadGroupName(input.groupName, input.relPath);
 
-    const id = this.lessons.create({
+    const id = await this.lessons.create({
       title: title.slice(0, 200),
       videoKind: 'local',
       mediaRoot: UPLOAD_ROOT_ID,
       videoPath: input.videoPath,
       groupName,
-      courseId: this.resolveCourse(input.courseId ?? null),
+      courseId: await this.resolveCourse(input.courseId ?? null),
       sort: Number.isInteger(input.sort) ? Number(input.sort) : 0,
     });
     this.audit.write({
@@ -63,7 +63,7 @@ export class LessonMediaService {
    * 环境里没有 ffprobe 时返回 available:false，不抛错（避免影响导入/上传主流程）。
    */
   async probeMetadata(actor: User, lessonId: number): Promise<LessonProbeResult> {
-    const lesson = this.lessons.findById(lessonId);
+    const lesson = await this.lessons.findById(lessonId);
     if (!lesson) throw AppError.notFound('视频单元不存在');
     if (lesson.video_kind !== 'local') throw AppError.badRequest('只有本地视频需要抽取元数据');
 
@@ -75,12 +75,12 @@ export class LessonMediaService {
     const result = await this.probe.probe(abs);
     if (!result) {
       // 抽取失败也写入 probed_at，避免后台任务反复重试同一个坏文件
-      this.lessons.setProbeResult(lessonId, { duration: null, mediaType: lesson.media_type, coverPath: '' });
+      await this.lessons.setProbeResult(lessonId, { duration: null, mediaType: lesson.media_type, coverPath: '' });
       return { available: true, duration: null, coverPath: '', mediaType: lesson.media_type };
     }
 
     const coverPath = result.coverRelPath ?? '';
-    this.lessons.setProbeResult(lessonId, {
+    await this.lessons.setProbeResult(lessonId, {
       duration: result.durationSec,
       mediaType: result.mediaType,
       coverPath,
@@ -103,7 +103,7 @@ export class LessonMediaService {
    */
   async probePending(actor: User, limit = 20): Promise<LessonProbePendingResult> {
     if (!(await this.probe.available())) return { probed: 0, failed: 0, remaining: 0, available: false };
-    const pending = this.lessons.listPendingProbe(limit);
+    const pending = await this.lessons.listPendingProbe(limit);
     let probed = 0;
     let failed = 0;
     for (const lesson of pending) {
@@ -115,7 +115,7 @@ export class LessonMediaService {
         failed += 1;
       }
     }
-    return { probed, failed, remaining: this.lessons.countPendingProbe(), available: true };
+    return { probed, failed, remaining: await this.lessons.countPendingProbe(), available: true };
   }
 
   /**
@@ -141,11 +141,11 @@ export class LessonMediaService {
         const id = this.probeQueue.shift();
         if (id === undefined) break;
         try {
-          const lesson = this.lessons.findById(id);
+          const lesson = await this.lessons.findById(id);
           if (!lesson || lesson.video_kind !== 'local' || lesson.probed_at !== null) continue;
           const { abs } = this.media.resolve(lesson.media_root, lesson.video_path);
           const result = await this.probe.probe(abs);
-          this.lessons.setProbeResult(id, {
+          await this.lessons.setProbeResult(id, {
             duration: result?.durationSec ?? null,
             mediaType: result?.mediaType ?? 'video',
             coverPath: result?.coverRelPath ?? '',
@@ -164,9 +164,9 @@ export class LessonMediaService {
     return { running: this.probeRunning, queued: this.probeQueue.length };
   }
 
-  private resolveCourse(courseId: number | null): number | null {
+  private async resolveCourse(courseId: number | null): Promise<number | null> {
     if (courseId === null) return null;
-    if (!this.courses.findById(courseId)) throw AppError.badRequest('目标课程不存在');
+    if (!(await this.courses.findById(courseId))) throw AppError.badRequest('目标课程不存在');
     return courseId;
   }
 }

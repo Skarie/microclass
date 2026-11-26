@@ -150,7 +150,7 @@ export class BankCatalogService {
     }
     const title = (input.title ?? bank.name).trim().slice(0, 100) || bank.name;
     // 课程是否存在由 ExamService.prepare 校验（它持有课程仓储），这里不重复实现
-    const examId = examService.create(actor, {
+    const examId = await examService.create(actor, {
       courseId: input.courseId,
       title,
       description: `由题库「${bank.name}」一键生成（共 ${rows.length} 题）`,

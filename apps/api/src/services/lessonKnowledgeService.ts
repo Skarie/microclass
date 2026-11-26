@@ -16,8 +16,8 @@ export class LessonKnowledgeService {
     private readonly storage: StorageService,
   ) {}
 
-  addKnowledge(actor: User, input: KnowledgeInput): number {
-    const lesson = this.lessons.findById(input.lessonId);
+  async addKnowledge(actor: User, input: KnowledgeInput): Promise<number> {
+    const lesson = await this.lessons.findById(input.lessonId);
     if (!lesson) throw AppError.notFound('视频单元不存在');
     const title = (input.title ?? '').trim();
     if (!title) throw AppError.badRequest('标题不能为空');
@@ -70,8 +70,8 @@ export class LessonKnowledgeService {
   }
 
   /** 上传知识点附件（课件/讲义等），落盘到 uploads/knowledge 并绑定课时 */
-  uploadKnowledgeFile(actor: User, input: UploadKnowledgeFileInput): { id: number; fileName: string } {
-    const lesson = this.lessons.findById(input.lessonId);
+  async uploadKnowledgeFile(actor: User, input: UploadKnowledgeFileInput): Promise<{ id: number; fileName: string }> {
+    const lesson = await this.lessons.findById(input.lessonId);
     if (!lesson) throw AppError.notFound('视频单元不存在');
     if (!input.data || input.data.length === 0) throw AppError.badRequest('文件为空');
     const fileName = path.basename(String(input.fileName || 'file'));

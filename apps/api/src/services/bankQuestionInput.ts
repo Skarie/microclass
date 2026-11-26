@@ -27,10 +27,13 @@ export interface QuestionInputContext {
   storage: StorageService;
 }
 
-/** 校验课时存在并返回 id；未关联课时返回 null */
-export function resolveLessonId(lessons: LessonRepository, lessonId: number | null | undefined): number | null {
+/** 校验课时存在并返回 id；未关联课时返回 null（lessons 域已 async） */
+export async function resolveLessonId(
+  lessons: LessonRepository,
+  lessonId: number | null | undefined,
+): Promise<number | null> {
   if (lessonId === undefined || lessonId === null) return null;
-  const lesson = lessons.findById(lessonId);
+  const lesson = await lessons.findById(lessonId);
   if (!lesson) throw AppError.badRequest('关联的课时不存在');
   return lessonId;
 }
@@ -69,7 +72,7 @@ export async function prepareQuestionInput(ctx: QuestionInputContext, input: Que
   if (!allowMissingAnswer && REQUIRES_ANSWER.includes(type) && answer === '')
     throw AppError.badRequest('请设置正确答案');
 
-  const lessonId = resolveLessonId(ctx.lessons, input.lessonId ?? null);
+  const lessonId = await resolveLessonId(ctx.lessons, input.lessonId ?? null);
   // 配图必须是 uploads 目录下真实存在的文件（路径穿越由 StorageService 拦截）
   let imagePath = '';
   if (input.imagePath !== undefined && input.imagePath !== null) {

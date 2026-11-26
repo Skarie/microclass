@@ -23,7 +23,7 @@ export async function registerCourseCoverRoutes(app: FastifyInstance, deps: Deps
   app.get('/course-cover/:id', async (req, reply) => {
     requireUser(req, reply);
     const id = Number((req.params as { id: string }).id);
-    const course = deps.courses.findById(id);
+    const course = await deps.courses.findById(id);
     if (!course || !course.cover) throw AppError.notFound('课程无封面');
     const abs = deps.storage.resolve(course.cover);
     if (!abs || !fs.existsSync(abs)) throw AppError.notFound('封面已被移除');

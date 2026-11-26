@@ -17,7 +17,7 @@ export async function registerStatsRoutes(app: FastifyInstance, deps: Deps): Pro
   /** 课时学习统计 CSV */
   app.get('/stats/lessons/:id.csv', async (req, reply) => {
     requireTeacherOrAdmin(req, reply);
-    const { filename, body } = deps.statsService.lessonStatsCsv(Number((req.params as { id: string }).id));
+    const { filename, body } = await deps.statsService.lessonStatsCsv(Number((req.params as { id: string }).id));
     return reply.headers(csvHeaders(filename)).send(body);
   });
 
@@ -30,7 +30,7 @@ export async function registerStatsRoutes(app: FastifyInstance, deps: Deps): Pro
   /** 课程学习统计 CSV */
   app.get('/stats/courses/:id.csv', async (req, reply) => {
     requireTeacherOrAdmin(req, reply);
-    const { filename, body } = deps.statsService.courseStatsCsv(Number((req.params as { id: string }).id));
+    const { filename, body } = await deps.statsService.courseStatsCsv(Number((req.params as { id: string }).id));
     return reply.headers(csvHeaders(filename)).send(body);
   });
 }
@@ -48,7 +48,7 @@ export async function registerNoteRoutes(app: FastifyInstance, deps: Deps): Prom
     if (!body || typeof body.text !== 'string') throw AppError.badRequest('缺少笔记内容');
     return {
       ok: true,
-      id: deps.noteService.create(user, lessonId, { pos: Number(body.pos ?? 0), text: body.text }),
+      id: await deps.noteService.create(user, lessonId, { pos: Number(body.pos ?? 0), text: body.text }),
     };
   });
 

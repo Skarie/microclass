@@ -56,8 +56,8 @@ export class QuizService {
   ) {}
 
   /** 取题：随机打乱；count 指定时随机抽 count 题；仅教师/管理员可见答案 */
-  quiz(viewer: User, lessonId: number, options?: { count?: number }): QuizPayload {
-    const lesson = this.lessonsRepo.findById(lessonId);
+  async quiz(viewer: User, lessonId: number, options?: { count?: number }): Promise<QuizPayload> {
+    const lesson = await this.lessonsRepo.findById(lessonId);
     if (!lesson) throw AppError.notFound('视频单元不存在');
     const all = this.questions.listByLesson(lessonId);
     const count = Number(options?.count ?? 0);
@@ -73,15 +73,15 @@ export class QuizService {
       questions: picked.map((q) => toViewer(q, withAnswer)),
       total: picked.length,
       mode,
-      unlocked: this.lessonService.isQuizUnlocked(viewer, lessonId),
+      unlocked: await this.lessonService.isQuizUnlocked(viewer, lessonId),
     };
   }
 
   /** 提交判分：记录 attempt、更新错题本与课时最佳成绩 */
-  submit(viewer: User, lessonId: number, answers: SubmitItem[], clientId?: string): SubmitResult {
-    const lesson = this.lessonsRepo.findById(lessonId);
+  async submit(viewer: User, lessonId: number, answers: SubmitItem[], clientId?: string): Promise<SubmitResult> {
+    const lesson = await this.lessonsRepo.findById(lessonId);
     if (!lesson) throw AppError.notFound('视频单元不存在');
-    if (!this.lessonService.isQuizUnlocked(viewer, lessonId)) {
+    if (!(await this.lessonService.isQuizUnlocked(viewer, lessonId))) {
       throw AppError.forbidden('请先看完本视频（≥80%）再开始刷题');
     }
 
@@ -147,21 +147,25 @@ export class QuizService {
   }
 
   /** 我的刷题记录 */
-  myAttempts(
+  async myAttempts(
     viewer: User,
     options?: { lessonId?: number; limit?: number },
-  ): {
-    id: number;
-    lesson_id: number;
-    lesson_title: string;
-    score: number;
-    total: number;
-    created_at: number;
-  }[] {
+  ): Promise<
+    {
+      id: number;
+      lesson_id: number;
+      lesson_title: string;
+      score: number;
+      total: number;
+      created_at: number;
+    }[]
+  > {
+    // 课时标题一次查全（lessons 域已 async，逐条 await 会变成 N+1）
+    const titles = new Map((await this.lessonsRepo.listAll()).map((l) => [l.id, l.title]));
     return this.attempts.listByUser(viewer.id, options).map((a) => ({
       id: a.id,
       lesson_id: a.lesson_id,
-      lesson_title: this.lessonsRepo.findById(a.lesson_id)?.title ?? '',
+      lesson_title: titles.get(a.lesson_id) ?? '',
       score: a.score,
       total: a.total,
       created_at: a.created_at,

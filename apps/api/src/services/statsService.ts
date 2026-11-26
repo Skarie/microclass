@@ -31,15 +31,15 @@ export class StatsService {
     private readonly exams: ExamRepository,
   ) {}
 
-  lessonStats(lessonId: number): LessonStats {
-    const lesson = this.lessons.findById(lessonId);
+  async lessonStats(lessonId: number): Promise<LessonStats> {
+    const lesson = await this.lessons.findById(lessonId);
     if (!lesson) throw AppError.notFound('课时不存在');
     const rows = this.stats.lessonRows(lessonId);
     return { lesson: { id: lesson.id, title: lesson.title }, summary: this.stats.lessonSummary(rows), rows };
   }
 
-  lessonStatsCsv(lessonId: number): { filename: string; body: string } {
-    const { lesson, rows } = this.lessonStats(lessonId);
+  async lessonStatsCsv(lessonId: number): Promise<{ filename: string; body: string }> {
+    const { lesson, rows } = await this.lessonStats(lessonId);
     return {
       filename: `${lesson.title}_学习统计.csv`,
       body: toCsv([
@@ -58,7 +58,7 @@ export class StatsService {
   }
 
   /** 课程维度的汇总：每个课时的学生完成情况 */
-  courseStats(courseId: number): {
+  async courseStats(courseId: number): Promise<{
     course: { id: number; name: string };
     summary: {
       lessons: number;
@@ -77,10 +77,10 @@ export class StatsService {
       quiz_rate: number;
       avg_score: number;
     }[];
-  } {
-    const course = this.courses.findById(courseId);
+  }> {
+    const course = await this.courses.findById(courseId);
     if (!course) throw AppError.notFound('课程不存在');
-    const lessons = this.lessons.listByCourse(courseId);
+    const lessons = await this.lessons.listByCourse(courseId);
     const studentCount = this.stats.students().length;
     const rows = lessons.map((l) => {
       const statRows = this.stats.lessonRows(l.id);
@@ -111,8 +111,8 @@ export class StatsService {
     };
   }
 
-  courseStatsCsv(courseId: number): { filename: string; body: string } {
-    const { course, lessons } = this.courseStats(courseId);
+  async courseStatsCsv(courseId: number): Promise<{ filename: string; body: string }> {
+    const { course, lessons } = await this.courseStats(courseId);
     return {
       filename: `${course.name}_课程统计.csv`,
       body: toCsv([

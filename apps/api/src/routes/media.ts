@@ -137,12 +137,12 @@ export async function registerMediaRoutes(app: FastifyInstance, deps: Deps): Pro
     const courseName = (body.courseName ?? '').trim();
     if (courseName) {
       if (courseId !== null) throw AppError.badRequest('courseId 与 courseName 只能二选一');
-      const newId = deps.courseService.create(user, { name: courseName, published: true });
+      const newId = await deps.courseService.create(user, { name: courseName, published: true });
       createdCourse = { id: newId, name: courseName };
       courseId = newId;
     }
 
-    const result = deps.lessonService.importFromFolder(user, {
+    const result = await deps.lessonService.importFromFolder(user, {
       rootId: id,
       path: body.path,
       courseId,

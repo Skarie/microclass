@@ -34,8 +34,11 @@ export class ExamLifecycleService {
   ) {}
 
   /** 课程下的考试列表；学生只看已发布，且带自己的最近成绩 */
-  listForCourse(viewer: User, courseId: number): { course: { id: number; name: string }; exams: unknown[] } {
-    const course = this.courses.findById(courseId);
+  async listForCourse(
+    viewer: User,
+    courseId: number,
+  ): Promise<{ course: { id: number; name: string }; exams: unknown[] }> {
+    const course = await this.courses.findById(courseId);
     if (!course) throw AppError.notFound('课程不存在');
     const isManager = viewer.role === 'admin' || viewer.role === 'teacher';
     const exams = this.exams
@@ -63,8 +66,8 @@ export class ExamLifecycleService {
     return exam;
   }
 
-  create(actor: User, input: ExamDto): number {
-    const prepared = this.prepare(input);
+  async create(actor: User, input: ExamDto): Promise<number> {
+    const prepared = await this.prepare(input);
     const id = this.exams.create(prepared);
     this.audit.write({
       actorId: actor.id,
@@ -77,10 +80,10 @@ export class ExamLifecycleService {
     return id;
   }
 
-  update(actor: User, examId: number, input: ExamDto): void {
+  async update(actor: User, examId: number, input: ExamDto): Promise<void> {
     this.findById(examId);
     this.paperCache.clearPaper(examId);
-    const prepared = this.prepare(input);
+    const prepared = await this.prepare(input);
     this.exams.update(examId, prepared);
     this.audit.write({
       actorId: actor.id,
@@ -105,7 +108,7 @@ export class ExamLifecycleService {
     });
   }
 
-  private prepare(input: ExamDto): {
+  private async prepare(input: ExamDto): Promise<{
     courseId: number;
     title: string;
     description: string;
@@ -118,9 +121,11 @@ export class ExamLifecycleService {
     attemptLimit?: number;
     shuffleQuestions?: boolean;
     showAnswers?: boolean;
-  } {
+  }> {
     const courseId = Number(input.courseId);
-    if (!Number.isInteger(courseId) || !this.courses.findById(courseId)) throw AppError.badRequest('课程不存在');
+    if (!Number.isInteger(courseId) || !(await this.courses.findById(courseId))) {
+      throw AppError.badRequest('课程不存在');
+    }
     const title = String(input.title ?? '').trim();
     if (!title) throw AppError.badRequest('考试标题不能为空');
     const rawDuration = Number(input.durationMinutes);

@@ -21,13 +21,13 @@ export class CourseKnowledgeService {
   ) {}
 
   /** 课程级知识点（按 sort,id） */
-  list(courseId: number): KnowledgeRow[] {
-    if (!this.courses.findById(courseId)) throw AppError.notFound('课程不存在');
+  async list(courseId: number): Promise<KnowledgeRow[]> {
+    if (!(await this.courses.findById(courseId))) throw AppError.notFound('课程不存在');
     return this.knowledge.listByCourse(courseId);
   }
 
-  add(actor: User, courseId: number, input: CourseKnowledgeInput): number {
-    if (!this.courses.findById(courseId)) throw AppError.notFound('课程不存在');
+  async add(actor: User, courseId: number, input: CourseKnowledgeInput): Promise<number> {
+    if (!(await this.courses.findById(courseId))) throw AppError.notFound('课程不存在');
     if (input.kind === 'file') {
       throw AppError.badRequest('课程级知识点暂不支持上传附件，请改为文本或链接，或挂到具体课时下');
     }

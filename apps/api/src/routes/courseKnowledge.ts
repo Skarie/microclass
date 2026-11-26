@@ -22,7 +22,7 @@ export async function registerCourseKnowledgeRoutes(app: FastifyInstance, deps: 
     requireUser(req, reply);
     const id = Number((req.params as { id: string }).id);
     if (Number.isNaN(id)) throw AppError.badRequest('课程 ID 非法');
-    return { knowledge: deps.courseKnowledgeService.list(id) };
+    return { knowledge: await deps.courseKnowledgeService.list(id) };
   });
 
   /** 新建课程级知识点（附件类暂不支持，返回 400 说明） */
@@ -31,7 +31,7 @@ export async function registerCourseKnowledgeRoutes(app: FastifyInstance, deps: 
     const id = Number((req.params as { id: string }).id);
     if (Number.isNaN(id)) throw AppError.badRequest('课程 ID 非法');
     const body = req.body as CourseKnowledgeInput;
-    const knowledgeId = deps.courseKnowledgeService.add(user, id, body);
+    const knowledgeId = await deps.courseKnowledgeService.add(user, id, body);
     return reply.code(201).send({ ok: true, id: knowledgeId });
   });
 

@@ -29,10 +29,12 @@ export class KnowledgeImportService {
     upload: KnowledgeImportUpload,
     dryRun: boolean,
   ): Promise<KnowledgeImportReport> {
-    if (!this.courses.findById(courseId)) throw AppError.notFound('课程不存在');
-    const candidates: LessonCandidate[] = this.lessons
-      .listByCourse(courseId)
-      .map((lesson) => ({ id: lesson.id, title: lesson.title, group_name: lesson.group_name }));
+    if (!(await this.courses.findById(courseId))) throw AppError.notFound('课程不存在');
+    const candidates: LessonCandidate[] = (await this.lessons.listByCourse(courseId)).map((lesson) => ({
+      id: lesson.id,
+      title: lesson.title,
+      group_name: lesson.group_name,
+    }));
 
     const planner = new KnowledgeImportPlanner(candidates, this.knowledge, this.media, dryRun);
     const archives: ZipArchive[] = [];

@@ -2,6 +2,8 @@ import { sortLessonsByChapter } from '../domain/lessonChapterOrder.js';
 /**
  * 课时服务入口：课时列表/详情、增删改、刷题解锁与领域编排。
  * 其它职责已拆到同目录服务，对外方法签名与返回结构不变。
+ *
+ * lessons/courses 域迁到 `AsyncDb` 后，凡落到这两个仓储的方法都改为 async（调用点补 await）。
  */
 import fs from 'node:fs';
 import { AppError, type User } from '@microclass/shared';
@@ -68,12 +70,12 @@ export class LessonService {
     this.order = new LessonOrderService(lessons, courses, audit);
   }
 
-  listForViewer(
+  async listForViewer(
     viewer: User,
     courseId?: number | null,
     options: { chapterOrder?: boolean } = {},
-  ): LessonWithProgress[] {
-    const rows = courseId === undefined ? this.lessons.listAll() : this.lessons.listByCourse(courseId);
+  ): Promise<LessonWithProgress[]> {
+    const rows = courseId === undefined ? await this.lessons.listAll() : await this.lessons.listByCourse(courseId);
     /**
      * 单课程视图按章节序号排（导入顺序常是文件名字典序，会出现「一、三、二」这种乱序）。
      * 管理端要保留老师拖拽后的手动顺序，所以传 chapterOrder: false 关掉。
@@ -82,13 +84,13 @@ export class LessonService {
     return this.lessons.withProgress(ordered, viewer.id);
   }
 
-  detail(
+  async detail(
     viewer: User,
     id: number,
-  ): { lesson: LessonWithProgress; knowledge: KnowledgeRow[]; courseKnowledge: KnowledgeRow[] } {
-    const lesson = this.lessons.findById(id);
+  ): Promise<{ lesson: LessonWithProgress; knowledge: KnowledgeRow[]; courseKnowledge: KnowledgeRow[] }> {
+    const lesson = await this.lessons.findById(id);
     if (!lesson) throw AppError.notFound('视频单元不存在');
-    const [withProgress] = this.lessons.withProgress([lesson], viewer.id);
+    const [withProgress] = await this.lessons.withProgress([lesson], viewer.id);
     return {
       lesson: withProgress ?? { ...lesson, progress: null },
       knowledge: this.knowledgeRepo.listByLesson(id),
@@ -98,30 +100,30 @@ export class LessonService {
   }
 
   /** 本地视频是否已解锁刷题；判定细节见 LessonUnlockService */
-  isQuizUnlocked(viewer: User, lessonId: number): boolean {
+  isQuizUnlocked(viewer: User, lessonId: number): Promise<boolean> {
     return this.unlock.isQuizUnlocked(viewer, lessonId);
   }
 
-  create(actor: User, input: LessonInputDto): number {
+  async create(actor: User, input: LessonInputDto): Promise<number> {
     const normalized = normalizeLessonInput(input);
     this.validate(normalized);
-    const id = this.lessons.create(normalized);
+    const id = await this.lessons.create(normalized);
     this.auditWrite(actor, 'lesson.create', 'lesson', id, { title: normalized.title, videoKind: normalized.videoKind });
     return id;
   }
-  update(actor: User, id: number, input: LessonInputDto): void {
-    const existing = this.lessons.findById(id);
+  async update(actor: User, id: number, input: LessonInputDto): Promise<void> {
+    const existing = await this.lessons.findById(id);
     if (!existing) throw AppError.notFound('视频单元不存在');
     const normalized = normalizeLessonInput(input);
     this.validate(normalized);
-    this.lessons.update(id, normalized);
+    await this.lessons.update(id, normalized);
     this.auditWrite(actor, 'lesson.update', 'lesson', id);
   }
 
-  remove(actor: User, id: number): void {
-    const existing = this.lessons.findById(id);
+  async remove(actor: User, id: number): Promise<void> {
+    const existing = await this.lessons.findById(id);
     if (!existing) throw AppError.notFound('视频单元不存在');
-    this.lessons.delete(id);
+    await this.lessons.delete(id);
     this.auditWrite(actor, 'lesson.delete', 'lesson', id, { title: existing.title });
   }
 
@@ -151,7 +153,7 @@ export class LessonService {
     }
   }
 
-  addKnowledge(actor: User, input: KnowledgeInput): number {
+  addKnowledge(actor: User, input: KnowledgeInput): Promise<number> {
     return this.knowledge.addKnowledge(actor, input);
   }
   removeKnowledge(actor: User, id: number): { filePath: string } {
@@ -160,19 +162,19 @@ export class LessonService {
   updateKnowledge(actor: User, id: number, input: { title?: string; content?: string; url?: string }): void {
     this.knowledge.updateKnowledge(actor, id, input);
   }
-  uploadKnowledgeFile(actor: User, input: UploadKnowledgeFileInput): { id: number; fileName: string } {
+  uploadKnowledgeFile(actor: User, input: UploadKnowledgeFileInput): Promise<{ id: number; fileName: string }> {
     return this.knowledge.uploadKnowledgeFile(actor, input);
   }
-  knowledgeOutline(scope: { courseId?: number; lessonId?: number }): KnowledgeOutline {
+  knowledgeOutline(scope: { courseId?: number; lessonId?: number }): Promise<KnowledgeOutline> {
     return this.knowledgeExport.knowledgeOutline(scope);
   }
-  knowledgeToMarkdown(scope: { courseId?: number; lessonId?: number }): { filename: string; body: string } {
+  knowledgeToMarkdown(scope: { courseId?: number; lessonId?: number }): Promise<{ filename: string; body: string }> {
     return this.knowledgeExport.knowledgeToMarkdown(scope);
   }
-  knowledgeToDocx(scope: { courseId?: number; lessonId?: number }): { filename: string; body: Buffer } {
+  knowledgeToDocx(scope: { courseId?: number; lessonId?: number }): Promise<{ filename: string; body: Buffer }> {
     return this.knowledgeExport.knowledgeToDocx(scope);
   }
-  createFromUpload(actor: User, input: UploadLessonInput): number {
+  createFromUpload(actor: User, input: UploadLessonInput): Promise<number> {
     return this.mediaOps.createFromUpload(actor, input);
   }
   probeMetadata(actor: User, lessonId: number): Promise<LessonProbeResult> {
@@ -187,29 +189,29 @@ export class LessonService {
   probeQueueStatus(): { running: boolean; queued: number } {
     return this.mediaOps.probeQueueStatus();
   }
-  importFromFolder(actor: User, input: ImportFolderInput): ImportFolderResult {
+  importFromFolder(actor: User, input: ImportFolderInput): Promise<ImportFolderResult> {
     return this.folders.importFromFolder(actor, input);
   }
-  courseFolderInfo(courseId: number): CourseFolderInfo | null {
+  courseFolderInfo(courseId: number): Promise<CourseFolderInfo | null> {
     return this.folders.courseFolderInfo(courseId);
   }
   bindCourseFolder(
     actor: User,
     courseId: number,
     input: { rootId: string | null; path?: string },
-  ): CourseFolderInfo | null {
+  ): Promise<CourseFolderInfo | null> {
     return this.folders.bindCourseFolder(actor, courseId, input);
   }
-  scanCourseFolder(actor: User, courseId: number, input: CourseScanInput = {}): CourseScanResult {
+  scanCourseFolder(actor: User, courseId: number, input: CourseScanInput = {}): Promise<CourseScanResult> {
     return this.scans.scanCourseFolder(actor, courseId, input);
   }
   batchAssign(
     actor: User,
     input: { lessonIds: number[]; courseId: number | null; groupName?: string },
-  ): { updated: number; courseId: number | null; groupName: string | null } {
+  ): Promise<{ updated: number; courseId: number | null; groupName: string | null }> {
     return this.order.batchAssign(actor, input);
   }
-  reorderLessons(actor: User, courseId: number, ids: number[]): { updated: number } {
+  reorderLessons(actor: User, courseId: number, ids: number[]): Promise<{ updated: number }> {
     return this.order.reorderLessons(actor, courseId, ids);
   }
 }

@@ -20,19 +20,19 @@ export class LessonKnowledgeExportService {
    * `{ lessonId }` 只导一个课时。文本类知识点导出正文；链接类导出可点链接；
    * 附件类导出文件名（文件本身在课时页下载）。
    */
-  knowledgeOutline(scope: { courseId?: number; lessonId?: number }): KnowledgeOutline {
+  async knowledgeOutline(scope: { courseId?: number; lessonId?: number }): Promise<KnowledgeOutline> {
     let lessons: Lesson[] = [];
     let title = '';
     let courseItems: KnowledgeRow[] = [];
     if (scope.lessonId !== undefined) {
-      const lesson = this.lessons.findById(scope.lessonId);
+      const lesson = await this.lessons.findById(scope.lessonId);
       if (!lesson) throw AppError.notFound('课时不存在');
       lessons = [lesson];
       title = lesson.title;
     } else if (scope.courseId !== undefined) {
-      const course = this.courses.findById(scope.courseId);
+      const course = await this.courses.findById(scope.courseId);
       if (!course) throw AppError.notFound('课程不存在');
-      lessons = this.lessons.listByCourse(scope.courseId);
+      lessons = await this.lessons.listByCourse(scope.courseId);
       courseItems = this.knowledge.listByCourse(scope.courseId);
       title = course.name;
     } else {
@@ -64,8 +64,11 @@ export class LessonKnowledgeExportService {
   }
 
   /** 知识点讲义 → Markdown（课程级共享置顶；课程内再按章节分层；单课时直接列知识点） */
-  knowledgeToMarkdown(scope: { courseId?: number; lessonId?: number }): { filename: string; body: string } {
-    const outline = this.knowledgeOutline(scope);
+  async knowledgeToMarkdown(scope: {
+    courseId?: number;
+    lessonId?: number;
+  }): Promise<{ filename: string; body: string }> {
+    const outline = await this.knowledgeOutline(scope);
     const withChapters = scope.courseId !== undefined;
     const out: string[] = [`# ${outline.title} · 知识点讲义`, '', `> ${outline.subtitle}`, ''];
 
@@ -97,8 +100,8 @@ export class LessonKnowledgeExportService {
   }
 
   /** 知识点讲义 → Word（.docx，课程共享 + 章节/课时分层标题） */
-  knowledgeToDocx(scope: { courseId?: number; lessonId?: number }): { filename: string; body: Buffer } {
-    const outline = this.knowledgeOutline(scope);
+  async knowledgeToDocx(scope: { courseId?: number; lessonId?: number }): Promise<{ filename: string; body: Buffer }> {
+    const outline = await this.knowledgeOutline(scope);
     const withChapters = scope.courseId !== undefined;
     const blocks: DocxBlock[] = [
       { type: 'title', text: `${outline.title} · 知识点讲义` },

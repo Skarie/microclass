@@ -22,7 +22,7 @@ export async function registerLessonRoutes(app: FastifyInstance, deps: Deps): Pr
       if (Number.isNaN(parsed)) throw AppError.badRequest('course 参数非法');
       courseId = parsed;
     }
-    return { lessons: deps.lessonService.listForViewer(user, courseId) };
+    return { lessons: await deps.lessonService.listForViewer(user, courseId) };
   });
 
   app.get('/lessons/:id', async (req, reply) => {
@@ -51,21 +51,21 @@ export async function registerLessonRoutes(app: FastifyInstance, deps: Deps): Pr
   app.post('/lessons', { schema: { body: lessonBodySchema } }, async (req, reply) => {
     const user = requireTeacherOrAdmin(req, reply);
     const body = req.body as LessonInputDto;
-    const id = deps.lessonService.create(user, body);
+    const id = await deps.lessonService.create(user, body);
     return { ok: true, id };
   });
 
   app.put('/lessons/:id', { schema: { body: lessonBodySchema } }, async (req, reply) => {
     const user = requireTeacherOrAdmin(req, reply);
     const id = Number((req.params as { id: string }).id);
-    deps.lessonService.update(user, id, req.body as LessonInputDto);
+    await deps.lessonService.update(user, id, req.body as LessonInputDto);
     return { ok: true };
   });
 
   app.delete('/lessons/:id', async (req, reply) => {
     const user = requireTeacherOrAdmin(req, reply);
     const id = Number((req.params as { id: string }).id);
-    deps.lessonService.remove(user, id);
+    await deps.lessonService.remove(user, id);
     return { ok: true };
   });
 
@@ -120,7 +120,7 @@ export async function registerLessonRoutes(app: FastifyInstance, deps: Deps): Pr
       /* 入队失败不影响上传结果，下一轮巡检还会捞到 */
     }
 
-    const id = deps.lessonService.createFromUpload(user, {
+    const id = await deps.lessonService.createFromUpload(user, {
       title: file.filename,
       // 媒体根「uploads」指向 <dataDir>/uploads/videos，因此入库路径只取文件名
       videoPath: path.basename(saved.relPath),
@@ -145,11 +145,11 @@ export async function registerLessonRoutes(app: FastifyInstance, deps: Deps): Pr
     const lessonIds = raw.map((x) => Number(x)).filter((x) => Number.isInteger(x) && x > 0);
     return {
       ok: true,
-      ...deps.lessonService.batchAssign(user, {
+      ...(await deps.lessonService.batchAssign(user, {
         lessonIds,
         courseId: body?.courseId ?? null,
         ...(body?.groupName === undefined ? {} : { groupName: body.groupName }),
-      }),
+      })),
     };
   });
 
@@ -158,7 +158,7 @@ export async function registerLessonRoutes(app: FastifyInstance, deps: Deps): Pr
     requireTeacherOrAdmin(req, reply);
     const id = Number((req.params as { id: string }).id);
     if (Number.isNaN(id)) throw AppError.badRequest('课时 ID 非法');
-    const { filename, body } = deps.lessonService.knowledgeToMarkdown({ lessonId: id });
+    const { filename, body } = await deps.lessonService.knowledgeToMarkdown({ lessonId: id });
     return reply.headers(textHeaders(filename, 'text/markdown; charset=utf-8')).send(body);
   });
 
@@ -166,7 +166,7 @@ export async function registerLessonRoutes(app: FastifyInstance, deps: Deps): Pr
     requireTeacherOrAdmin(req, reply);
     const id = Number((req.params as { id: string }).id);
     if (Number.isNaN(id)) throw AppError.badRequest('课时 ID 非法');
-    const { filename, body } = deps.lessonService.knowledgeToDocx({ lessonId: id });
+    const { filename, body } = await deps.lessonService.knowledgeToDocx({ lessonId: id });
     return reply.headers(docxHeaders(filename)).send(body);
   });
 
@@ -174,7 +174,7 @@ export async function registerLessonRoutes(app: FastifyInstance, deps: Deps): Pr
   app.get('/lessons/:id/video', async (req, reply) => {
     requireUser(req, reply);
     const id = Number((req.params as { id: string }).id);
-    const lesson = deps.lessons.findById(id);
+    const lesson = await deps.lessons.findById(id);
     if (!lesson) throw AppError.notFound('视频不存在');
     if (lesson.video_kind !== 'local') throw AppError.badRequest('该课时不是本地视频');
     const { abs } = deps.media.resolve(lesson.media_root, lesson.video_path);
@@ -200,7 +200,7 @@ export async function registerLessonRoutes(app: FastifyInstance, deps: Deps): Pr
   app.get('/lessons/:id/video-sources', async (req, reply) => {
     requireUser(req, reply);
     const id = Number((req.params as { id: string }).id);
-    const lesson = deps.lessons.findById(id);
+    const lesson = await deps.lessons.findById(id);
     if (!lesson || lesson.video_kind !== 'local') return { mp4: null, hls: null };
     const { abs } = deps.media.resolve(lesson.media_root, lesson.video_path);
     const hlsReady = deps.faststart.hlsReady(abs);
@@ -214,7 +214,7 @@ export async function registerLessonRoutes(app: FastifyInstance, deps: Deps): Pr
   app.get('/lessons/:id/hls/:file', async (req, reply) => {
     requireUser(req, reply);
     const id = Number((req.params as { id: string }).id);
-    const lesson = deps.lessons.findById(id);
+    const lesson = await deps.lessons.findById(id);
     if (!lesson || lesson.video_kind !== 'local') throw AppError.notFound('视频不存在');
     const { abs } = deps.media.resolve(lesson.media_root, lesson.video_path);
     const dir = deps.faststart.hlsReady(abs);
@@ -256,7 +256,7 @@ export async function registerLessonRoutes(app: FastifyInstance, deps: Deps): Pr
   app.get('/lesson-covers/:id', async (req, reply) => {
     requireUser(req, reply);
     const id = Number((req.params as { id: string }).id);
-    const lesson = deps.lessons.findById(id);
+    const lesson = await deps.lessons.findById(id);
     if (!lesson || !lesson.cover_path) throw AppError.notFound('封面不存在');
     const abs = deps.storage.resolve(lesson.cover_path);
     if (!abs || !fs.existsSync(abs)) throw AppError.notFound('封面文件已被移除');

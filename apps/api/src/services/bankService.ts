@@ -84,8 +84,8 @@ export class BankService {
   async create(actor: User, input: BankDto): Promise<number> {
     const name = (input.name ?? '').trim();
     if (!name) throw AppError.badRequest('题库名称不能为空');
-    const lessonId = resolveLessonId(this.lessons, input.lessonId);
-    const lesson = lessonId === null ? undefined : this.lessons.findById(lessonId);
+    const lessonId = await resolveLessonId(this.lessons, input.lessonId);
+    const lesson = lessonId === null ? undefined : await this.lessons.findById(lessonId);
     // 课程归属：显式 courseId 优先；否则有课时就跟课时的课程；都没有则不归属。
     const explicitCourse =
       input.courseId === undefined ? undefined : input.courseId === null ? null : Number(input.courseId);
@@ -116,8 +116,8 @@ export class BankService {
     if (!bank) throw AppError.notFound('题库不存在');
     const name = (input.name ?? '').trim();
     if (!name) throw AppError.badRequest('题库名称不能为空');
-    const lessonId = resolveLessonId(this.lessons, input.lessonId);
-    const lesson = lessonId === null ? undefined : this.lessons.findById(lessonId);
+    const lessonId = await resolveLessonId(this.lessons, input.lessonId);
+    const lesson = lessonId === null ? undefined : await this.lessons.findById(lessonId);
     // 课程归属：显式 courseId 优先；否则课时变了就跟课时的课程；都没动则保持原值。
     const explicitCourse =
       input.courseId === undefined ? undefined : input.courseId === null ? null : Number(input.courseId);

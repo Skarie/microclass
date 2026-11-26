@@ -25,7 +25,7 @@ export async function registerQuizRoutes(app: FastifyInstance, deps: Deps): Prom
     const body = req.body as { answers?: SubmitItem[]; clientId?: string };
     const answers = Array.isArray(body?.answers) ? body.answers : [];
     if (answers.length === 0) throw AppError.badRequest('请先作答再提交');
-    const result = deps.quizService.submit(user, lessonId, answers, body.clientId);
+    const result = await deps.quizService.submit(user, lessonId, answers, body.clientId);
     return { ok: true, ...result };
   });
 
@@ -36,7 +36,7 @@ export async function registerQuizRoutes(app: FastifyInstance, deps: Deps): Prom
     const lessonId = q.lesson ? parseId(q.lesson, 'lesson 参数非法') : undefined;
     const limit = q.limit ? Number.parseInt(q.limit, 10) : undefined;
     return {
-      attempts: deps.quizService.myAttempts(user, {
+      attempts: await deps.quizService.myAttempts(user, {
         ...(lessonId === undefined ? {} : { lessonId }),
         ...(limit === undefined || Number.isNaN(limit) ? {} : { limit }),
       }),

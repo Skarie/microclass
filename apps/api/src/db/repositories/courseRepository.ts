@@ -1,8 +1,12 @@
 /**
  * 课程与分类仓储。
+ *
+ * P0 阶段 2（lessons/courses 域）：读写统一走 `AsyncDb`（sqlite / PG 双栈），
+ * 自增改 `INSERT … RETURNING id`，多语句改 `AsyncDb.transaction(async tx)`。
  */
 import type { Category, Course } from '@microclass/shared';
 import type { Db } from '../client.js';
+import { createSqliteAsyncDb, type AsyncDb } from '../async.js';
 
 export interface CourseAggregate extends Course {
   category_name: string;
@@ -21,23 +25,32 @@ export interface CourseInput {
 }
 
 export class CourseRepository {
-  constructor(private readonly db: Db) {}
+  /** 已迁移域：读写都走 asyncDb；测试没注入时退回 sqlite 包装（与 BankRepository 一致） */
+  constructor(
+    private readonly db: Db,
+    private readonly asyncDb?: AsyncDb,
+  ) {}
 
-  listAll(): Course[] {
-    return this.db.all<Course>('SELECT * FROM courses ORDER BY sort, id');
+  private adb(): AsyncDb {
+    return this.asyncDb ?? createSqliteAsyncDb(this.db);
   }
 
-  listPublished(): Course[] {
-    return this.db.all<Course>('SELECT * FROM courses WHERE published = 1 ORDER BY sort, id');
+  async listAll(): Promise<Course[]> {
+    return this.adb().all<Course>('SELECT * FROM courses ORDER BY sort, id');
   }
 
-  findById(id: number): Course | undefined {
-    return this.db.get<Course>('SELECT * FROM courses WHERE id = ?', [id]);
+  async listPublished(): Promise<Course[]> {
+    return this.adb().all<Course>('SELECT * FROM courses WHERE published = 1 ORDER BY sort, id');
   }
 
-  create(input: CourseInput): number {
-    const info = this.db.run(
-      'INSERT INTO courses (name, description, sort, category_id, published) VALUES (?,?,?,?,?)',
+  async findById(id: number): Promise<Course | undefined> {
+    return this.adb().get<Course>('SELECT * FROM courses WHERE id = ?', [id]);
+  }
+
+  /** 新建课程：`RETURNING id`（不依赖 lastInsertRowid，sqlite / PG 同一句 SQL） */
+  async create(input: CourseInput): Promise<number> {
+    const row = await this.adb().get<{ id: number }>(
+      'INSERT INTO courses (name, description, sort, category_id, published) VALUES (?,?,?,?,?) RETURNING id',
       [
         input.name,
         input.description ?? '',
@@ -46,38 +59,42 @@ export class CourseRepository {
         input.published === false ? 0 : 1,
       ],
     );
-    return info.lastInsertRowid;
+    if (!row) throw new Error('创建课程后未返回 id');
+    return row.id;
   }
 
-  update(id: number, input: CourseInput): void {
-    this.db.run('UPDATE courses SET name = ?, description = ?, sort = ?, category_id = ?, published = ? WHERE id = ?', [
-      input.name,
-      input.description ?? '',
-      input.sort ?? 0,
-      input.categoryId ?? null,
-      input.published === false ? 0 : 1,
-      id,
-    ]);
+  async update(id: number, input: CourseInput): Promise<void> {
+    await this.adb().run(
+      'UPDATE courses SET name = ?, description = ?, sort = ?, category_id = ?, published = ? WHERE id = ?',
+      [
+        input.name,
+        input.description ?? '',
+        input.sort ?? 0,
+        input.categoryId ?? null,
+        input.published === false ? 0 : 1,
+        id,
+      ],
+    );
   }
 
-  /** 删除课程：课时回到“未归类”，不级联删数据 */
-  delete(id: number): void {
-    this.db.transaction(() => {
-      this.db.run('UPDATE lessons SET course_id = NULL WHERE course_id = ?', [id]);
-      this.db.run('DELETE FROM courses WHERE id = ?', [id]);
+  /** 删除课程：课时回到“未归类”，不级联删数据；同事务 */
+  async delete(id: number): Promise<void> {
+    await this.adb().transaction(async (tx) => {
+      await tx.run('UPDATE lessons SET course_id = NULL WHERE course_id = ?', [id]);
+      await tx.run('DELETE FROM courses WHERE id = ?', [id]);
     });
   }
 
-  setCover(id: number, coverRelPath: string): void {
-    this.db.run('UPDATE courses SET cover = ? WHERE id = ?', [coverRelPath, id]);
+  async setCover(id: number, coverRelPath: string): Promise<void> {
+    await this.adb().run('UPDATE courses SET cover = ? WHERE id = ?', [coverRelPath, id]);
   }
 
   /**
    * 绑定 / 解绑课程文件夹（rootId 为 null 即解绑）。
    * 绑定后课程课时管理页的「扫描」就以这个目录为准。
    */
-  setFolder(id: number, rootId: string | null, folderPath: string | null): void {
-    this.db.run('UPDATE courses SET folder_root_id = ?, folder_path = ?, last_scan_at = NULL WHERE id = ?', [
+  async setFolder(id: number, rootId: string | null, folderPath: string | null): Promise<void> {
+    await this.adb().run('UPDATE courses SET folder_root_id = ?, folder_path = ?, last_scan_at = NULL WHERE id = ?', [
       rootId,
       folderPath,
       id,
@@ -85,33 +102,40 @@ export class CourseRepository {
   }
 
   /** 记录扫描时间（Unix 秒） */
-  markScanned(id: number): void {
-    this.db.run('UPDATE courses SET last_scan_at = ? WHERE id = ?', [Math.floor(Date.now() / 1000), id]);
+  async markScanned(id: number): Promise<void> {
+    await this.adb().run('UPDATE courses SET last_scan_at = ? WHERE id = ?', [Math.floor(Date.now() / 1000), id]);
   }
 
   /** 找出已经绑定到该文件夹的其他课程（避免同一目录被两门课程抢占） */
-  findFolderOwner(rootId: string, folderPath: string, excludeCourseId: number): Course | undefined {
-    return this.db.get<Course>(
-      'SELECT * FROM courses WHERE folder_root_id = ? AND IFNULL(folder_path, ?) = ? AND id <> ? LIMIT 1',
+  async findFolderOwner(rootId: string, folderPath: string, excludeCourseId: number): Promise<Course | undefined> {
+    // COALESCE 而不是 IFNULL：PostgreSQL 没有 IFNULL，两库都认 COALESCE
+    return this.adb().get<Course>(
+      'SELECT * FROM courses WHERE folder_root_id = ? AND COALESCE(folder_path, ?) = ? AND id <> ? LIMIT 1',
       [rootId, folderPath, folderPath, excludeCourseId],
     );
   }
 
   /** 课程 + 分类名 + 课时统计 + 当前用户进度/收藏聚合 */
-  aggregate(options: { forUserId: number; includeDrafts: boolean; onlyPublished?: boolean }): CourseAggregate[] {
-    const rows = options.includeDrafts ? this.listAll() : this.listPublished();
-    const lessons = this.db.all<{ id: number; course_id: number | null }>('SELECT id, course_id FROM lessons');
-    const progress = this.db.all<{ lesson_id: number; finished: number; quiz_done: number }>(
+  async aggregate(options: {
+    forUserId: number;
+    includeDrafts: boolean;
+    onlyPublished?: boolean;
+  }): Promise<CourseAggregate[]> {
+    const rows = options.includeDrafts ? await this.listAll() : await this.listPublished();
+    const lessons = await this.adb().all<{ id: number; course_id: number | null }>('SELECT id, course_id FROM lessons');
+    const progress = await this.adb().all<{ lesson_id: number; finished: number; quiz_done: number }>(
       'SELECT lesson_id, finished, quiz_done FROM lesson_progress WHERE user_id = ?',
       [options.forUserId],
     );
     const pmap = new Map(progress.map((p) => [p.lesson_id, p]));
     const favs = new Set(
-      this.db
-        .all<{ course_id: number }>('SELECT course_id FROM favorites WHERE user_id = ?', [options.forUserId])
-        .map((f) => f.course_id),
+      (
+        await this.adb().all<{ course_id: number }>('SELECT course_id FROM favorites WHERE user_id = ?', [
+          options.forUserId,
+        ])
+      ).map((f) => f.course_id),
     );
-    const cats = new Map(this.listCategories().map((c) => [c.id, c.name]));
+    const cats = new Map((await this.listCategories()).map((c) => [c.id, c.name]));
 
     const byCourse = new Map<number, number[]>();
     for (const l of lessons) {
@@ -143,12 +167,12 @@ export class CourseRepository {
   }
 
   /** 未归类课时聚合（course_id IS NULL） */
-  orphanAggregate(forUserId: number): { total: number; finished: number; quiz: number } {
-    const rows = this.db.all<{ id: number }>('SELECT id FROM lessons WHERE course_id IS NULL');
+  async orphanAggregate(forUserId: number): Promise<{ total: number; finished: number; quiz: number }> {
+    const rows = await this.adb().all<{ id: number }>('SELECT id FROM lessons WHERE course_id IS NULL');
     const ids = rows.map((r) => r.id);
     if (ids.length === 0) return { total: 0, finished: 0, quiz: 0 };
     const placeholders = ids.map(() => '?').join(',');
-    const p = this.db.get<{ finished: number; quiz: number }>(
+    const p = await this.adb().get<{ finished: number; quiz: number }>(
       `SELECT SUM(CASE WHEN finished = 1 THEN 1 ELSE 0 END) AS finished,
               SUM(CASE WHEN quiz_done = 1 THEN 1 ELSE 0 END) AS quiz
        FROM lesson_progress WHERE user_id = ? AND lesson_id IN (${placeholders})`,
@@ -157,37 +181,48 @@ export class CourseRepository {
     return { total: ids.length, finished: p?.finished ?? 0, quiz: p?.quiz ?? 0 };
   }
 
-  toggleFavorite(userId: number, courseId: number): boolean {
-    const exists = this.db.get('SELECT 1 AS x FROM favorites WHERE user_id = ? AND course_id = ?', [userId, courseId]);
-    if (exists) {
-      this.db.run('DELETE FROM favorites WHERE user_id = ? AND course_id = ?', [userId, courseId]);
-      return false;
-    }
-    this.db.run('INSERT INTO favorites (user_id, course_id) VALUES (?,?)', [userId, courseId]);
-    return true;
+  /** 收藏开关：先查再写放在同一事务里，避免并发下重复插入/删空 */
+  async toggleFavorite(userId: number, courseId: number): Promise<boolean> {
+    return this.adb().transaction(async (tx) => {
+      const exists = await tx.get('SELECT 1 AS x FROM favorites WHERE user_id = ? AND course_id = ?', [
+        userId,
+        courseId,
+      ]);
+      if (exists) {
+        await tx.run('DELETE FROM favorites WHERE user_id = ? AND course_id = ?', [userId, courseId]);
+        return false;
+      }
+      await tx.run('INSERT INTO favorites (user_id, course_id) VALUES (?,?)', [userId, courseId]);
+      return true;
+    });
   }
 
-  isFavorite(userId: number, courseId: number): boolean {
-    return !!this.db.get('SELECT 1 AS x FROM favorites WHERE user_id = ? AND course_id = ?', [userId, courseId]);
+  async isFavorite(userId: number, courseId: number): Promise<boolean> {
+    return !!(await this.adb().get('SELECT 1 AS x FROM favorites WHERE user_id = ? AND course_id = ?', [
+      userId,
+      courseId,
+    ]));
   }
 
   // ---- 分类 ----
-  listCategories(): Category[] {
-    return this.db.all<Category>('SELECT * FROM categories ORDER BY sort, id');
+  async listCategories(): Promise<Category[]> {
+    return this.adb().all<Category>('SELECT * FROM categories ORDER BY sort, id');
   }
 
-  createCategory(name: string): number {
-    return this.db.run('INSERT INTO categories (name) VALUES (?)', [name]).lastInsertRowid;
+  async createCategory(name: string): Promise<number> {
+    const row = await this.adb().get<{ id: number }>('INSERT INTO categories (name) VALUES (?) RETURNING id', [name]);
+    if (!row) throw new Error('创建分类后未返回 id');
+    return row.id;
   }
 
-  findCategoryByName(name: string): Category | undefined {
-    return this.db.get<Category>('SELECT * FROM categories WHERE name = ?', [name]);
+  async findCategoryByName(name: string): Promise<Category | undefined> {
+    return this.adb().get<Category>('SELECT * FROM categories WHERE name = ?', [name]);
   }
 
-  deleteCategory(id: number): void {
-    this.db.transaction(() => {
-      this.db.run('UPDATE courses SET category_id = NULL WHERE category_id = ?', [id]);
-      this.db.run('DELETE FROM categories WHERE id = ?', [id]);
+  async deleteCategory(id: number): Promise<void> {
+    await this.adb().transaction(async (tx) => {
+      await tx.run('UPDATE courses SET category_id = NULL WHERE category_id = ?', [id]);
+      await tx.run('DELETE FROM categories WHERE id = ?', [id]);
     });
   }
 }

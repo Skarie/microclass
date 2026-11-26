@@ -19,8 +19,8 @@ export class LessonUnlockService {
    *   2. 去重后的观看区间总时长 / 视频总时长 ≥ 80%（总时长优先用 ffprobe 抽的 duration）；
    *   3. 回退到单一播放位置（历史数据或前端未上报区间时）。
    */
-  isQuizUnlocked(viewer: User, lessonId: number): boolean {
-    const lesson = this.lessons.findById(lessonId);
+  async isQuizUnlocked(viewer: User, lessonId: number): Promise<boolean> {
+    const lesson = await this.lessons.findById(lessonId);
     if (!lesson) throw AppError.notFound('视频单元不存在');
     if (lesson.video_kind !== 'local') return true;
     if (viewer.role === 'admin' || viewer.role === 'teacher') return true;

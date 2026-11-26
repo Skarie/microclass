@@ -36,7 +36,7 @@ export async function registerProgressRoutes(app: FastifyInstance, deps: Deps): 
     async (req, reply) => {
       const user = requireUser(req, reply);
       const body = req.body as { lessonId: number; position: number; duration: number; finished?: boolean };
-      if (!deps.lessons.findById(body.lessonId)) throw AppError.notFound('视频单元不存在');
+      if (!(await deps.lessons.findById(body.lessonId))) throw AppError.notFound('视频单元不存在');
       deps.progress.upsert({
         userId: user.id,
         lessonId: body.lessonId,
@@ -91,7 +91,7 @@ export async function registerProgressRoutes(app: FastifyInstance, deps: Deps): 
         finished?: boolean;
         intervals: { start: number; end: number }[];
       };
-      const lesson = deps.lessons.findById(body.lessonId);
+      const lesson = await deps.lessons.findById(body.lessonId);
       if (!lesson) throw AppError.notFound('视频单元不存在');
 
       const segments = mergeIntervals(
@@ -132,14 +132,14 @@ export async function registerProgressRoutes(app: FastifyInstance, deps: Deps): 
     if (Number.isNaN(lessonId)) throw AppError.badRequest('lesson 参数非法');
     const intervals = deps.watchIntervals.list(user.id, lessonId);
     const covered = deps.watchIntervals.covered(user.id, lessonId);
-    const lesson = deps.lessons.findById(lessonId);
+    const lesson = await deps.lessons.findById(lessonId);
     const duration = lesson?.duration ?? deps.progress.get(user.id, lessonId)?.duration ?? 0;
     return {
       intervals: intervals.map((i) => ({ start: i.start_sec, end: i.end_sec })),
       coveredSeconds: covered,
       duration,
       percent: duration > 0 ? Math.min(100, Math.round((covered / duration) * 100)) : 0,
-      quizUnlocked: deps.lessonService.isQuizUnlocked(user, lessonId),
+      quizUnlocked: await deps.lessonService.isQuizUnlocked(user, lessonId),
     };
   });
 

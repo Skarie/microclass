@@ -25,18 +25,18 @@ export class ExamParallelService {
     return { exams: this.exams, questions: this.questions, audit: this.audit };
   }
 
-  parallelPaper(
+  async parallelPaper(
     actor: User,
     examId: number,
     input: { title?: string; scope?: 'course' | 'all'; replaceExisting?: boolean } = {},
-  ): {
+  ): Promise<{
     examId: number;
     title: string;
     requested: number;
     matched: number;
     shortfall: number;
     detail: { index: number; type: string; level: string; point: string; from: number; to: number | null }[];
-  } {
+  }> {
     const source = this.lifecycle.findById(examId);
     const questions = this.exams.listQuestions(examId);
     if (questions.length === 0) throw AppError.badRequest('原卷里还没有题目，无法生成平行卷');
@@ -44,7 +44,7 @@ export class ExamParallelService {
     const scope: 'course' | 'all' = input.scope === 'all' ? 'all' : 'course';
     const scopeCourseId = scope === 'all' ? undefined : source.course_id;
 
-    const newId = this.lifecycle.create(actor, {
+    const newId = await this.lifecycle.create(actor, {
       courseId: source.course_id,
       title: (input.title ?? '').trim() !== '' ? String(input.title) : `${source.title}（平行卷）`,
       description: source.description,

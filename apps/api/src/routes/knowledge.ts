@@ -41,7 +41,7 @@ export async function registerKnowledgeRoutes(app: FastifyInstance, deps: Deps):
       fileName?: string;
       filePath?: string;
     };
-    const knowledgeId = deps.lessonService.addKnowledge(user, { ...body, lessonId: id });
+    const knowledgeId = await deps.lessonService.addKnowledge(user, { ...body, lessonId: id });
     return { ok: true, id: knowledgeId };
   });
 
@@ -52,7 +52,7 @@ export async function registerKnowledgeRoutes(app: FastifyInstance, deps: Deps):
     const file = await req.file();
     if (!file) throw AppError.badRequest('请选择要上传的文件');
     const data = await file.toBuffer();
-    const saved = deps.lessonService.uploadKnowledgeFile(user, {
+    const saved = await deps.lessonService.uploadKnowledgeFile(user, {
       lessonId: id,
       fileName: file.filename,
       data,

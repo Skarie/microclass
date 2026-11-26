@@ -76,7 +76,7 @@ export async function registerPracticeLinkRoutes(app: FastifyInstance, deps: Dep
   app.patch('/practice-links/:id', { schema: { body: updateBodySchema } }, async (req, reply) => {
     const actor = requireTeacherOrAdmin(req, reply);
     const body = req.body as { lessonIds: number[] };
-    return { link: service.update(actor, idOf(req), body.lessonIds) };
+    return { link: await service.update(actor, idOf(req), body.lessonIds) };
   });
 
   app.delete('/practice-links/:id', async (req, reply) => {

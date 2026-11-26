@@ -26,7 +26,7 @@ export async function registerExamCrudRoutes(app: FastifyInstance, deps: Deps): 
 
   app.post('/exams', { schema: { body: examBodySchema } }, async (req, reply) => {
     const user = requireTeacherOrAdmin(req, reply);
-    return { ok: true, id: deps.examService.create(user, req.body as ExamDto) };
+    return { ok: true, id: await deps.examService.create(user, req.body as ExamDto) };
   });
 
   app.get('/exams/:id', async (req, reply) => {
@@ -38,7 +38,7 @@ export async function registerExamCrudRoutes(app: FastifyInstance, deps: Deps): 
 
   app.put('/exams/:id', { schema: { body: examBodySchema } }, async (req, reply) => {
     const user = requireTeacherOrAdmin(req, reply);
-    deps.examService.update(user, examIdOf(req), req.body as ExamDto);
+    await deps.examService.update(user, examIdOf(req), req.body as ExamDto);
     return { ok: true };
   });
 

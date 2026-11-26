@@ -113,14 +113,15 @@ export interface BuiltApp {
 }
 
 export function buildDeps(config: AppConfig, db: Db, options?: { inlineHealthRunner?: boolean }): Deps {
+  const asyncDb = getAsyncDb(config, db); // 已迁移域统一走异步端口（PG 模式必须用它）
   const users = new UserRepository(db);
-  const settings = new SettingsRepository(getAsyncDb(config, db));
+  const settings = new SettingsRepository(asyncDb);
   const audit = new AuditRepository(db);
-  const courses = new CourseRepository(db);
-  const lessons = new LessonRepository(db);
+  const courses = new CourseRepository(db, asyncDb);
+  const lessons = new LessonRepository(db, asyncDb);
   const knowledge = new KnowledgeRepository(db);
   const progress = new ProgressRepository(db);
-  const banks = new BankRepository(db);
+  const banks = new BankRepository(db, asyncDb);
   const questions = new QuestionRepository(db);
   const questionConflicts = new QuestionConflictRepository(db);
   const attempts = new AttemptRepository(db);

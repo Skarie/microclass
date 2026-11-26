@@ -31,8 +31,8 @@ export class LessonFolderService {
   ) {}
 
   /** 当前课程绑定的文件夹信息；未绑定返回 null */
-  courseFolderInfo(courseId: number): CourseFolderInfo | null {
-    const course = this.courses.findById(courseId);
+  async courseFolderInfo(courseId: number): Promise<CourseFolderInfo | null> {
+    const course = await this.courses.findById(courseId);
     if (!course || !course.folder_root_id) return null;
     const root = this.media.list().find((r) => r.id === course.folder_root_id);
     return {
@@ -49,16 +49,16 @@ export class LessonFolderService {
    * 绑定只是记下目录，不导入任何课时 —— 导入由 `scanCourseFolder` 完成，
    * 这样「先建课程、再选目录、最后扫描」三步各自可控。
    */
-  bindCourseFolder(
+  async bindCourseFolder(
     actor: User,
     courseId: number,
     input: { rootId: string | null; path?: string },
-  ): CourseFolderInfo | null {
-    const course = this.courses.findById(courseId);
+  ): Promise<CourseFolderInfo | null> {
+    const course = await this.courses.findById(courseId);
     if (!course) throw AppError.notFound('课程不存在');
 
     if (input.rootId === null || input.rootId === undefined) {
-      this.courses.setFolder(courseId, null, null);
+      await this.courses.setFolder(courseId, null, null);
       this.audit.write({
         actorId: actor.id,
         actorName: actor.username,
@@ -82,10 +82,10 @@ export class LessonFolderService {
     if (!fs.existsSync(abs) || !fs.statSync(abs).isDirectory()) {
       throw AppError.badRequest(`文件夹不存在或不可访问：${rel === '' ? root.path : `${root.path}/${rel}`}`);
     }
-    const owner = this.courses.findFolderOwner(root.id, rel, courseId);
+    const owner = await this.courses.findFolderOwner(root.id, rel, courseId);
     if (owner) throw AppError.conflict(`该文件夹已绑定到课程「${owner.name}」，一个文件夹只能对应一门课程`);
 
-    this.courses.setFolder(courseId, root.id, rel);
+    await this.courses.setFolder(courseId, root.id, rel);
     this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
@@ -108,7 +108,7 @@ export class LessonFolderService {
    *   - `skip`（默认）：已存在同路径课时就跳过，计数进 `skipped`；
    *   - `assign`：把这些**已存在**的课时收编到目标课程（并统一章节），计数进 `assigned`。
    */
-  importFromFolder(actor: User, input: ImportFolderInput): ImportFolderResult {
+  async importFromFolder(actor: User, input: ImportFolderInput): Promise<ImportFolderResult> {
     const rel = trimFolderPath(input.path);
     // 选中的文件夹名（作为其直接下属视频的章节名）
     const selfName = folderSelfName(rel);
@@ -124,11 +124,11 @@ export class LessonFolderService {
       const videos = naturalSort(folder.videos);
       for (const fileName of videos) {
         const videoPath = folder.folder ? `${folder.folder}/${fileName}` : fileName;
-        const existing = this.lessons.findLocalByMediaPath(input.rootId, videoPath);
+        const existing = await this.lessons.findLocalByMediaPath(input.rootId, videoPath);
         if (existing) {
           if (claimExisting) {
             // 收编：把已存在的课时改绑到目标课程，并统一章节名
-            this.lessons.batchAssign([existing.id], courseId, chapter);
+            await this.lessons.batchAssign([existing.id], courseId, chapter);
             assigned++;
           } else {
             skipped++;
@@ -136,7 +136,7 @@ export class LessonFolderService {
           continue;
         }
         const title = fileName.replace(/\.[^.]+$/, '');
-        this.lessons.create({
+        await this.lessons.create({
           title,
           videoKind: 'local',
           mediaRoot: input.rootId,
