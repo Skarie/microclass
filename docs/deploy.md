@@ -974,3 +974,37 @@ tail -f /var/log/microclass-watchdog.log
 
 > 说明：NVMe 副本上热页命中率高，差异会被掩盖；机械盘（生产 `/vol1`）上收益更明显。
 > 生产验证只看「不再出现 healthz 超时」与 `iostat` 读放大下降，不做压测。
+>
+> ⚠️ **禁止用 NVMe 做验证**（2026-11-27 用户要求）：所有数据/副本一律在 `/vol1` 机械盘；
+> 在 NVMe 上测「不卡」会掩盖机械盘冷页问题（2.4.0 就是这样漏掉的）。
+
+## 11. 部署预热（必须做，2.4.1 起内置）
+
+**为什么**：SQLite 在机械盘上冷页很贵。2.4.1 部署后首次 `GET /api/v1/banks/catalog` 实测 **54.6 s**
+（`mmap_size=256MB` 下走普通 read，逐页缺页），期间 Node 事件循环被占住，用户会以为站点挂了。
+
+**做法**：`redeploy.sh` 在 `readyz=200` 之后、宣布成功之前，**顺序**打这几个重接口（每接口超时 180 s，
+失败只告警不阻断），把页缓存焐热；随后再跑一次热态探针。
+
+```
+预热 /api/v1/banks/catalog
+预热 /api/v1/banks/catalog-sections?view=book
+预热 /api/v1/courses
+预热 /api/v1/settings
+预热 /api/v1/announcements
+热态探针：healthz=200/0.002s courses=401/0.002s   # 401 是未登录，属预期
+```
+
+实测（2.4.1，NAS，2026-11-27 23:20）：容器 recreate → readyz 2 s → 5 个预热接口各 1.5–3.2 ms
+（此时页缓存已热）→ 部署完成。**用户首访已是热态。**
+
+**手动预热**（不重新部署时）：
+
+```bash
+for p in /api/v1/banks/catalog '/api/v1/banks/catalog-sections?view=book' /api/v1/courses /api/v1/settings /api/v1/announcements; do
+  curl -s -o /dev/null -w "$p %{time_total}s\n" -m 180 "http://127.0.0.1:8091$p"
+done
+```
+
+> 冷启动后如果跳过预热直接压测关键接口，测到的会是「冷页代价」而不是性能问题 ——
+> 切流验证清单里必须先预热再测。
