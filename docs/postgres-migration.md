@@ -284,8 +284,9 @@ Test Files  1 passed (1)
 
 **硬性约定**：
 
-1. **预发实例的数据副本放 NVMe**（`/var/lib/mc-preprod-data`），不要放 `/vol1`；
-   预发启动时读 1.2 GB sqlite 副本足以把机械盘打到 99% util。
+1. **禁止使用 NVMe**（用户要求，2026-11-27）：所有数据、副本、PG 一律在 `/vol1` 机械盘。
+   历史上的 `/var/lib/mc-preprod-data` 已删除 —— 在 NVMe 副本上做验证会掩盖机械盘冷页问题（2.4.0 就是这么漏掉的）。
+   验证方式改为「低峰受控发布 + 立即按真实路径验证 + 快速回滚」，不再起第二份副本。
 2. **重活只在 01:00–06:00 跑**：PG 重装（`load-pg.sh`）、`pg_dump` 全库备份、全表聚合体检、大批量导入。
 3. **预发前先过 IO 门槛**（util > 70% 直接退出）：
 
@@ -309,8 +310,8 @@ Test Files  1 passed (1)
    ✗ /vol1 当前 util=100%（> 70%），为避免拖慢生产，本次预发取消
    ```
 
-4. 预发脚本模板（`build/pg-migration/preprod-*.sh`，不入库）：起容器前先跑 `guard-io.sh`，
-   数据目录用 NVMe 副本，结束后 `docker rm -f` 立即清理。
+4. 验证脚本模板（`build/pg-migration/*.sh`，不入库）：动手前先跑 `guard-io.sh`；**不得把数据放到 NVMe**；
+   结束后立即 `docker rm -f` 清理容器。
 
 ### 12.1 「本机不再跑预发」检查清单（跑之前逐条确认）
 

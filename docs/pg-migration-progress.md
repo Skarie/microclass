@@ -79,7 +79,8 @@ await this.adb().transaction(async (tx) => {
 
 1. **不要在同一台 NAS 上起预发容器**、不要并行打 8091/8097、不要读生产库做对比 ——
    2026-11-26 因此发生 3 次生产卡顿（02:57 / 03:48 / 04:38）。检查清单见 `docs/postgres-migration.md` §12.1
-2. 预发数据副本放 NVMe（`/var/lib/mc-preprod-data`），不要放 `/vol1`
+2. **禁止 NVMe**（用户要求 2026-11-27）：数据/副本/PG 全在 `/vol1`；`/var/lib/mc-preprod-data` 已删除。
+   在 NVMe 上验证会掩盖机械盘冷页问题（2.4.0 的教训），验证改为「低峰发布 + 真实路径验证 + 快速回滚」
 3. 重活（PG 重装、`pg_dump`、全量聚合体检）只在 01:00–06:00 跑
 4. 部署后若 5 分钟内出现两次 healthcheck 超时 → 立即回滚并停手
 5. 切流前不要 `MC_DB=pg` 跑任何环境（会形成部分域 PG + 部分域 SQLite 的混合写路径，跨库事务不可用）
@@ -106,9 +107,9 @@ await this.adb().transaction(async (tx) => {
 **现象特征**：2.4.0 下 `courses`、`banks?limit=5` 正常且很快，但**一旦请求 `banks/catalog` 等接口，
 后续所有请求（含纯内存的 `/settings`、8092 代理）全部超时** → 事件循环被同步操作卡死，不是单接口慢。
 
-### 7.1.1 定位结论（2026-11-26 22:45，NVMe 副本隔离复现，已修）
+### 7.1.1 定位结论（2026-11-26 22:45，已修；⚠️ 当时用的是 NVMe 副本，掩盖了机械盘冷页）
 
-**同一份 NVMe 副本上，2.3.3 与 2.4.0 性能完全一致**：
+**同一份 NVMe 副本上，2.3.3 与 2.4.0 性能完全一致**（注意：NVMe 掩盖了机械盘冷页问题，不能作为发布依据）：
 
 | 镜像               | `/banks/catalog` | `/banks/catalog-sections` | `/settings` | `/announcements` |
 | ------------------ | ---------------- | ------------------------- | ----------- | ---------------- |
@@ -126,12 +127,13 @@ await this.adb().transaction(async (tx) => {
 `cache_size` 保留 256 MB。文件：`apps/api/src/db/client.ts`。
 
 **验证**：`tsc` 0、`vitest 939 passed / 6 skipped`、eslint 0、prettier、size guard 全绿。
-**发布前还差**：在 NVMe 副本上跑 10 分钟混合请求（catalog + settings + courses）确认不卡，再构建 2.4.1；
-上线保留 `2.3.3-stable`，失败立即回滚。
+**2.4.1 已验证**（低峰直接发布，2026-11-27 23:00）：首次 `/banks/catalog` 冷页 **54.6 s**（机械盘，mmap 256 MB），
+其后 `/settings` **71 ms**、`/healthz` 6 ms、`/courses` 17 ms、8092 4 ms；第二轮全部 <20 ms；容器 healthy、`restarts=0`。
+发布回滚点为 `2.3.3-stable`。
 
 ## 7.2 下次会话的起点
 
-1. 构建 2.4.1（mmap 256 MB）→ NVMe 副本 10 分钟混合压测 → 低峰部署 + 10 分钟观察
+1. ~~构建 2.4.1 → NVMe 副本压测~~（已改为低峰直接发布并验证，见 §7.1.1）
 2. 再继续剩余域：lessons/courses → users/auth/progress/notes/favorites/watch → exams/analytics/attempts
 3. 全部域迁完 + 本地复测通过，才安排 PG 切流窗口（01:00–06:00）
 
