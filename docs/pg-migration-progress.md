@@ -1,43 +1,45 @@
 # PostgreSQL 迁移进度与交接文档
 
-> 目的：换会话/换人也能无损接手。**最后更新：2026-11-27（exams/attempts 批次 1：只读方法）**
+> 目的：换会话/换人也能无损接手。**最后更新：2026-11-27（exams/attempts 批次 2：写 + 交卷 + 错题本）**
 
 ## 0. 一句话现状
 
-数据访问层已抽象出 `AsyncDb`（sqlite / PG 双栈）。已迁移：**公告、题库（banks，读写全量）、题目写入（questions 写）、设置（settings 快照）、课时/课程（lessons/courses，读写全量）、用户/鉴权（users/auth，读写全量）、学习进度/观看区间/笔记（progress/watch/notes，读写全量）、考试只读（exams 读 20 方法 + 题池/选题树/细目表/卷面缓存）**。
-生产仍 `MC_DB=sqlite`（2.4.1），**未切 PG**。剩余：**exams 写（批次 2）+ attempts（交卷/判分/错题本）+ analytics/stats/activity**。
+数据访问层已抽象出 `AsyncDb`（sqlite / PG 双栈）。已迁移：**公告、题库（banks，读写全量）、题目写入（questions 写）、设置（settings 快照）、课时/课程（lessons/courses，读写全量）、用户/鉴权（users/auth，读写全量）、学习进度/观看区间/笔记（progress/watch/notes，读写全量）、考试（exams，读写全量 + 组卷事务）、刷题记录/错题本（attempts/wrong_questions，读写全量 + 交卷事务）**。
+生产仍 `MC_DB=sqlite`（2.4.1），**未切 PG**。剩余：**analytics/stats/activity（只读聚合 + 学习日历方言 #21）**。
 
 ## 1. 已完成域（按 commit）
 
-| commit    | 域                   | 关键点                                                                                             |
-| --------- | -------------------- | -------------------------------------------------------------------------------------------------- |
-| `66e4e8f` | PG 运行形态          | 同机容器 `microclass-db`、数据目录 `/vol1/1000/microclass-pg`、DDL/装载工具链                      |
-| `3779721` | announcements + 地基 | `AsyncDb`、pg 连接池、driver 单例、`settings` 异步写 + 启动快照读                                  |
-| `0e95c6a` | banks 读（A）        | 目录/章节 7 方法                                                                                   |
-| `ed78803` | banks 读（B）        | `listBanks/countBanks/findBankWithStats`                                                           |
-| `acc72c6` | banks 读（C）        | `findById/findByName/kindStats/questionCount/绑定统计` + 10 个服务 async 化                        |
-| `88f0d48` | banks 写             | 9 方法；`AsyncDb.transaction` 改造；回滚测试                                                       |
-| `b201ec4` | questions 写         | 16 方法；`RETURNING id`；批量写事务；回滚测试                                                      |
-| `da4a0ad` | lessons/courses 读写 | 36 方法；`RETURNING id`；删除/重排/改绑/收藏/分类走事务；服务与路由补 await                        |
-| `e95226b` | users / auth         | 10 方法；`RETURNING id`；**鉴权链路 `onRequest` 的 `users.findById` 补 await**；authService 全异步 |
-| `8faa2dc` | progress/notes/watch | 16 方法；区间 record 走事务（中途失败整批回滚）；笔记 `RETURNING id`；路由补 await                 |
-| `0ae37a4` | exams 读（批次 1）   | 读 20 方法 + 题池/选题树/细目表/卷面缓存；写路径 SQL 未动；21 个契约测试                           |
-| `a667f09` | 稳定性补丁           | SQLite 页缓存 256 MB / mmap 2 GB / 只读 `query_only`                                               |
-| `cac6d05` | 部署护栏             | api healthcheck `start_period` 60 s、`retries` 5                                                   |
-| `0aa7300` | 2.4.0                | 版本与 CHANGELOG                                                                                   |
+| commit    | 域                   | 关键点                                                                                                    |
+| --------- | -------------------- | --------------------------------------------------------------------------------------------------------- |
+| `66e4e8f` | PG 运行形态          | 同机容器 `microclass-db`、数据目录 `/vol1/1000/microclass-pg`、DDL/装载工具链                             |
+| `3779721` | announcements + 地基 | `AsyncDb`、pg 连接池、driver 单例、`settings` 异步写 + 启动快照读                                         |
+| `0e95c6a` | banks 读（A）        | 目录/章节 7 方法                                                                                          |
+| `ed78803` | banks 读（B）        | `listBanks/countBanks/findBankWithStats`                                                                  |
+| `acc72c6` | banks 读（C）        | `findById/findByName/kindStats/questionCount/绑定统计` + 10 个服务 async 化                               |
+| `88f0d48` | banks 写             | 9 方法；`AsyncDb.transaction` 改造；回滚测试                                                              |
+| `b201ec4` | questions 写         | 16 方法；`RETURNING id`；批量写事务；回滚测试                                                             |
+| `da4a0ad` | lessons/courses 读写 | 36 方法；`RETURNING id`；删除/重排/改绑/收藏/分类走事务；服务与路由补 await                               |
+| `e95226b` | users / auth         | 10 方法；`RETURNING id`；**鉴权链路 `onRequest` 的 `users.findById` 补 await**；authService 全异步        |
+| `8faa2dc` | progress/notes/watch | 16 方法；区间 record 走事务（中途失败整批回滚）；笔记 `RETURNING id`；路由补 await                        |
+| `0ae37a4` | exams 读（批次 1）   | 读 20 方法 + 题池/选题树/细目表/卷面缓存；写路径 SQL 未动；21 个契约测试                                  |
+| `37fbadd` | exams 写 + attempts  | exam 写 12 方法 + 组卷事务；attempts/错题本读写 + 交卷事务；`RETURNING id`；方言 #19/#22/#23；19 条新测试 |
+| `a667f09` | 稳定性补丁           | SQLite 页缓存 256 MB / mmap 2 GB / 只读 `query_only`                                                      |
+| `cac6d05` | 部署护栏             | api healthcheck `start_period` 60 s、`retries` 5                                                          |
+| `0aa7300` | 2.4.0                | 版本与 CHANGELOG                                                                                          |
 
 ## 2. 剩余域（实测规模）
 
-| 域                     | 仓储方法数                          | 备注                                                                                                                                                                |
-| ---------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| exams                  | exam 32（读 20 已迁 / 写 12 待迁）  | **批次 1 已完成**：读、题池、选题树、细目表、卷面缓存；**批次 2**：create/update/delete/setStructure、加删改题/换题/排序/applySection/clearQuestions + 交卷与错题本 |
-| attempts               | attemptRepository ~7、wrongs ~5     | 与 exams 写同批（交卷判分落库 + 错题本写入）；`unixepoch()` 方言见 §4 #19                                                                                           |
-| analytics              | analytics 8、`ActivityRepository` 3 | 只读聚合；`activityRepository` 用 `date(...,'unixepoch','localtime')`，PG 方言待改（见 §4 方言 #21）                                                                |
-| stats（课时/课程统计） | `StatsRepository` 3                 | 在 `noteRepository.ts` 里，仍同步 `Db`；读 `lesson_progress`/`attempts`，跟着 analytics 批次一起改                                                                  |
+| 域                     | 仓储方法数                          | 备注                                                                                                 |
+| ---------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| analytics              | analytics 8、`ActivityRepository` 3 | 只读聚合；`activityRepository` 用 `date(...,'unixepoch','localtime')`，PG 方言待改（见 §4 方言 #21） |
+| stats（课时/课程统计） | `StatsRepository` 3                 | 在 `noteRepository.ts` 里，仍同步 `Db`；读 `lesson_progress`/`attempts`，跟着 analytics 批次一起改   |
 
-> users/auth（`e95226b`）、progress/notes/watch（`8faa2dc`）已迁完；收藏（favorites）在 lessons/courses 批次（`da4a0ad`）内已迁。
+> exams（读写全量，含组卷事务）与 attempts/错题本（含交卷事务）已在 `37fbadd` 迁完；
+> 收藏（favorites）在 lessons/courses 批次（`da4a0ad`）内已迁。
 > 已迁域牵出的服务（stats/quiz/practiceLink/exam-lifecycle/lessonUnlock/note 等）都 async 化了，
-> 下一域改 exams/analytics 时注意这些服务的调用点仍要 `await`；`reply.send(<Promise>)` 依旧是 tsc 抓不到的坑。
+> 下一域改 analytics 时注意这些服务的调用点仍要 `await`；`reply.send(<Promise>)` 依旧是 tsc 抓不到的坑。
+> ⚠️ **questions 读仍未迁**（`QuestionRepository` 的 list/find 还是同步 `Db`，只有写走 AsyncDb）：
+> PG 模式下这些读会落回 SQLite，属于切流前必须清掉的跨库混合点（与本批无关，但排期时别漏）。
 
 ## 3. 每域改造模板（照抄即可）
 
@@ -62,10 +64,10 @@ await this.adb().transaction(async (tx) => {
 // 5) 读旧值：await this.findById(id)（不要用同步兜底）
 ```
 
-> **已登记的例外（exams 批次 1，批次 2 消除）**：写方法 `update`/`setStructure` 读旧考试行、
-> `replaceQuestion` 读卷内旧配置，仍用**模块内私有**同步读（`findByIdSync` / `questionInExamSync`，不从门面导出）。
-> 原因：本批只迁读方法，写方法的 SQL 与事务必须一行不动；若让它们 await 读方法会改动写路径的同步行为。
-> 批次 2 把写方法迁 `AsyncDb` 时**必须删掉这两个函数**（届时写路径统一 `await this.findById`）。
+> **批次 1 的临时例外已清零（`37fbadd`）**：写方法 `update`/`setStructure` 读旧考试行、
+> `replaceQuestion` 读卷内旧配置，批次 1 用的是模块内私有同步读（`findByIdSync` / `questionInExamSync`）；
+> 批次 2 已**删除这两个函数**，写路径统一 `await this.findById(...)` / `await questionInExam(...)`。
+> 测试口径见 `apps/api/test/exam-read-async.test.ts`（写方法也必须是 Promise 且不碰同步 Db）。
 
 **调用点排查清单**（每域必做）：
 
@@ -84,20 +86,33 @@ await this.adb().transaction(async (tx) => {
 6. `CAST(title AS INTEGER)`（lessons 自然序）：SQLite 非数字前缀 → 0，**PG 会直接报错**；切流前必须按方言生成排序表达式
 7. int8（`COUNT/SUM/MAX`、`RETURNING id`）经 node-postgres 默认返回 **string**；建议在 `pg/pool.ts` 加 `types.setTypeParser(20, Number)`（所有已迁移域共同待办）
 8. 课时扫描的 `findMissingLessons` 判定回调**保持同步**（只做 `fs` 判定、不碰库）；落库步骤已 await —— 不要为了「全 async」把它改成异步，会打乱扫描顺序
-9. **`unixepoch()`（方言 #19）**：`progressRepository.upsert` / `markQuizDone` 的 SQL 里直接用 `unixepoch()`（不只是 DEFAULT）；PG 无此函数，切流前换 `EXTRACT(EPOCH FROM now())::bigint`
-10. **`MAX(a, b)` 标量形式（方言 #20）**：`lesson_progress` 的 upsert `DO UPDATE SET finished = MAX(finished, excluded.finished)`、`quiz_best = MAX(...)` —— SQLite 是标量两参 `max()`，PG 里 `MAX` 是聚合会直接报错；切流前改 `GREATEST(a, b)`（PG）或 `CASE WHEN`
+9. **`unixepoch()`（方言 #19）— 已处理（`37fbadd`）**：新增 `db/sql.ts` 的 `nowSeconds(driver)`
+   （sqlite → `unixepoch()`，pg → `(EXTRACT(EPOCH FROM now()))::bigint`）。已覆盖
+   `wrong_questions` 的 upsert/掌握标记、`attempts` 相关写、`progressRepository.upsert`/`markQuizDone`；
+   SQLite 侧文本与迁移前完全一致（行为不变），PG 侧不再出现 SQLite 专有函数。
+   表 DEFAULT 的 `unixepoch()` 仍由生成器负责（§9 #5）。
+10. **`MAX(a, b)` 标量形式（方言 #20）**：`lesson_progress` 的 upsert `DO UPDATE SET finished = MAX(finished, excluded.finished)`、`quiz_best = MAX(...)` —— SQLite 是标量两参 `max()`，PG 里 `MAX` 是聚合会直接报错；切流前改 `GREATEST(a, b)`（PG）或 `CASE WHEN`。**未改**
 11. **`date(col,'unixepoch','localtime')`（方言 #21）**：`activityRepository`（学习日历）用的 SQLite 修饰符语法；PG 需 `to_char(to_timestamp(col) AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD')`。属 analytics 批次，未改
-12. **`INSERT OR IGNORE` / `INSERT OR REPLACE`（方言 #22，exams 写批次）**：`exam-questions.addQuestions` 用 `INSERT OR IGNORE` 去重加题、`replaceQuestion` 用 `INSERT OR REPLACE` 保持卷内位置；PG 无此语法 → 改 `ON CONFLICT (exam_id, question_id) DO NOTHING` / 先 `DELETE` 再 `INSERT`（本来就在同一事务内）。**本批只读，未改**
-13. **int8 字符串在读层的收敛（方言 #17 的落地）**：`COUNT/SUM/MAX(sort)` 在 PG 回传字符串。批次 1 的读方法（`listByCourseWithStats`/`attemptCount`/`pickCount`/`summarizeTaxonomy`/facets/points）已在仓储边界统一 `Number()`；`addQuestions` 的 `MAX(sort)` 也加了 `Number()`，**但写方法整体仍待批次 2**。全局 `types.setTypeParser(20)` 仍建议在切流前统一加
-14. **`LIKE` 大小写（方言 #8 的确认站点）**：exam 题池的 `keyword`/`point`/`chapter`（`exam-pool-filter.ts`）与 `pointStats.point`（`exam-stats.ts`）依赖 SQLite 的 ASCII 大小写不敏感；PG 侧切流前统一换 `likeCI`/`ILIKE`
+12. **`INSERT OR IGNORE` / `INSERT OR REPLACE`（方言 #22）— 已处理（`37fbadd`）**：`exam-questions.addQuestions`
+    改 `ON CONFLICT (exam_id, question_id) DO NOTHING`（`changes > 0` 仍是「真的新增」，不占 sort）；
+    `replaceQuestion` 先 `DELETE` 旧题再 `INSERT … ON CONFLICT (exam_id, question_id) DO UPDATE`（等价原 `REPLACE`，
+    保持卷内位置/分值/大题）；组卷 `applyComposition` 同事务内复用同一句。契约见 `test/exam-write-async.test.ts`
+13. **int8 字符串在读层的收敛（方言 #17 的落地）**：`COUNT/SUM/MAX(sort)` 在 PG 回传字符串。所有已迁移读方法
+    （含批次 1 的 exams 读、错题本 `count`/`list`）已在仓储边界统一 `Number()`；写路径的 `RETURNING id`
+    （`exams.create`、`exam_attempts.createAttempt`、`attempts.create`）同样 `Number()`。全局 `types.setTypeParser(20)` 仍是切流前待办
+14. **`LIKE` 大小写（方言 #23）— 已处理（`37fbadd`）**：`exam-pool-filter` 的 `keyword`/`point`/`chapter`
+    与 `exam-stats.pointStats.point` 全部改用 `likeCI`（`LOWER(列) LIKE LOWER(?)`），
+    SQLite 侧行为不变（中文不受影响、ASCII 仍大小写不敏感），PG 侧不再依赖 SQLite 默认语义
 
 ## 5. 测试基线
 
-- `npx vitest run`：**987 passed / 7 skipped**（基线 939/6 → +lessons/courses 14 → +users/auth 4 → +progress/notes/watch 9 → +exams 只读 21；
-  新增 `test/exam-read-async.test.ts` 21 条：19 个读方法逐个断言「返回 Promise 且只经 AsyncDb」+ int8 收敛 + 写方法不碰 AsyncDb；skip 里含 PG 集成测试，需 `MC_PG_TEST_URL`）
+- `npx vitest run`：**1006 passed / 7 skipped**（基线 939/6 → +lessons/courses 14 → +users/auth 4 → +progress/notes/watch 9 → +exams 只读 21 → +exams 写/交卷 19；
+  批次 2 新增 `test/exam-write-async.test.ts` 10 条（写路径方言 #19/#22/#23 + `RETURNING id`）与
+  `test/exam-write-transaction.test.ts` 9 条（组卷/刷题交卷/考试交卷的事务与回滚、卷面缓存失效）；
+  `test/exam-read-async.test.ts` 的 21 条改成「读写都只经 AsyncDb」契约；skip 里含 PG 集成测试，需 `MC_PG_TEST_URL`）
 - `npx playwright test`：**40/40**
-- `npx eslint .`：0 error（4 warning 为既有 console）
-- `npm run build`、`node tools/check-file-size.mjs`（app.ts 362 行基线 382，624 个文件）
+- `npm run typecheck`、`npx eslint .`：0 error（4 warning 为既有 console）
+- `npm run build`、`npx prettier --check .`、`node tools/check-file-size.mjs`（624 个文件）
 
 ## 6. 严禁事项（血泪教训）
 
@@ -157,13 +172,14 @@ await this.adb().transaction(async (tx) => {
 
 ## 7.2 下次会话的起点
 
-1. 继续剩余域：**exams 写 + attempts（批次 2）** → **analytics/stats/activity**（exams 只读已于本批完成；
+1. 继续剩余域：**analytics/stats/activity**（exams 读写、attempts/错题本已于 `37fbadd` 完成；
    每域独立提交、sqlite 全绿、更新本文件进度表）
-   批次 2 清单与风险见 §7.4.2。
 2. 每域收尾照旧扫一遍 `reply.send(Promise)` / `{ id: service.x() }` 这类漏 await（本轮又抓到十余处，
    `tsc` 全部不报错；`requireUser` 保持同步返回 `req.authUser`，只有 `users.findById` 需要 await）
 3. 全部域迁完后再排 PG 切流窗口（01:00–06:00），Runbook 见 `docs/postgres-migration.md` §12.2；
-   切流前先清 §4 的方言 TODO（#19 `unixepoch()`、#20 `MAX(a,b)`、#21 `date(...,'unixepoch')`、#16 自然序、#17 int8 parser、#22 `INSERT OR IGNORE/REPLACE`）
+   切流前先清 §4 剩余方言 TODO（#20 `MAX(a,b)`、#21 `date(...,'unixepoch')`、#16 自然序、#17 全局 int8 parser）
+4. **切流前另一个跨库混合点**：`QuestionRepository` 的读方法仍是同步 `Db`（写已走 AsyncDb），
+   在 PG 模式下会「读 SQLite、写 PG」；questions 读域要单独立项迁掉（本批未动）
 
 ## 7.3 2.4.1 发布记录（2026-11-27 23:00）
 
@@ -197,7 +213,7 @@ await this.adb().transaction(async (tx) => {
 | 契约测试     | 新增 `test/exam-read-async.test.ts`（21 条）：每个读方法返回 Promise 且只经 AsyncDb、PG int8 字符串收敛成 number、写方法不碰 AsyncDb                                                                                                                                                                                               |
 | 方言         | 未引入 `json_extract`/`group_concat`/窗口函数；确认新增待办见 §4 #12–#14 与 `docs/postgres-migration.md` §9 #22–#23（`INSERT OR IGNORE/REPLACE`、LIKE 大小写站点）                                                                                                                                                                 |
 
-### 7.4.2 批次 2 预估（exams 写 + attempts）
+### 7.4.2 批次 2 清单（已完成，实际记录见 §7.5）
 
 | 项               | 预估                                                                                                                                                                                                                |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -208,21 +224,54 @@ await this.adb().transaction(async (tx) => {
 | 测试成本         | `exam-grading.test.ts` 已 async 化；批次 2 需再补交卷回滚测试（临时触发器制造中途失败，口径同 `progress-write-transaction.test.ts`）与错题本并发 upsert                                                             |
 | 风险点           | 交卷是学生端高频写路径：`createAttempt` 改异步后要注意 sqlite `BEGIN IMMEDIATE` 与 PG 单连接事务的差异；`writeBuffered` 审计在事务外，回滚后不能留下「已交卷」审计                                                  |
 
+## 7.5 exams/attempts 批次 2（写 + 交卷 + 错题本）迁移记录（2026-11-27，`37fbadd`）
+
+### 7.5.1 本批做了什么
+
+| 项           | 内容                                                                                                                                                                                                                                                                                              |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 仓储写方法   | `examRepository` 12 个：`create`/`update`/`delete`/`setStructure`、`setQuestionMeta`/`reorder`/`replaceQuestion`/`addQuestions`/`removeQuestion`/`applySection`/`clearQuestions`、`recordAttempt`（+ 组卷 `applyComposition`）；全部 `AsyncDb` + `async`，事务内语句走 `tx`                       |
+| attempts     | `AttemptRepository.create`/`listByUser`/`bestPercent`/`countByLesson` 改 async；新增 `recordSubmission`（attempt + 错题本效果同事务）；`ExamAttemptService.submit` 改用 `exams.recordAttempt`（单事务边界）                                                                                       |
+| 错题本       | `WrongQuestionRepository` 5 方法（`upsertWrong`/`markMastered`/`setMastered`/`remove`/`list`+`count`）改 async；`list`/`count` 在边界 `Number()` 收敛 int8（方言 #17）                                                                                                                            |
+| 交卷事务     | **刷题交卷** = 判分（纯内存）+ `attempts` 落库 + 错题本 upsert/标记掌握，同一 `AsyncDb.transaction`；**考试交卷** = `exam_attempts` 落库单事务，审计 `writeBuffered` 在提交**之后**（回滚不留「已交卷」审计）                                                                                     |
+| 组卷事务     | `applyComposition`：清空（可选）+ 批量加题 + 逐题写分值/大题在**同一事务**；`paperCompose.autoCompose` 挑题阶段仍按「清空后」口径排除（`replaceExisting` 时为空集合），挑完一次性落库；中途失败整批回滚                                                                                           |
+| 卷面缓存     | 写成功后失效：`ExamPaperEditService`（加题/随机/配额/分值/排序/结构/删题）、`ExamPaperWorkbench`（智能组卷/换题）、`ExamLifecycleService`（改/删考试）都在 `await` 写成功之后 `clearPaper` —— 紧接着的交卷按新卷判分                                                                              |
+| 删除同步兜底 | 批次 1 的 `findByIdSync` / `questionInExamSync` 已删除；`update`/`setStructure` 读旧值、`replaceQuestion` 读卷内配置统一 `await`                                                                                                                                                                  |
+| 服务/路由    | `quizService.submit` 走 `recordSubmission`，`bestPercent`/`listByUser`/`wrongBook`/`setMastered`/`removeFromWrongBook` 全部 await；`routes/quiz.ts` 的掌握/移除补 await；`paper*`/`parallel`/`lifecycle` 写调用全部 await                                                                         |
+| 方言         | #22：`INSERT OR IGNORE` → `ON CONFLICT DO NOTHING`、`INSERT OR REPLACE` → 先删后插 + `ON CONFLICT DO UPDATE`；#19：`unixepoch()` → `nowSeconds(driver)`（错题本/进度）；#14：`RETURNING id`（exam/attempt）；#23：`likeCI`（题池与 pointStats）。详见 `docs/postgres-migration.md` §9 #19/#22/#23 |
+| 测试         | 新增 `exam-write-async.test.ts`（10 条：方言 SQL + `RETURNING id` + int8 收敛）与 `exam-write-transaction.test.ts`（9 条：组卷回滚/刷题交卷回滚/考试交卷回滚与审计/错题本并发 upsert/缓存失效）；`exam-read-async.test.ts` 改为「读写都只经 AsyncDb」                                             |
+
+### 7.5.2 事务与回滚口径（临时触发器制造失败）
+
+| 场景                    | 失败点（测试里临时触发器）         | 断言                                                                 |
+| ----------------------- | ---------------------------------- | -------------------------------------------------------------------- |
+| 组卷（replaceExisting） | `BEFORE INSERT ON exam_questions`  | 旧卷**不被清空**（DELETE 一起回滚），题目/顺序原样                   |
+| 刷题交卷                | `BEFORE INSERT ON wrong_questions` | attempt 行回滚，错题本次数/掌握状态不变                              |
+| 考试交卷                | `BEFORE INSERT ON exam_attempts`   | 无成绩行、`audit_logs` 无 `exam.submit` 记录；恢复后交卷成功才写审计 |
+
+### 7.5.3 本批之后的剩余
+
+- **analytics（8）/ `ActivityRepository`（3）/ `StatsRepository`（3）**：只读聚合 + 学习日历方言 #21；
+- 方言剩余：#20（`MAX(a,b)` 标量）、#21（`date(...,'unixepoch','localtime')`）、#16（自然序）、#17（全局 int8 parser）；
+- ⚠️ `QuestionRepository` 的**读**仍同步 `Db`（写已 AsyncDb），PG 模式会是跨库混合点，需单独立项。
+
 ## 8. 关键文件索引
 
-| 主题                      | 文件                                                              |
-| ------------------------- | ----------------------------------------------------------------- |
-| 异步数据端口              | `apps/api/src/db/async.ts`                                        |
-| 驱动选择 / 单例           | `apps/api/src/db/driver.ts`                                       |
-| PG 连接池                 | `apps/api/src/db/pg/pool.ts`                                      |
-| 方言小工具（likeCI）      | `apps/api/src/db/sql.ts`                                          |
-| PG DDL 生成               | `ops/scripts/pg/gen-schema.mjs`、`post-schema.pg.sql`             |
-| 装载/校验                 | `ops/scripts/pg/load-pg.sh`、`verify-parity.sh`、`export-tsv.mjs` |
-| 备份                      | `ops/deploy/pg-backup.sh`、`ops/deploy/backup.sh`                 |
-| 预发 IO 门槛              | `ops/scripts/pg/guard-io.sh`                                      |
-| 迁移总文档                | `docs/postgres-migration.md`                                      |
-| lessons/courses 事务      | `apps/api/test/lesson-course-write-transaction.test.ts`           |
-| users/auth 鉴权链路       | `apps/api/test/auth-async.test.ts`                                |
-| progress/notes/watch 事务 | `apps/api/test/progress-write-transaction.test.ts`                |
-| exams 只读契约（批次 1）  | `apps/api/test/exam-read-async.test.ts`                           |
-| 卷面缓存口径              | `apps/api/test/exam-paper-cache.test.ts`                          |
+| 主题                              | 文件                                                              |
+| --------------------------------- | ----------------------------------------------------------------- |
+| 异步数据端口                      | `apps/api/src/db/async.ts`                                        |
+| 驱动选择 / 单例                   | `apps/api/src/db/driver.ts`                                       |
+| PG 连接池                         | `apps/api/src/db/pg/pool.ts`                                      |
+| 方言小工具（likeCI / nowSeconds） | `apps/api/src/db/sql.ts`                                          |
+| PG DDL 生成                       | `ops/scripts/pg/gen-schema.mjs`、`post-schema.pg.sql`             |
+| 装载/校验                         | `ops/scripts/pg/load-pg.sh`、`verify-parity.sh`、`export-tsv.mjs` |
+| 备份                              | `ops/deploy/pg-backup.sh`、`ops/deploy/backup.sh`                 |
+| 预发 IO 门槛                      | `ops/scripts/pg/guard-io.sh`                                      |
+| 迁移总文档                        | `docs/postgres-migration.md`                                      |
+| lessons/courses 事务              | `apps/api/test/lesson-course-write-transaction.test.ts`           |
+| users/auth 鉴权链路               | `apps/api/test/auth-async.test.ts`                                |
+| progress/notes/watch 事务         | `apps/api/test/progress-write-transaction.test.ts`                |
+| exams 读写契约                    | `apps/api/test/exam-read-async.test.ts`                           |
+| exams 写方言契约（批次 2）        | `apps/api/test/exam-write-async.test.ts`                          |
+| exams/attempts 事务与回滚         | `apps/api/test/exam-write-transaction.test.ts`                    |
+| 卷面缓存口径                      | `apps/api/test/exam-paper-cache.test.ts`                          |
