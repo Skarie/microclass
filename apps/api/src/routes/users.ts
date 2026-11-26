@@ -10,7 +10,7 @@ export async function registerUserRoutes(app: FastifyInstance, deps: Deps): Prom
   app.get('/users', async (req, reply) => {
     requireAdmin(req, reply);
     const q = req.query as { role?: string };
-    const rows = q.role === 'all' ? deps.users.listAll() : deps.users.listStudents();
+    const rows = q.role === 'all' ? await deps.users.listAll() : await deps.users.listStudents();
     return { users: rows };
   });
 
@@ -39,7 +39,7 @@ export async function registerUserRoutes(app: FastifyInstance, deps: Deps): Prom
         role?: 'student' | 'teacher';
         displayName?: string;
       };
-      const id = deps.auth.createUserByAdmin(body, actor);
+      const id = await deps.auth.createUserByAdmin(body, actor);
       return { ok: true, id };
     },
   );
@@ -63,11 +63,11 @@ export async function registerUserRoutes(app: FastifyInstance, deps: Deps): Prom
       const actor = requireAdmin(req, reply);
       const id = Number((req.params as { id: string }).id);
       const body = req.body as { username?: string; displayName?: string; password?: string };
-      const existing = deps.users.findById(id);
+      const existing = await deps.users.findById(id);
       if (!existing) throw AppError.notFound('用户不存在');
-      if (body.password) deps.auth.resetPasswordByAdmin(id, body.password, actor);
+      if (body.password) await deps.auth.resetPasswordByAdmin(id, body.password, actor);
       if (body.username !== undefined || body.displayName !== undefined) {
-        deps.users.updateProfile(
+        await deps.users.updateProfile(
           id,
           body.username?.trim().toLowerCase() || existing.username,
           body.displayName ?? existing.display_name,
@@ -87,7 +87,7 @@ export async function registerUserRoutes(app: FastifyInstance, deps: Deps): Prom
   app.delete('/users/:id', async (req, reply) => {
     const actor = requireAdmin(req, reply);
     const id = Number((req.params as { id: string }).id);
-    const changes = deps.users.deleteStudent(id);
+    const changes = await deps.users.deleteStudent(id);
     if (changes === 0) throw AppError.notFound('学生不存在');
     deps.db.run('DELETE FROM lesson_progress WHERE user_id = ?', [id]);
     deps.audit.write({

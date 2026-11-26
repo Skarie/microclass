@@ -297,27 +297,27 @@ describe('交卷编排（ExamService，内存库）', () => {
     examService = built.deps.examService;
     exams = built.deps.exams;
 
-    const adminRow = built.deps.users.findByUsername('admin');
+    const adminRow = await built.deps.users.findByUsername('admin');
     if (!adminRow) throw new Error('引导管理员未创建');
     admin = adminRow;
 
-    const makeUser = (username: string): User => {
-      const id = built.deps.users.create({
+    const makeUser = async (username: string): Promise<User> => {
+      const id = await built.deps.users.create({
         username,
         salt: 'salt',
         hash: 'hash',
         role: 'student',
         displayName: username,
       });
-      const row = built.deps.users.findById(id);
+      const row = await built.deps.users.findById(id);
       if (!row) throw new Error(`用户 ${username} 创建失败`);
       return row;
     };
-    stu1 = makeUser('判分学生1');
-    stu2 = makeUser('判分学生2');
-    stu3 = makeUser('判分学生3');
-    stu4 = makeUser('判分学生4');
-    stu5 = makeUser('判分学生5');
+    stu1 = await makeUser('判分学生1');
+    stu2 = await makeUser('判分学生2');
+    stu3 = await makeUser('判分学生3');
+    stu4 = await makeUser('判分学生4');
+    stu5 = await makeUser('判分学生5');
 
     courseId = await built.deps.courses.create({ name: '判分测试课程' });
     const bankId = await built.deps.banks.create({ name: '判分测试题库', courseId });

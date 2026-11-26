@@ -114,7 +114,7 @@ export interface BuiltApp {
 
 export function buildDeps(config: AppConfig, db: Db, options?: { inlineHealthRunner?: boolean }): Deps {
   const asyncDb = getAsyncDb(config, db); // 已迁移域统一走异步端口（PG 模式必须用它）
-  const users = new UserRepository(db);
+  const users = new UserRepository(db, asyncDb);
   const settings = new SettingsRepository(asyncDb);
   const audit = new AuditRepository(db);
   const courses = new CourseRepository(db, asyncDb);
@@ -243,7 +243,7 @@ export async function buildApp(config: AppConfig, options?: { db?: Db }): Promis
   if (checkpointTimer) checkpointTimer.unref();
 
   // 首次启动：引导管理员 + 播种媒体根目录设置 + 登记站内上传目录
-  deps.auth.bootstrapAdmin(config.bootstrapAdminUser, config.bootstrapAdminPass);
+  await deps.auth.bootstrapAdmin(config.bootstrapAdminUser, config.bootstrapAdminPass);
 
   const app = Fastify({
     logger: loggerOptions(config),

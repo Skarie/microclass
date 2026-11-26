@@ -89,7 +89,7 @@ beforeAll(async () => {
   await app.ready();
   cookie = await login('admin', 'admin123');
   const salt = newSalt();
-  deps.users.create({ username: 's1', salt, hash: hashPassword('stud12345', salt), role: 'student' });
+  await deps.users.create({ username: 's1', salt, hash: hashPassword('stud12345', salt), role: 'student' });
   studentCookie = await login('s1', 'stud12345');
 
   db.run('INSERT INTO courses (id, name) VALUES (1, ?)', ['小学数学·三年级上册（新）']);

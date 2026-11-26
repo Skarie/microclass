@@ -34,7 +34,7 @@ export async function registerAuthRoutes(app: FastifyInstance, deps: Deps): Prom
     },
     async (req, reply) => {
       const body = req.body as { username: string; password: string };
-      const { user, token } = deps.auth.login({
+      const { user, token } = await deps.auth.login({
         username: body.username,
         password: body.password,
         ip: req.ip,
@@ -63,7 +63,7 @@ export async function registerAuthRoutes(app: FastifyInstance, deps: Deps): Prom
     },
     async (req, reply) => {
       const body = req.body as { username: string; password: string; displayName?: string };
-      const { user, token } = deps.auth.register(body);
+      const { user, token } = await deps.auth.register(body);
       reply.setCookie(SessionSigner.cookieName(), token, cookieOpts);
       return { user };
     },
@@ -92,7 +92,7 @@ export async function registerAuthRoutes(app: FastifyInstance, deps: Deps): Prom
     async (req, reply) => {
       const user = requireUser(req, reply);
       const body = req.body as { oldPassword: string; newPassword: string };
-      deps.auth.changePassword({ userId: user.id, oldPassword: body.oldPassword, newPassword: body.newPassword });
+      await deps.auth.changePassword({ userId: user.id, oldPassword: body.oldPassword, newPassword: body.newPassword });
       return { ok: true };
     },
   );

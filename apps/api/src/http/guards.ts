@@ -191,7 +191,8 @@ export function registerAuth(app: FastifyInstance, deps: { signer: SessionSigner
       req.authUser = null;
       return;
     }
-    const row = deps.users.findById(payload.uid);
+    // 鉴权链路：仓储已异步化，这里必须 await（否则 row 是 Promise，会话永远解析不出 user）
+    const row = await deps.users.findById(payload.uid);
     req.authUser = row
       ? {
           id: row.id,

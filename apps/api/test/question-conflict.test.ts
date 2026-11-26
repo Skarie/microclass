@@ -56,9 +56,9 @@ async function login(username: string, password: string): Promise<string> {
 }
 
 /** 建号（走仓储 + 与登录同一套口令哈希） */
-function makeUser(username: string, password: string, role: 'teacher' | 'student'): void {
+async function makeUser(username: string, password: string, role: 'teacher' | 'student'): Promise<void> {
   const salt = newSalt();
-  deps.users.create({ username, salt, hash: hashPassword(password, salt), role });
+  await deps.users.create({ username, salt, hash: hashPassword(password, salt), role });
 }
 
 async function sync(): Promise<{
@@ -122,8 +122,8 @@ beforeAll(async () => {
   addQuestion(bankA, '一周有 ____ 天', '7');
 
   // 教师 / 学生账号（直接建号，避免依赖「是否开放注册」的设置）
-  makeUser('t1', 'teach12345', 'teacher');
-  makeUser('s1', 'stud12345', 'student');
+  await makeUser('t1', 'teach12345', 'teacher');
+  await makeUser('s1', 'stud12345', 'student');
   teacherCookie = await login('t1', 'teach12345');
   studentCookie = await login('s1', 'stud12345');
 });

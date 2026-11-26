@@ -52,7 +52,7 @@ beforeAll(async () => {
   await app.ready();
   cookie = await login('admin', 'admin123');
   const salt = newSalt();
-  deps.users.create({ username: 's1', salt, hash: hashPassword('stud12345', salt), role: 'student' });
+  await deps.users.create({ username: 's1', salt, hash: hashPassword('stud12345', salt), role: 'student' });
   studentCookie = await login('s1', 'stud12345');
 
   // 两门课：一门数学（册次可匹配），一门语文（册次匹配不上）

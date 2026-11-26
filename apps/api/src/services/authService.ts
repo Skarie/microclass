@@ -1,5 +1,9 @@
 /**
  * 认证服务：登录、注册、改密、管理员引导初始化。
+ *
+ * P0 阶段 2：`UserRepository` 走 `AsyncDb` 后本服务全部方法改异步，
+ * 调用点（`http/guards.ts` 的 onRequest、`routes/auth.ts`、`routes/users.ts`、`app.ts` 引导）
+ * 必须 `await` —— 否则会把 Promise 当成 user 用（鉴权链路最容易踩）。
  */
 import { AppError } from '@microclass/shared';
 import type { UserRepository } from '../db/repositories/userRepository.js';
@@ -20,11 +24,11 @@ export class AuthService {
   ) {}
 
   /** 首次启动引导：无任何用户时创建管理员 */
-  bootstrapAdmin(username: string, password: string): number | null {
-    if (this.users.count() > 0) return null;
+  async bootstrapAdmin(username: string, password: string): Promise<number | null> {
+    if ((await this.users.count()) > 0) return null;
     assertPasswordPolicy(password);
     const salt = newSalt();
-    const id = this.users.create({
+    const id = await this.users.create({
       username: username.toLowerCase(),
       salt,
       hash: hashPassword(password, salt),
@@ -41,9 +45,14 @@ export class AuthService {
     return id;
   }
 
-  login(input: { username: string; password: string; ip?: string; requestId?: string }): { user: User; token: string } {
+  async login(input: {
+    username: string;
+    password: string;
+    ip?: string;
+    requestId?: string;
+  }): Promise<{ user: User; token: string }> {
     const username = (input.username ?? '').trim().toLowerCase();
-    const row = this.users.findByUsername(username);
+    const row = await this.users.findByUsername(username);
     if (!row || !verifyPassword(input.password ?? '', row.pass_salt, row.pass_hash)) {
       this.audit.write({ action: 'auth.login_failed', actorName: username, ip: input.ip, requestId: input.requestId });
       throw AppError.unauthorized('用户名或密码错误');
@@ -66,23 +75,27 @@ export class AuthService {
     return { user, token };
   }
 
-  register(input: { username: string; password: string; displayName?: string }): { user: User; token: string } {
+  async register(input: {
+    username: string;
+    password: string;
+    displayName?: string;
+  }): Promise<{ user: User; token: string }> {
     if (!this.settings.getBoolSync('allow_register', true)) {
       throw AppError.forbidden('未开放自助注册，请联系管理员开通账号');
     }
     const username = (input.username ?? '').trim().toLowerCase();
     if (!USERNAME_RE.test(username)) throw AppError.badRequest('用户名需为 2-32 位字母/数字/下划线/中文');
     assertPasswordPolicy(input.password ?? '');
-    if (this.users.findByUsername(username)) throw AppError.conflict('用户名已存在');
+    if (await this.users.findByUsername(username)) throw AppError.conflict('用户名已存在');
     const salt = newSalt();
-    const id = this.users.create({
+    const id = await this.users.create({
       username,
       salt,
       hash: hashPassword(input.password, salt),
       role: 'student',
       displayName: input.displayName?.trim() || username,
     });
-    const user = this.users.findById(id);
+    const user = await this.users.findById(id);
     if (!user) throw AppError.internal('创建用户失败');
     const publicUser: User = {
       id: user.id,
@@ -95,15 +108,15 @@ export class AuthService {
     return { user: publicUser, token: this.signer.sign({ uid: id, role: 'student' }) };
   }
 
-  changePassword(input: { userId: number; oldPassword: string; newPassword: string }): void {
-    const row = this.users.findById(input.userId);
+  async changePassword(input: { userId: number; oldPassword: string; newPassword: string }): Promise<void> {
+    const row = await this.users.findById(input.userId);
     if (!row) throw AppError.notFound('用户不存在');
     if (!verifyPassword(input.oldPassword ?? '', row.pass_salt, row.pass_hash)) {
       throw AppError.badRequest('原密码不正确');
     }
     assertPasswordPolicy(input.newPassword ?? '');
     const salt = newSalt();
-    this.users.updatePassword(row.id, salt, hashPassword(input.newPassword, salt));
+    await this.users.updatePassword(row.id, salt, hashPassword(input.newPassword, salt));
     this.audit.write({
       actorId: row.id,
       actorName: row.username,
@@ -114,17 +127,17 @@ export class AuthService {
   }
 
   /** 管理员创建学生（或教师） */
-  createUserByAdmin(
+  async createUserByAdmin(
     input: { username: string; password: string; role?: 'student' | 'teacher'; displayName?: string },
     actor: User,
-  ): number {
+  ): Promise<number> {
     const username = (input.username ?? '').trim().toLowerCase();
     if (!USERNAME_RE.test(username)) throw AppError.badRequest('用户名需为 2-32 位字母/数字/下划线/中文');
     assertPasswordPolicy(input.password ?? '');
-    if (this.users.findByUsername(username)) throw AppError.conflict('用户名已存在');
+    if (await this.users.findByUsername(username)) throw AppError.conflict('用户名已存在');
     const role = input.role === 'teacher' ? 'teacher' : 'student';
     const salt = newSalt();
-    const id = this.users.create({
+    const id = await this.users.create({
       username,
       salt,
       hash: hashPassword(input.password, salt),
@@ -142,12 +155,12 @@ export class AuthService {
     return id;
   }
 
-  resetPasswordByAdmin(userId: number, newPassword: string, actor: User): void {
-    const row = this.users.findById(userId);
+  async resetPasswordByAdmin(userId: number, newPassword: string, actor: User): Promise<void> {
+    const row = await this.users.findById(userId);
     if (!row) throw AppError.notFound('用户不存在');
     assertPasswordPolicy(newPassword);
     const salt = newSalt();
-    this.users.updatePassword(userId, salt, hashPassword(newPassword, salt));
+    await this.users.updatePassword(userId, salt, hashPassword(newPassword, salt));
     this.audit.write({
       actorId: actor.id,
       actorName: actor.username,
