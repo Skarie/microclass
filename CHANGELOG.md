@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### 2.4.1：修复 SQLite `mmap_size` 过大导致的请求阻塞（2026-11-27）
+
+2.4.0 上线后 `/banks/catalog` 等大聚合接口把事件循环卡住 25 s+：mmap 设成 2 GB 时，机械盘上的冷页是
+**按页同步缺页**（每页一次随机读，约 12 ms/页），一次大扫描就变成逐页读盘风暴。
+`mmap_size` 回退到 **256 MB**（可用 `MC_SQLITE_MMAP_MB` 覆盖），大扫描退回 `read()` + 内核预读；
+`cache_size` 保留 256 MB。**默认行为不变，仍 `MC_DB=sqlite`。**
+
 ### 2.4.0：数据层异步化（默认仍 SQLite）+ 题库域 PostgreSQL 就绪（2026-11-27）
 
 **主题**：为切 PostgreSQL 做的数据访问层改造。**默认行为不变**（`MC_DB=sqlite`），
