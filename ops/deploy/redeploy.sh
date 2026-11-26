@@ -38,5 +38,41 @@ if [ "$ACTUAL" != "microclass:$VERSION" ]; then
   echo "镜像标签不一致：期望 microclass:$VERSION，实际 $ACTUAL" >&2
   exit 1
 fi
+
+# ---------------------------------------------------------------------------
+# 部署预热：把「冷页代价」留在部署窗口里，让用户第一次访问就是热的。
+#
+# 为什么需要：SQLite 在机械盘上冷页很贵 —— 实测 2.4.1 部署后首次
+# `/api/v1/banks/catalog` 要 54.6 s（mmap 256MB 下走普通 read，逐页缺页），
+# 期间事件循环被占住，用户会以为站点挂了。这里在宣布成功前先把几个重接口
+# 各打一遍（顺序执行，避免并发把盘打满），把页缓存焐热。
+#
+# 失败只告警不阻断：预热是优化，不是部署正确性的前提。
+# ---------------------------------------------------------------------------
+warm() {
+  local path="$1"
+  local t
+  t=$(curl -sS -o /dev/null -w '%{time_total}' -m 180 "http://127.0.0.1:8091${path}" 2>/dev/null || echo "fail")
+  if [ "$t" = "fail" ]; then
+    echo "  ⚠ 预热失败（忽略）：${path}"
+  else
+    printf '  预热 %-34s %s s\n' "$path" "$t"
+  fi
+}
+
+echo "== 部署预热（冷页代价在部署窗口内消化）"
+warm /api/v1/banks/catalog
+warm "/api/v1/banks/catalog-sections?view=book"
+warm /api/v1/courses
+warm /api/v1/settings
+warm /api/v1/announcements
+
+# 预热后再跑一次快速探针，确认热态下的响应时间
+probe() {
+  local path="$1"
+  curl -sS -o /dev/null -w "%{http_code}/%{time_total}s" -m 10 "http://127.0.0.1:8091${path}" 2>/dev/null || echo "000/fail"
+}
+echo "  热态探针：healthz=$(probe /api/v1/healthz) courses=$(probe /api/v1/courses)"
+
 echo "== 部署完成：microclass:$VERSION"
 curl -sS -m 5 http://127.0.0.1:8091/ 2>/dev/null | grep -oE '<title>[^<]*</title>' | head -1
