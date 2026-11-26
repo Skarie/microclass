@@ -11,7 +11,7 @@ export async function registerStatsRoutes(app: FastifyInstance, deps: Deps): Pro
   /** 课时学习统计 */
   app.get('/stats/lessons/:id', async (req, reply) => {
     requireTeacherOrAdmin(req, reply);
-    return deps.statsService.lessonStats(Number((req.params as { id: string }).id));
+    return await deps.statsService.lessonStats(Number((req.params as { id: string }).id));
   });
 
   /** 课时学习统计 CSV */
@@ -24,7 +24,7 @@ export async function registerStatsRoutes(app: FastifyInstance, deps: Deps): Pro
   /** 课程学习统计 */
   app.get('/stats/courses/:id', async (req, reply) => {
     requireTeacherOrAdmin(req, reply);
-    return deps.statsService.courseStats(Number((req.params as { id: string }).id));
+    return await deps.statsService.courseStats(Number((req.params as { id: string }).id));
   });
 
   /** 课程学习统计 CSV */

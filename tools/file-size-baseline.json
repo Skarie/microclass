@@ -1,10 +1,10 @@
 {
   "apps/api/src/app.ts": 382,
-  "apps/api/src/db/repositories/analyticsRepository.ts": 346,
+  "apps/api/src/db/repositories/analyticsRepository.ts": 387,
   "apps/api/src/db/repositories/questionConflictRepository.ts": 304,
   "apps/api/src/domain/difficulty.ts": 330,
   "apps/api/src/domain/paperHtml.ts": 381,
-  "apps/api/src/services/analyticsService.ts": 356,
+  "apps/api/src/services/analyticsService.ts": 368,
   "apps/api/src/services/difficultyService.ts": 385,
   "apps/api/src/services/questionConflictService.ts": 339,
   "apps/api/src/utils/docx.ts": 351,

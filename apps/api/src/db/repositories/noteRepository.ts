@@ -1,8 +1,8 @@
 /**
  * 课时笔记（lesson_notes）与学习统计所需的聚合查询。
  *
- * P0 阶段 2：`NoteRepository` 改走 `AsyncDb`（sqlite / pg 双栈），`create` 用 `INSERT … RETURNING id`。
- * `StatsRepository` 属于 stats/analytics 域（课时学习统计），本轮未迁移，仍用同步 `Db`。
+ * P0 阶段 2：`NoteRepository` / `StatsRepository` 都走 `AsyncDb`（sqlite / pg 双栈）；
+ * `NoteRepository.create` 用 `INSERT … RETURNING id`。
  */
 import type { LessonNote } from '@microclass/shared';
 import type { Db } from '../client.js';
@@ -86,20 +86,33 @@ export class NoteRepository {
  * 刷题次数优先按 `attempts.user_id` 统计；V1 遗留行（user_id 为空）
  * 回退用 `client_id = 'u<userId>'` 匹配，保证历史数据不丢。
  *
- * 迁移状态：属于 stats/analytics 域，尚未迁到 `AsyncDb`（随 analytics 批次一起改）。
+ * P0 阶段 2（analytics 批次）：`students`/`lessonRows` 改走 `AsyncDb` 并返回 Promise；
+ * PG 的 INTEGER 列与 COUNT/MAX 都是 int8（node-postgres 回传字符串），
+ * 因此在**仓储边界**统一 `Number()`（方言 #17），服务层拿到的永远是 number。
  */
 export class StatsRepository {
-  constructor(private readonly db: Db) {}
+  constructor(
+    private readonly db: Db,
+    private readonly asyncDb?: AsyncDb,
+  ) {}
 
-  students(): StudentOption[] {
-    return this.db.all<StudentOption>(
-      "SELECT id, username, display_name FROM users WHERE role = 'student' ORDER BY id",
-    );
+  private adb(): AsyncDb {
+    return this.asyncDb ?? createSqliteAsyncDb(this.db);
   }
 
-  lessonRows(lessonId: number): LessonStatRow[] {
-    return this.students().map((s) => {
-      const p = this.db.get<{
+  async students(): Promise<StudentOption[]> {
+    const rows = await this.adb().all<StudentOption>(
+      "SELECT id, username, display_name FROM users WHERE role = 'student' ORDER BY id",
+    );
+    return rows.map((row) => ({ ...row, id: Number(row.id) }));
+  }
+
+  async lessonRows(lessonId: number): Promise<LessonStatRow[]> {
+    const adb = this.adb();
+    const students = await this.students();
+    const rows: LessonStatRow[] = [];
+    for (const s of students) {
+      const p = await adb.get<{
         position: number;
         duration: number;
         finished: 0 | 1;
@@ -109,25 +122,30 @@ export class StatsRepository {
         'SELECT position, duration, finished, quiz_done, updated_at FROM lesson_progress WHERE user_id = ? AND lesson_id = ?',
         [s.id, lessonId],
       );
-      const best = this.db.get<{ m: number | null; c: number }>(
+      const best = await adb.get<{ m: number | null; c: number }>(
         `SELECT COALESCE(MAX(score), 0) AS m, COUNT(*) AS c FROM attempts
          WHERE lesson_id = ? AND (user_id = ? OR (user_id IS NULL AND client_id = ?))`,
         [lessonId, s.id, `u${s.id}`],
       );
-      const percent = p && p.duration > 0 ? Math.min(100, Math.round((p.position / p.duration) * 100)) : 0;
-      return {
-        id: s.id,
+      const position = Number(p?.position ?? 0);
+      const duration = Number(p?.duration ?? 0);
+      const finished = Number(p?.finished ?? 0);
+      const quizDone = Number(p?.quiz_done ?? 0);
+      const percent = p && duration > 0 ? Math.min(100, Math.round((position / duration) * 100)) : 0;
+      rows.push({
+        id: Number(s.id),
         username: s.username,
         display_name: s.display_name,
-        watched: Boolean(p && (p.finished === 1 || p.position > 5)),
-        finished: Boolean(p && p.finished === 1),
+        watched: Boolean(p && (finished === 1 || position > 5)),
+        finished: Boolean(p && finished === 1),
         percent,
-        quiz_done: Boolean(p && p.quiz_done === 1),
-        best_score: best?.m ?? 0,
-        attempts: best?.c ?? 0,
-        updated_at: p ? p.updated_at : null,
-      };
-    });
+        quiz_done: Boolean(p && quizDone === 1),
+        best_score: Number(best?.m ?? 0),
+        attempts: Number(best?.c ?? 0),
+        updated_at: p ? Number(p.updated_at) : null,
+      });
+    }
+    return rows;
   }
 
   lessonSummary(rows: LessonStatRow[]): LessonStatSummary {

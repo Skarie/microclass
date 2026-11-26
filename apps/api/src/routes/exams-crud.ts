@@ -25,7 +25,7 @@ export async function registerExamCrudRoutes(app: FastifyInstance, deps: Deps): 
   /** 我的全部考试成绩 */
   app.get('/me/exams', async (req, reply) => {
     const user = requireUser(req, reply);
-    return deps.statsService.meOverview(user);
+    return await deps.statsService.meOverview(user);
   });
 
   app.post('/exams', { schema: { body: examBodySchema } }, async (req, reply) => {

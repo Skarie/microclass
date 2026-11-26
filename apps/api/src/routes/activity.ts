@@ -12,6 +12,7 @@ import { AppError } from '@microclass/shared';
 import { requireUser } from '../http/guards.js';
 import type { Deps } from '../app.js';
 import { ActivityRepository } from '../db/repositories/activityRepository.js';
+import { getAsyncDb } from '../db/driver.js';
 
 const DAYS_DEFAULT = 30;
 const DAYS_MIN = 1;
@@ -36,12 +37,13 @@ function parseDays(raw: unknown): number {
 }
 
 export async function registerActivityRoutes(app: FastifyInstance, deps: Deps): Promise<void> {
-  const activity = new ActivityRepository(deps.db);
+  // `app.ts` 已到文件行数守卫的基线上限，这里按驱动单例取 AsyncDb（与已迁移域同一端口）
+  const activity = new ActivityRepository(deps.db, getAsyncDb(deps.config, deps.db));
 
   app.get('/me/activity', async (req, reply) => {
     const user = requireUser(req, reply);
     const days = parseDays((req.query as { days?: unknown }).days);
-    const rows = activity.daily(user.id, startOfWindow(days));
+    const rows = await activity.daily(user.id, startOfWindow(days));
     return { days: rows.map((row) => ({ ...row, active: row.lessons > 0 || row.quizzes > 0 })) };
   });
 }

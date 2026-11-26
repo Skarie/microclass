@@ -23,3 +23,60 @@ export function likeCI(column: string): string {
 export function nowSeconds(driver: DbDriverName): string {
   return driver === 'pg' ? '(EXTRACT(EPOCH FROM now()))::bigint' : 'unixepoch()';
 }
+
+/**
+ * 学习日历/趋势的「按日」表达式（方言 #21）。
+ *
+ * SQLite 用 `date(col,'unixepoch'[,'localtime'])` 修饰符语法；PostgreSQL 没有这套修饰符，
+ * 用 `to_char(to_timestamp(col) AT TIME ZONE <zone>,'YYYY-MM-DD')` 得到同样的 `YYYY-MM-DD` 文本。
+ *
+ * `local: true` 是**服务器本地日**口径（学习日历：学生看到的「今天」）；
+ * `local: false` 是 **UTC 日**口径（学情分析 trend，与迁移前完全一致）。
+ * PG 侧的本地时区固定 `Asia/Shanghai`：生产与用户都在东八区，切流后不依赖容器 TZ。
+ */
+export function unixDay(column: string, driver: DbDriverName, options: { local?: boolean } = {}): string {
+  if (driver === 'pg') {
+    const zone = options.local ? PG_LOCAL_DAY_ZONE : 'UTC';
+    return `to_char(to_timestamp(${column}) AT TIME ZONE '${zone}','YYYY-MM-DD')`;
+  }
+  return options.local ? `date(${column}, 'unixepoch', 'localtime')` : `date(${column}, 'unixepoch')`;
+}
+
+/** 学习日历的本地时区（与 `activityRepository` 的 `localtime` 口径对应） */
+export const PG_LOCAL_DAY_ZONE = 'Asia/Shanghai';
+
+/**
+ * 把 `answers` 这类 JSON 数组展开成行（方言 #24）。
+ *
+ * SQLite 用表值函数 `json_each(col)`；PostgreSQL 用 `jsonb_array_elements(col::jsonb)`，
+ * 并需要 `CROSS JOIN LATERAL` 才能引用左侧的列。列类型是 `text`（保持 SQLite 的存储形态），
+ * 因此 PG 侧显式 `::jsonb`。
+ *
+ * 返回值拼在 FROM 的源表后面，例如：
+ *   `FROM attempts a ${jsonArrayJoin('a.answers', 'je', driver)}`
+ */
+export function jsonArrayJoin(column: string, alias: string, driver: DbDriverName): string {
+  return driver === 'pg'
+    ? `CROSS JOIN LATERAL jsonb_array_elements(${column}::jsonb) AS ${alias}(value)`
+    : `, json_each(${column}) ${alias}`;
+}
+
+/** JSON 数组元素的整数字段（如 `qid`）；两库都返回整数或 NULL */
+export function jsonIntField(alias: string, field: string, driver: DbDriverName): string {
+  return driver === 'pg'
+    ? `CAST(${alias}.value->>'${field}' AS INTEGER)`
+    : `CAST(json_extract(${alias}.value, '$.${field}') AS INTEGER)`;
+}
+
+/**
+ * JSON 数组元素的布尔字段 → `1`/`0`/`NULL`（如 `correct`）。
+ *
+ * 必须保住 NULL：`correct: null` 是主观题（待自评），不能算错。
+ * SQLite 的 `json_extract` 对 true/false/null 直接返回 1/0/null；
+ * PG 的 `->>` 返回文本 `'true'/'false'`，用 `CASE` 显式映射（`::int` 对 NULL 行为不一致，别用）。
+ */
+export function jsonBoolIntField(alias: string, field: string, driver: DbDriverName): string {
+  return driver === 'pg'
+    ? `CASE WHEN ${alias}.value->>'${field}' = 'true' THEN 1 WHEN ${alias}.value->>'${field}' = 'false' THEN 0 END`
+    : `json_extract(${alias}.value, '$.${field}')`;
+}

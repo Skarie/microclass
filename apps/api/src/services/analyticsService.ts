@@ -12,7 +12,6 @@ import { AppError, type User } from '@microclass/shared';
 import type {
   AnalyticsRepository,
   AnalyticsScope,
-  PointRow,
   QuestionRow,
   StudentRow,
 } from '../db/repositories/analyticsRepository.js';
@@ -44,10 +43,10 @@ export class AnalyticsService {
 
   constructor(private readonly repo: AnalyticsRepository) {}
 
-  private cached<T>(key: string, build: () => T): T {
+  private async cached<T>(key: string, build: () => Promise<T>): Promise<T> {
     const hit = this.cache.get(key);
     if (hit && Date.now() - hit.at < CACHE_MS) return hit.value as T;
-    const value = build();
+    const value = await build();
     this.cache.set(key, { at: Date.now(), value });
     return value;
   }
@@ -59,10 +58,10 @@ export class AnalyticsService {
   }
 
   /** 学情总览：KPI + 覆盖率 + 按天趋势 + 数据规模说明 */
-  overview(
+  async overview(
     actor: User,
     options: AnalyticsScope & { trendDays?: number },
-  ): {
+  ): Promise<{
     scope: { courseId: number | undefined; days: number | undefined };
     kpi: {
       students: number;
@@ -84,18 +83,21 @@ export class AnalyticsService {
     /** 数据规模说明：样本太小时界面必须显示，避免误读 */
     dataNote: string;
     generatedAt: number;
-  } {
+  }> {
     this.requireManager(actor);
     const scope: AnalyticsScope = {
       ...(options.courseId === undefined ? {} : { courseId: options.courseId }),
       ...(options.days === undefined ? {} : { days: options.days }),
     };
     const key = `overview:${scope.courseId ?? 'all'}:${scope.days ?? 'all'}:${options.trendDays ?? 30}`;
-    return this.cached(key, () => {
-      const totals = this.repo.totals(scope);
-      const size = this.repo.scopeSize(scope.courseId === undefined ? {} : { courseId: scope.courseId });
-      const trend = this.repo.trend(scope, { limitDays: options.trendDays ?? 30 });
-      const points = this.repo.points(scope, { limit: 500 });
+    return this.cached(key, async () => {
+      const [totals, size, trend, points, studentAccounts] = await Promise.all([
+        this.repo.totals(scope),
+        this.repo.scopeSize(scope.courseId === undefined ? {} : { courseId: scope.courseId }),
+        this.repo.trend(scope, { limitDays: options.trendDays ?? 30 }),
+        this.repo.points(scope, { limit: 500 }),
+        this.repo.studentAccounts(),
+      ]);
 
       const buckets: Record<MasteryLevel, number> = { mastered: 0, weak: 0, poor: 0, insufficient: 0 };
       for (const p of points) {
@@ -114,7 +116,7 @@ export class AnalyticsService {
       return {
         scope: { courseId: scope.courseId, days: scope.days },
         kpi: {
-          students: this.repo.studentAccounts(),
+          students: studentAccounts,
           activeStudents: totals.students,
           graded: totals.graded,
           wrong: totals.wrong,
@@ -143,10 +145,10 @@ export class AnalyticsService {
   }
 
   /** 知识点掌握度排行：薄弱优先（未掌握 → 薄弱 → 数据不足 → 掌握），并带下钻题目 */
-  points(
+  async points(
     actor: User,
     options: AnalyticsScope & { limit?: number; questionsPerPoint?: number },
-  ): {
+  ): Promise<{
     points: {
       point: string;
       graded: number;
@@ -159,7 +161,7 @@ export class AnalyticsService {
       topWrong: { question_id: number; stem: string; graded: number; wrong: number }[];
     }[];
     dataNote: string;
-  } {
+  }> {
     this.requireManager(actor);
     const scope: AnalyticsScope = {
       ...(options.courseId === undefined ? {} : { courseId: options.courseId }),
@@ -167,8 +169,11 @@ export class AnalyticsService {
     };
     const limit = Math.min(200, Math.max(1, options.limit ?? 50));
     const key = `points:${scope.courseId ?? 'all'}:${scope.days ?? 'all'}:${limit}:${options.questionsPerPoint ?? 3}`;
-    return this.cached(key, () => {
-      const rows: PointRow[] = this.repo.points(scope, { limit: 500 });
+    return this.cached(key, async () => {
+      const [rows, questionRows] = await Promise.all([
+        this.repo.points(scope, { limit: 500 }),
+        this.repo.questions(scope, { limit: 2000 }),
+      ]);
       const decorated = rows.map((row) => {
         const accuracy = row.graded > 0 ? (row.graded - row.wrong) / row.graded : 0;
         return { ...row, accuracy, mastery: masteryOf(row.graded, accuracy) };
@@ -179,7 +184,6 @@ export class AnalyticsService {
 
       // 下钻：每个知识点错得最多的几道题（一次查全量再分组，避免 N+1）
       const per = Math.min(5, Math.max(1, options.questionsPerPoint ?? 3));
-      const questionRows: QuestionRow[] = this.repo.questions(scope, { limit: 2000 });
       const byPoint = new Map<string, { question_id: number; stem: string; graded: number; wrong: number }[]>();
       for (const q of questionRows.filter((q) => q.wrong > 0)) {
         const list = byPoint.get(q.point) ?? [];
@@ -212,13 +216,13 @@ export class AnalyticsService {
   }
 
   /** 学员学情排行 */
-  students(
+  async students(
     actor: User,
     options: AnalyticsScope & { limit?: number },
-  ): {
+  ): Promise<{
     students: (StudentRow & { accuracy: number; level: MasteryLevel })[];
     dataNote: string;
-  } {
+  }> {
     this.requireManager(actor);
     const scope: AnalyticsScope = {
       ...(options.courseId === undefined ? {} : { courseId: options.courseId }),
@@ -226,8 +230,8 @@ export class AnalyticsService {
     };
     const limit = Math.min(200, Math.max(1, options.limit ?? 50));
     const key = `students:${scope.courseId ?? 'all'}:${scope.days ?? 'all'}:${limit}`;
-    return this.cached(key, () => {
-      const rows = this.repo.students(scope, { limit });
+    return this.cached(key, async () => {
+      const rows = await this.repo.students(scope, { limit });
       return {
         students: rows.map((row) => {
           const accuracy = row.graded > 0 ? (row.graded - row.wrong) / row.graded : 0;
@@ -240,14 +244,14 @@ export class AnalyticsService {
   }
 
   /** 高频错题榜（威尔逊下界排序，样本少的自动降权） */
-  wrongQuestions(
+  async wrongQuestions(
     actor: User,
     options: AnalyticsScope & { limit?: number; minAttempts?: number },
-  ): {
+  ): Promise<{
     questions: (QuestionRow & { accuracy: number; score: number })[];
     minAttempts: number;
     dataNote: string;
-  } {
+  }> {
     this.requireManager(actor);
     const scope: AnalyticsScope = {
       ...(options.courseId === undefined ? {} : { courseId: options.courseId }),
@@ -256,8 +260,8 @@ export class AnalyticsService {
     const minAttempts = Math.max(1, options.minAttempts ?? 2);
     const limit = Math.min(200, Math.max(1, options.limit ?? 50));
     const key = `wrong:${scope.courseId ?? 'all'}:${scope.days ?? 'all'}:${limit}:${minAttempts}`;
-    return this.cached(key, () => {
-      const rows = this.repo.questions(scope, { limit: 2000 });
+    return this.cached(key, async () => {
+      const rows = await this.repo.questions(scope, { limit: 2000 });
       const filtered = rows
         .filter((row) => row.graded >= minAttempts)
         .map((row) => ({
@@ -278,12 +282,17 @@ export class AnalyticsService {
   }
 
   /** 讲评清单（Markdown）：薄弱知识点 + 典型错题，可直接发给教研或打印 */
-  reviewMarkdown(actor: User, options: AnalyticsScope & { limit?: number }): { filename: string; body: string } {
+  async reviewMarkdown(
+    actor: User,
+    options: AnalyticsScope & { limit?: number },
+  ): Promise<{ filename: string; body: string }> {
     this.requireManager(actor);
     const limit = Math.min(50, Math.max(1, options.limit ?? 10));
-    const points = this.points(actor, { ...options, limit, questionsPerPoint: 2 });
-    const wrong = this.wrongQuestions(actor, { ...options, limit, minAttempts: 1 });
-    const overview = this.overview(actor, options);
+    const [points, wrong, overview] = await Promise.all([
+      this.points(actor, { ...options, limit, questionsPerPoint: 2 }),
+      this.wrongQuestions(actor, { ...options, limit, minAttempts: 1 }),
+      this.overview(actor, options),
+    ]);
     const levelLabel: Record<MasteryLevel, string> = {
       poor: '未掌握',
       weak: '薄弱',
@@ -331,8 +340,11 @@ export class AnalyticsService {
   }
 
   /** 高频错题 CSV（Excel 可直接打开，供教研二次加工） */
-  wrongQuestionsCsv(actor: User, options: AnalyticsScope & { limit?: number }): { filename: string; body: string } {
-    const { questions } = this.wrongQuestions(actor, { ...options, limit: options.limit ?? 200 });
+  async wrongQuestionsCsv(
+    actor: User,
+    options: AnalyticsScope & { limit?: number },
+  ): Promise<{ filename: string; body: string }> {
+    const { questions } = await this.wrongQuestions(actor, { ...options, limit: options.limit ?? 200 });
     const escape = (v: string): string => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
     const lines = [
       ['题号', '知识点', '题型', '难度', '作答次数', '错误次数', '正确率', '涉及学员', '题干'].join(','),

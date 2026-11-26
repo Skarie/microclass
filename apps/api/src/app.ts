@@ -128,7 +128,7 @@ export function buildDeps(config: AppConfig, db: Db, options?: { inlineHealthRun
   const wrongs = new WrongQuestionRepository(db, asyncDb);
   const exams = new ExamRepository(db, asyncDb);
   const notes = new NoteRepository(db, asyncDb);
-  const stats = new StatsRepository(db);
+  const stats = new StatsRepository(db, asyncDb);
   const watchIntervals = new WatchIntervalRepository(db, asyncDb);
   const probe = new MediaProbeService({
     coversDir: path.join(config.dataDir, 'uploads', 'covers'),
@@ -171,7 +171,7 @@ export function buildDeps(config: AppConfig, db: Db, options?: { inlineHealthRun
    */
   const bankHealth = createBankHealthCoordinator(db, config, settings, { inline: options?.inlineHealthRunner });
   const questionStats = new QuestionStatsRepository(db);
-  const analyticsService = new AnalyticsService(new AnalyticsRepository(db));
+  const analyticsService = new AnalyticsService(new AnalyticsRepository(db, asyncDb));
   const examService = new ExamService(exams, courses, audit, questions, questionMedia);
   const statsService = new StatsService(stats, lessons, courses, exams);
   const noteService = new NoteService(notes, lessons);

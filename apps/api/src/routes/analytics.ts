@@ -19,7 +19,7 @@ export async function registerAnalyticsRoutes(app: FastifyInstance, deps: Deps):
     const user = requireTeacherOrAdmin(req, reply);
     const q = req.query as Record<string, string | undefined>;
     const trendDays = q.trendDays ? Number.parseInt(q.trendDays, 10) : 30;
-    return deps.analyticsService.overview(user, {
+    return await deps.analyticsService.overview(user, {
       ...scopeOf(q),
       ...(Number.isNaN(trendDays) ? {} : { trendDays }),
     });
@@ -29,7 +29,7 @@ export async function registerAnalyticsRoutes(app: FastifyInstance, deps: Deps):
   app.get('/analytics/points', async (req, reply) => {
     const user = requireTeacherOrAdmin(req, reply);
     const q = req.query as Record<string, string | undefined>;
-    return deps.analyticsService.points(user, {
+    return await deps.analyticsService.points(user, {
       ...scopeOf(q),
       ...(q.limit ? { limit: Number.parseInt(q.limit, 10) } : {}),
       ...(q.questionsPerPoint ? { questionsPerPoint: Number.parseInt(q.questionsPerPoint, 10) } : {}),
@@ -40,7 +40,7 @@ export async function registerAnalyticsRoutes(app: FastifyInstance, deps: Deps):
   app.get('/analytics/students', async (req, reply) => {
     const user = requireTeacherOrAdmin(req, reply);
     const q = req.query as Record<string, string | undefined>;
-    return deps.analyticsService.students(user, {
+    return await deps.analyticsService.students(user, {
       ...scopeOf(q),
       ...(q.limit ? { limit: Number.parseInt(q.limit, 10) } : {}),
     });
@@ -50,7 +50,7 @@ export async function registerAnalyticsRoutes(app: FastifyInstance, deps: Deps):
   app.get('/analytics/wrong-questions', async (req, reply) => {
     const user = requireTeacherOrAdmin(req, reply);
     const q = req.query as Record<string, string | undefined>;
-    return deps.analyticsService.wrongQuestions(user, {
+    return await deps.analyticsService.wrongQuestions(user, {
       ...scopeOf(q),
       ...(q.limit ? { limit: Number.parseInt(q.limit, 10) } : {}),
       ...(q.minAttempts ? { minAttempts: Number.parseInt(q.minAttempts, 10) } : {}),
@@ -61,7 +61,7 @@ export async function registerAnalyticsRoutes(app: FastifyInstance, deps: Deps):
   app.get('/analytics/wrong-questions.csv', async (req, reply) => {
     const user = requireTeacherOrAdmin(req, reply);
     const q = req.query as Record<string, string | undefined>;
-    const { filename, body } = deps.analyticsService.wrongQuestionsCsv(user, {
+    const { filename, body } = await deps.analyticsService.wrongQuestionsCsv(user, {
       ...scopeOf(q),
       ...(q.limit ? { limit: Number.parseInt(q.limit, 10) } : {}),
     });
@@ -75,7 +75,7 @@ export async function registerAnalyticsRoutes(app: FastifyInstance, deps: Deps):
   app.get('/analytics/review.md', async (req, reply) => {
     const user = requireTeacherOrAdmin(req, reply);
     const q = req.query as Record<string, string | undefined>;
-    const { filename, body } = deps.analyticsService.reviewMarkdown(user, {
+    const { filename, body } = await deps.analyticsService.reviewMarkdown(user, {
       ...scopeOf(q),
       ...(q.limit ? { limit: Number.parseInt(q.limit, 10) } : {}),
     });

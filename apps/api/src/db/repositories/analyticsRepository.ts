@@ -11,8 +11,16 @@
  * 性能取舍：这是 JSON 展开聚合（作答条目数 = 作答次数 × 每题）。当前真机量级很小
  * （全库只有几百道题有作答数据），因此直接实时聚合 + 服务层 60 秒缓存。
  * 若将来作答量到百万级，应改为把 `graded` 物化成表（这个 CTE 就是它的定义）。
+ *
+ * P0 阶段 2（analytics 批次）：全部方法走 `AsyncDb` 且返回 Promise（PG 模式不再读 SQLite）。
+ * 方言处理集中在 `db/sql.ts`：
+ *   - JSON 展开 `json_each` / `jsonb_array_elements`（#24）
+ *   - 按天 `date(...,'unixepoch')` / `to_char(to_timestamp(...) AT TIME ZONE 'UTC')`（#21）
+ *   - int8 计数在读边界统一 `Number()`（#17）
  */
 import type { Db } from '../client.js';
+import { createSqliteAsyncDb, type AsyncDb } from '../async.js';
+import { jsonArrayJoin, jsonBoolIntField, jsonIntField, unixDay } from '../sql.js';
 
 export interface AnalyticsScope {
   /** 限定课程；不给就是全库 */
@@ -77,13 +85,20 @@ export interface TrendRow {
 }
 
 export class AnalyticsRepository {
-  constructor(private readonly db: Db) {}
+  constructor(
+    private readonly db: Db,
+    private readonly asyncDb?: AsyncDb,
+  ) {}
+
+  private adb(): AsyncDb {
+    return this.asyncDb ?? createSqliteAsyncDb(this.db);
+  }
 
   /**
    * `graded` CTE：把练习与考试的客观题作答统一成
    * `(user_id, qid, correct, created_at)` 四列。所有统计都基于它，保证口径一致。
    */
-  private gradedCte(scope: AnalyticsScope, params: unknown[]): string {
+  private gradedCte(scope: AnalyticsScope, params: unknown[], driver: AsyncDb['driver']): string {
     const practice: string[] = [];
     const exam: string[] = [];
     const courseArgs = scope.courseId !== undefined ? [scope.courseId] : [];
@@ -100,27 +115,31 @@ export class AnalyticsRepository {
     params.push(...courseArgs, ...sinceArgs, ...courseArgs, ...sinceArgs);
     const pWhere = practice.length > 0 ? ` AND ${practice.join(' AND ')}` : '';
     const eWhere = exam.length > 0 ? ` AND ${exam.join(' AND ')}` : '';
+    const qid = (alias: string): string => jsonIntField(alias, 'qid', driver);
+    const correct = (alias: string): string => jsonBoolIntField(alias, 'correct', driver);
     return `WITH graded AS (
       SELECT a.user_id AS user_id,
-             CAST(json_extract(je.value, '$.qid') AS INTEGER) AS qid,
-             json_extract(je.value, '$.correct') AS correct,
+             ${qid('je')} AS qid,
+             ${correct('je')} AS correct,
              a.created_at AS created_at
-      FROM attempts a, json_each(a.answers) je
-      WHERE json_extract(je.value, '$.correct') IN (1, 0)${pWhere}
+      FROM attempts a ${jsonArrayJoin('a.answers', 'je', driver)}
+      WHERE ${correct('je')} IN (1, 0)${pWhere}
       UNION ALL
       SELECT ea.user_id AS user_id,
-             CAST(json_extract(je.value, '$.qid') AS INTEGER) AS qid,
-             json_extract(je.value, '$.correct') AS correct,
+             ${qid('je')} AS qid,
+             ${correct('je')} AS correct,
              ea.created_at AS created_at
-      FROM exam_attempts ea, json_each(ea.answers) je
-      WHERE json_extract(je.value, '$.correct') IN (1, 0)${eWhere}
+      FROM exam_attempts ea ${jsonArrayJoin('ea.answers', 'je', driver)}
+      WHERE ${correct('je')} IN (1, 0)${eWhere}
     )`;
   }
+
   /** 总览：作答条目、学员、题目、知识点、练习/考试提交次数 */
-  totals(scope: AnalyticsScope): GradedTotals {
+  async totals(scope: AnalyticsScope): Promise<GradedTotals> {
+    const adb = this.adb();
     const params: unknown[] = [];
-    const cte = this.gradedCte(scope, params);
-    const base = this.db.get<{
+    const cte = this.gradedCte(scope, params, adb.driver);
+    const base = await adb.get<{
       graded: number;
       wrong: number;
       students: number;
@@ -134,7 +153,7 @@ export class AnalyticsRepository {
        FROM graded g`,
       params,
     );
-    const points = this.db.get<{ points: number }>(
+    const points = await adb.get<{ points: number }>(
       `${cte}
        SELECT COUNT(DISTINCT q.point) AS points
        FROM graded g JOIN questions q ON q.id = g.qid
@@ -152,8 +171,9 @@ export class AnalyticsRepository {
       practiceParams.push(Math.floor(Date.now() / 1000) - scope.days * 86400);
     }
     const pWhere = practiceScope.length > 0 ? ` WHERE ${practiceScope.join(' AND ')}` : '';
-    const practiceAttempts =
-      this.db.get<{ c: number }>(`SELECT COUNT(*) AS c FROM attempts${pWhere}`, practiceParams)?.c ?? 0;
+    const practiceAttempts = (
+      await adb.get<{ c: number }>(`SELECT COUNT(*) AS c FROM attempts${pWhere}`, practiceParams)
+    )?.c;
 
     const examScope: string[] = [];
     const examParams: unknown[] = [];
@@ -166,8 +186,8 @@ export class AnalyticsRepository {
       examParams.push(Math.floor(Date.now() / 1000) - scope.days * 86400);
     }
     const eWhere = examScope.length > 0 ? ` WHERE ${examScope.join(' AND ')}` : '';
-    const examAttempts =
-      this.db.get<{ c: number }>(`SELECT COUNT(*) AS c FROM exam_attempts${eWhere}`, examParams)?.c ?? 0;
+    const examAttempts = (await adb.get<{ c: number }>(`SELECT COUNT(*) AS c FROM exam_attempts${eWhere}`, examParams))
+      ?.c;
 
     return {
       graded: Number(base?.graded ?? 0),
@@ -175,17 +195,18 @@ export class AnalyticsRepository {
       students: Number(base?.students ?? 0),
       questions: Number(base?.questions ?? 0),
       points: Number(points?.points ?? 0),
-      practiceAttempts: Number(practiceAttempts),
-      examAttempts: Number(examAttempts),
+      practiceAttempts: Number(practiceAttempts ?? 0),
+      examAttempts: Number(examAttempts ?? 0),
     };
   }
 
   /** 知识点掌握度：每个知识点的作答条目、错次、涉及学员与题目数 */
-  points(scope: AnalyticsScope, options?: { limit?: number }): PointRow[] {
+  async points(scope: AnalyticsScope, options?: { limit?: number }): Promise<PointRow[]> {
+    const adb = this.adb();
     const params: unknown[] = [];
-    const cte = this.gradedCte(scope, params);
+    const cte = this.gradedCte(scope, params, adb.driver);
     const limit = Math.min(500, Math.max(1, options?.limit ?? 200));
-    return this.db.all<PointRow>(
+    const rows = await adb.all<PointRow>(
       `${cte}
        SELECT q.point AS point,
               COUNT(*) AS graded,
@@ -199,14 +220,22 @@ export class AnalyticsRepository {
        LIMIT ?`,
       [...params, limit],
     );
+    return rows.map((row) => ({
+      ...row,
+      graded: Number(row.graded),
+      wrong: Number(row.wrong),
+      students: Number(row.students),
+      questions: Number(row.questions),
+    }));
   }
 
   /** 学员学情：每个学员的作答量、错次、涉及知识点与最弱知识点 */
-  students(scope: AnalyticsScope, options?: { limit?: number }): StudentRow[] {
+  async students(scope: AnalyticsScope, options?: { limit?: number }): Promise<StudentRow[]> {
+    const adb = this.adb();
     const params: unknown[] = [];
-    const cte = this.gradedCte(scope, params);
+    const cte = this.gradedCte(scope, params, adb.driver);
     const limit = Math.min(500, Math.max(1, options?.limit ?? 200));
-    const rows = this.db.all<{
+    const rows = await adb.all<{
       user_id: number;
       username: string;
       display_name: string;
@@ -226,7 +255,7 @@ export class AnalyticsRepository {
        FROM graded g
        LEFT JOIN questions q ON q.id = g.qid
        LEFT JOIN users u ON u.id = g.user_id
-       GROUP BY g.user_id
+       GROUP BY g.user_id, u.username, u.display_name
        ORDER BY wrong DESC, graded DESC
        LIMIT ?`,
       [...params, limit],
@@ -234,42 +263,47 @@ export class AnalyticsRepository {
 
     // 最弱知识点：每个学员错得最多的那个知识点（单独聚合，避免主查询里再套一层）
     const weakParams: unknown[] = [];
-    const weakCte = this.gradedCte(scope, weakParams);
-    const weakRows = this.db.all<{ user_id: number; point: string; wrong: number }>(
+    const weakCte = this.gradedCte(scope, weakParams, adb.driver);
+    const weakRows = await adb.all<{ user_id: number; point: string; wrong: number }>(
       `${weakCte}
        SELECT g.user_id AS user_id, q.point AS point,
               SUM(CASE WHEN g.correct = 0 THEN 1 ELSE 0 END) AS wrong
        FROM graded g JOIN questions q ON q.id = g.qid
        WHERE q.point <> ''
        GROUP BY g.user_id, q.point
-       HAVING wrong > 0
+       HAVING SUM(CASE WHEN g.correct = 0 THEN 1 ELSE 0 END) > 0
        ORDER BY wrong DESC`,
       weakParams,
     );
     const weakest = new Map<number, { point: string; wrong: number }>();
     for (const row of weakRows) {
-      if (!weakest.has(row.user_id)) weakest.set(row.user_id, { point: row.point, wrong: Number(row.wrong) });
+      const userId = Number(row.user_id);
+      if (!weakest.has(userId)) weakest.set(userId, { point: row.point, wrong: Number(row.wrong) });
     }
 
-    return rows.map((row) => ({
-      ...row,
-      graded: Number(row.graded),
-      wrong: Number(row.wrong),
-      questions: Number(row.questions),
-      points: Number(row.points),
-      weakest_point: weakest.get(row.user_id)?.point ?? '',
-      weakest_wrong: weakest.get(row.user_id)?.wrong ?? 0,
-    }));
+    return rows.map((row) => {
+      const userId = Number(row.user_id);
+      return {
+        ...row,
+        user_id: userId,
+        graded: Number(row.graded),
+        wrong: Number(row.wrong),
+        questions: Number(row.questions),
+        points: Number(row.points),
+        weakest_point: weakest.get(userId)?.point ?? '',
+        weakest_wrong: weakest.get(userId)?.wrong ?? 0,
+      };
+    });
   }
 
   /** 高频错题：按题聚合（排序由服务层用威尔逊下界做） */
-  questions(scope: AnalyticsScope, options?: { limit?: number }): QuestionRow[] {
+  async questions(scope: AnalyticsScope, options?: { limit?: number }): Promise<QuestionRow[]> {
+    const adb = this.adb();
     const params: unknown[] = [];
-    const cte = this.gradedCte(scope, params);
+    const cte = this.gradedCte(scope, params, adb.driver);
     const limit = Math.min(2000, Math.max(1, options?.limit ?? 300));
-    return this.db
-      .all<QuestionRow>(
-        `${cte}
+    const rows = await adb.all<QuestionRow>(
+      `${cte}
        SELECT g.qid AS question_id,
               q.stem AS stem,
               q.type AS type,
@@ -279,44 +313,51 @@ export class AnalyticsRepository {
               COALESCE(SUM(CASE WHEN g.correct = 0 THEN 1 ELSE 0 END), 0) AS wrong,
               COUNT(DISTINCT g.user_id) AS students
        FROM graded g JOIN questions q ON q.id = g.qid
-       GROUP BY g.qid
+       GROUP BY g.qid, q.stem, q.type, q.point, q.difficulty
        ORDER BY wrong DESC, graded DESC
        LIMIT ?`,
-        [...params, limit],
-      )
+      [...params, limit],
+    );
+    return rows.map((row) => ({
+      ...row,
+      question_id: Number(row.question_id),
+      graded: Number(row.graded),
+      wrong: Number(row.wrong),
+      students: Number(row.students),
+    }));
+  }
+
+  /** 按天趋势（作答条目 / 错次 / 学员数）；UTC 日口径（与迁移前一致） */
+  async trend(scope: AnalyticsScope, options?: { limitDays?: number }): Promise<TrendRow[]> {
+    const adb = this.adb();
+    const params: unknown[] = [];
+    const cte = this.gradedCte(scope, params, adb.driver);
+    const days = Math.min(365, Math.max(1, options?.limitDays ?? 30));
+    const rows = await adb.all<TrendRow>(
+      `${cte}
+       SELECT ${unixDay('g.created_at', adb.driver)} AS day,
+              COUNT(*) AS graded,
+              COALESCE(SUM(CASE WHEN g.correct = 0 THEN 1 ELSE 0 END), 0) AS wrong,
+              COUNT(DISTINCT g.user_id) AS students
+       FROM graded g
+       GROUP BY day
+       ORDER BY day DESC
+       LIMIT ?`,
+      [...params, days],
+    );
+    return rows
       .map((row) => ({
         ...row,
         graded: Number(row.graded),
         wrong: Number(row.wrong),
         students: Number(row.students),
-      }));
-  }
-
-  /** 按天趋势（作答条目 / 错次 / 学员数） */
-  trend(scope: AnalyticsScope, options?: { limitDays?: number }): TrendRow[] {
-    const params: unknown[] = [];
-    const cte = this.gradedCte(scope, params);
-    const days = Math.min(365, Math.max(1, options?.limitDays ?? 30));
-    return this.db
-      .all<TrendRow>(
-        `${cte}
-         SELECT date(g.created_at, 'unixepoch') AS day,
-                COUNT(*) AS graded,
-                COALESCE(SUM(CASE WHEN g.correct = 0 THEN 1 ELSE 0 END), 0) AS wrong,
-                COUNT(DISTINCT g.user_id) AS students
-         FROM graded g
-         GROUP BY day
-         ORDER BY day DESC
-         LIMIT ?`,
-        [...params, days],
-      )
-      .map((row) => ({ ...row, graded: Number(row.graded), wrong: Number(row.wrong), students: Number(row.students) }))
+      }))
       .reverse();
   }
 
   /** 学员账号总数（分母：算"活跃率"用） */
-  studentAccounts(): number {
-    const row = this.db.get<{ c: number }>("SELECT COUNT(*) AS c FROM users WHERE role = 'student'");
+  async studentAccounts(): Promise<number> {
+    const row = await this.adb().get<{ c: number }>("SELECT COUNT(*) AS c FROM users WHERE role = 'student'");
     return Number(row?.c ?? 0);
   }
 
@@ -324,7 +365,7 @@ export class AnalyticsRepository {
    * 范围里的题目总数与知识点总数（用来算"覆盖率"）。
    * 口径与组卷题池一致：题库归属课程，或题库/题目挂在课程课时下。
    */
-  scopeSize(options: { courseId?: number }): { questions: number; points: number } {
+  async scopeSize(options: { courseId?: number }): Promise<{ questions: number; points: number }> {
     const where: string[] = [];
     const params: unknown[] = [];
     if (options.courseId !== undefined) {
@@ -335,7 +376,7 @@ export class AnalyticsRepository {
       params.push(options.courseId, options.courseId, options.courseId);
     }
     const clause = where.length > 0 ? ` WHERE ${where.join(' AND ')}` : '';
-    const row = this.db.get<{ questions: number; points: number }>(
+    const row = await this.adb().get<{ questions: number; points: number }>(
       `SELECT COUNT(*) AS questions, COUNT(DISTINCT CASE WHEN q.point <> '' THEN q.point END) AS points
        FROM questions q LEFT JOIN banks b ON b.id = q.bank_id${clause}`,
       params,

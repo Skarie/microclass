@@ -34,7 +34,7 @@ export class StatsService {
   async lessonStats(lessonId: number): Promise<LessonStats> {
     const lesson = await this.lessons.findById(lessonId);
     if (!lesson) throw AppError.notFound('课时不存在');
-    const rows = this.stats.lessonRows(lessonId);
+    const rows = await this.stats.lessonRows(lessonId);
     return { lesson: { id: lesson.id, title: lesson.title }, summary: this.stats.lessonSummary(rows), rows };
   }
 
@@ -80,12 +80,23 @@ export class StatsService {
   }> {
     const course = await this.courses.findById(courseId);
     if (!course) throw AppError.notFound('课程不存在');
-    const lessons = await this.lessons.listByCourse(courseId);
-    const studentCount = this.stats.students().length;
-    const rows = lessons.map((l) => {
-      const statRows = this.stats.lessonRows(l.id);
+    const lessonList = await this.lessons.listByCourse(courseId);
+    const studentCount = (await this.stats.students()).length;
+    const rows: {
+      id: number;
+      title: string;
+      group_name: string;
+      watched: number;
+      finished: number;
+      quizzed: number;
+      finish_rate: number;
+      quiz_rate: number;
+      avg_score: number;
+    }[] = [];
+    for (const l of lessonList) {
+      const statRows = await this.stats.lessonRows(l.id);
       const summary = this.stats.lessonSummary(statRows);
-      return {
+      rows.push({
         id: l.id,
         title: l.title,
         group_name: l.group_name,
@@ -95,8 +106,8 @@ export class StatsService {
         finish_rate: summary.students > 0 ? Math.round((summary.finished / summary.students) * 1000) / 10 : 0,
         quiz_rate: summary.students > 0 ? Math.round((summary.quizzed / summary.students) * 1000) / 10 : 0,
         avg_score: summary.avg,
-      };
-    });
+      });
+    }
     const avgOf = (pick: (r: (typeof rows)[number]) => number): number =>
       rows.length > 0 ? Math.round((rows.reduce((a, r) => a + pick(r), 0) / rows.length) * 10) / 10 : 0;
     return {
