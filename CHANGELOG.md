@@ -4,6 +4,32 @@
 
 ## [Unreleased]
 
+### 2.4.0：数据层异步化（默认仍 SQLite）+ 题库域 PostgreSQL 就绪（2026-11-27）
+
+**主题**：为切 PostgreSQL 做的数据访问层改造。**默认行为不变**（`MC_DB=sqlite`），
+生产上线后仍是 SQLite；`MC_DB=pg` 是代码路径，等剩余域迁完再切。
+
+**已完成迁移的域**
+
+- 公告（announcements）
+- 题库（banks）**读写全量**：目录/章节/列表/详情/统计 + 创建/更新/删除/绑定/批量回填
+- 题目（questions）**写入**：创建/编辑/删除/批量插入/批量删除/难度/回填/指纹重算
+- 设置（settings）：写走数据库、读走进程内快照（`load()` 在启动时装载，写后同步更新）
+
+**关键机制**
+
+- `AsyncDb` 端口：`?` → `$n` 占位符自动改写；`transaction(async tx)` 保证同一连接、抛错整批回滚
+- 自增统一 `INSERT … RETURNING id`；难度阈值等 JSON 仍存 settings
+- 体检子进程按 `MC_DB` 选择设置来源；题库/题目聚合仍读 SQLite（剩余域迁完再切）
+
+**稳定性**
+
+- SQLite 读内存化：页缓存 64→256 MB、`mmap_size` 256 MB→2 GB、只读连接 `query_only=ON`
+- api 容器 healthcheck：`start_period` 20→60 s、`retries` 3→5（避免部署/冷启动被看门狗误判）
+
+**质量**：`vitest 939 passed / 6 skipped`、E2E **40/40**、eslint 0 error、build/size guard 全绿；
+新增事务回滚测试（banks / questions 各一组）。
+
 ### 2.3.3：SQLite 读内存化 + 设置读取走内存快照（2026-11-26）
 
 **问题**：生产两次整站无响应（约 3 分钟），根因一致 —— 同步 `node:sqlite` 在机械盘上读页阻塞事件循环，
