@@ -4,6 +4,9 @@
  * 写操作（加题 / 随机加题 / 配额组卷 / 分值大题 / 排序 / 结构 / 删题）在
  * `exam-paper-edit-service`，平行卷（A/B 卷）在 `exam-parallel-service`。
  * 评审依赖仍以 `ExamPaperDeps` 显式传入，不读门面 `this`。
+ *
+ * P0 阶段 2（批次 1）：考试/卷面/细目表读取统一走 AsyncDb，本模块方法全部异步；
+ * 下游的写动作仍是同步调用（SQL 与事务未动，批次 2 再迁）。
  */
 import type { Exam, User } from '@microclass/shared';
 import type { AuditRepository } from '../db/repositories/auditRepository.js';
@@ -44,62 +47,71 @@ export class ExamPaperWorkbench {
   }
 
   /** 组卷视图：已选题目 + 卷面分值/大题 */
-  paper(examId: number): {
+  async paper(examId: number): Promise<{
     exam: Exam;
     questions: QuestionForViewer[];
-  } {
-    const exam = this.lifecycle.findById(examId);
-    return { exam, questions: paperView(this.exams.listQuestions(examId)) };
+  }> {
+    const exam = await this.lifecycle.findById(examId);
+    return { exam, questions: paperView(await this.exams.listQuestions(examId)) };
   }
 
   /** 导出试卷 Word（.docx），可按需带答案解析 */
-  paperDocx(examId: number, options?: { withAnswers?: boolean }): { filename: string; body: Buffer } {
-    const exam = this.lifecycle.findById(examId);
-    return buildPaperDocx(exam, this.exams.listQuestions(examId), options, (file) => this.media.resolve(file));
+  async paperDocx(examId: number, options?: { withAnswers?: boolean }): Promise<{ filename: string; body: Buffer }> {
+    const exam = await this.lifecycle.findById(examId);
+    return buildPaperDocx(exam, await this.exams.listQuestions(examId), options, (file) => this.media.resolve(file));
   }
 
   /** 可打印试卷 HTML（A4/A3、横竖版、双栏、含答案、答题卡、密封线） */
-  paperHtml(examId: number, overrides?: Partial<PaperRenderOptions>): string {
-    const exam = this.lifecycle.findById(examId);
-    return buildPaperHtml(exam, this.exams.listQuestions(examId), overrides);
+  async paperHtml(examId: number, overrides?: Partial<PaperRenderOptions>): Promise<string> {
+    const exam = await this.lifecycle.findById(examId);
+    return buildPaperHtml(exam, await this.exams.listQuestions(examId), overrides);
   }
 
   /** 组卷工作台：卷面统计 + 双向细目表（知识点 × 题型 × 难度） */
-  blueprint(examId: number): BlueprintResult {
-    const exam = this.lifecycle.findById(examId);
-    return buildBlueprint(exam, this.exams.listQuestions(examId));
+  async blueprint(examId: number): Promise<BlueprintResult> {
+    const exam = await this.lifecycle.findById(examId);
+    return buildBlueprint(exam, await this.exams.listQuestions(examId));
   }
 
   /** 智能组卷（按题型配额 / 细目表逐格配题） */
-  autoCompose(actor: User, examId: number, input: AutoComposeInput): AutoComposeResult {
+  async autoCompose(actor: User, examId: number, input: AutoComposeInput): Promise<AutoComposeResult> {
     return autoCompose(this.paperDeps, actor, examId, input);
   }
 
   /** 换题候选（按匹配强度分组，不随机） */
-  similarCandidates(examId: number, questionId: number, options?: { limit?: number }): SimilarCandidatesResult {
+  async similarCandidates(
+    examId: number,
+    questionId: number,
+    options?: { limit?: number },
+  ): Promise<SimilarCandidatesResult> {
     return similarCandidates(this.paperDeps, examId, questionId, options);
   }
 
   /** 用指定的题替换试卷里的某题 */
-  replaceWith(actor: User, examId: number, questionId: number, withId: number): { ok: boolean; reason: string } {
+  async replaceWith(
+    actor: User,
+    examId: number,
+    questionId: number,
+    withId: number,
+  ): Promise<{ ok: boolean; reason: string }> {
     return replaceWith(this.paperDeps, actor, examId, questionId, withId);
   }
 
   /** 细目表参考数据：「知识点 × 题型 × 难度」各有多少可选题 */
-  taxonomy(options: { courseId?: number; scope?: 'course' | 'all'; limit?: number }): {
+  async taxonomy(options: { courseId?: number; scope?: 'course' | 'all'; limit?: number }): Promise<{
     scope: { mode: 'course' | 'all'; courseId: number | undefined };
     points: { point: string; total: number; cells: { type: string; easy: number; medium: number; hard: number }[] }[];
     total: number;
-  } {
+  }> {
     return taxonomy(this.exams, options);
   }
 
-  replaceQuestion(
+  async replaceQuestion(
     actor: User,
     examId: number,
     questionId: number,
     options?: { point?: string; difficulty?: string },
-  ): { ok: boolean; replacedWith: number | null; reason: string } {
+  ): Promise<{ ok: boolean; replacedWith: number | null; reason: string }> {
     return replaceQuestion(this.paperDeps, actor, examId, questionId, options);
   }
 }

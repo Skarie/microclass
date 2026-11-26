@@ -41,8 +41,7 @@ export class ExamLifecycleService {
     const course = await this.courses.findById(courseId);
     if (!course) throw AppError.notFound('课程不存在');
     const isManager = viewer.role === 'admin' || viewer.role === 'teacher';
-    const exams = this.exams
-      .listByCourseWithStats(courseId, isManager ? null : viewer.id)
+    const exams = (await this.exams.listByCourseWithStats(courseId, isManager ? null : viewer.id))
       .filter((e) => isManager || e.status === 'published')
       .map((e: ExamWithStats & { my: ExamAttempt | null }) => ({
         ...e,
@@ -60,8 +59,8 @@ export class ExamLifecycleService {
     return { course: { id: course.id, name: course.name }, exams };
   }
 
-  findById(examId: number): Exam {
-    const exam = this.exams.findById(examId);
+  async findById(examId: number): Promise<Exam> {
+    const exam = await this.exams.findById(examId);
     if (!exam) throw AppError.notFound('考试不存在');
     return exam;
   }
@@ -81,7 +80,7 @@ export class ExamLifecycleService {
   }
 
   async update(actor: User, examId: number, input: ExamDto): Promise<void> {
-    this.findById(examId);
+    await this.findById(examId);
     this.paperCache.clearPaper(examId);
     const prepared = await this.prepare(input);
     this.exams.update(examId, prepared);
@@ -94,8 +93,8 @@ export class ExamLifecycleService {
     });
   }
 
-  remove(actor: User, examId: number): void {
-    const exam = this.findById(examId);
+  async remove(actor: User, examId: number): Promise<void> {
+    const exam = await this.findById(examId);
     this.paperCache.clearPaper(examId);
     this.exams.delete(examId);
     this.audit.write({

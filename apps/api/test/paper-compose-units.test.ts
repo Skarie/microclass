@@ -20,7 +20,7 @@ import {
   type PickQuery,
 } from '../src/services/paperRange.js';
 
-function depsWithPick(pick: (query: PickQuery) => { id: number }[]): ExamPaperDeps {
+function depsWithPick(pick: (query: PickQuery) => Promise<{ id: number }[]>): ExamPaperDeps {
   return {
     exams: { pick } as unknown as ExamRepository,
     questions: {} as unknown as QuestionRepository,
@@ -125,25 +125,25 @@ describe('组卷范围查询拼装', () => {
     expect(composePickAttempts({ type: 'single', exclude: [] })).toHaveLength(2);
   });
 
-  it('挑题按回退顺序取第一个非空结果（前两次空才降到只保题型）', () => {
+  it('挑题按回退顺序取第一个非空结果（前两次空才降到只保题型）', async () => {
     const calls: PickQuery[] = [];
-    const deps = depsWithPick((query) => {
+    const deps = depsWithPick(async (query) => {
       calls.push(query);
       return calls.length === 2 ? [{ id: 7 }] : [];
     });
-    expect(pickForCompose(deps, { type: 'single', level: 'hard', exclude: [] })).toBe(7);
+    expect(await pickForCompose(deps, { type: 'single', level: 'hard', exclude: [] })).toBe(7);
     expect(calls).toHaveLength(2);
     expect(calls[0]?.levelMin).toBe(71);
     expect(calls[1]?.difficulty).toBe('hard');
   });
 
-  it('题池全空时返回 undefined（调用方据此报缺口，不硬凑）', () => {
+  it('题池全空时返回 undefined（调用方据此报缺口，不硬凑）', async () => {
     const calls: PickQuery[] = [];
-    const deps = depsWithPick((query) => {
+    const deps = depsWithPick(async (query) => {
       calls.push(query);
       return [];
     });
-    expect(pickForCompose(deps, { type: 'fill', level: 'easy', exclude: [] })).toBeUndefined();
+    expect(await pickForCompose(deps, { type: 'fill', level: 'easy', exclude: [] })).toBeUndefined();
     expect(calls).toHaveLength(3);
   });
 });

@@ -57,7 +57,7 @@ export async function registerPaperRoutes(app: FastifyInstance, deps: Deps): Pro
     requireTeacherOrAdmin(req, reply);
     const id = Number((req.params as { id: string }).id);
     const q = req.query as Record<string, string | undefined>;
-    const html = deps.examService.paperHtml(id, {
+    const html = await deps.examService.paperHtml(id, {
       size: q.size === 'A3' ? 'A3' : 'A4',
       orientation: q.orientation === 'landscape' ? 'landscape' : 'portrait',
       columns: q.columns === '2' ? 2 : 1,

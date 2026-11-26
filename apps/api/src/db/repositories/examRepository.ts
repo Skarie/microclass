@@ -10,10 +10,20 @@
  * - exam-facets.ts     选题树（册次 → 章节）与知识点懒加载
  * - exam-attempts.ts   作答次数、交卷落库、成绩单、个人成绩
  *
- * 对外方法签名、SQL 语义与返回结构保持不变；类型从原路径 re-export，
- * 服务层 / 路由 / 测试无需改动。
+ * SQL 文本、排序与返回结构保持不变；类型从原路径 re-export。
+ * 读方法在批次 1 改为 `Promise` 返回，调用方（服务/路由/测试）已同步补 `await`。
+ *
+ * ## P0 阶段 2（exams/attempts 批次 1：只读方法）
+ *
+ * - **读方法**（list/findById/paper/pool/facets/stats/成绩查询）统一注入 `AsyncDb`，
+ *   返回 Promise；sqlite 下与旧同步实现等价，PG 下走连接池。
+ * - **写方法**（create/update/delete/setStructure/卷内加删改/交卷落库）仍是同步 `Db`，
+ *   事务边界与 SQL 一律不变 —— 批次 2 再迁，避免把组卷/交卷的写路径混进只读批次。
+ * - `adb()` 是唯一的异步入口：测试只注入 `Db` 时退回 sqlite 包装（行为等价），
+ *   与 users/courses/lessons/progress 等已迁域同一口径。
  */
 import type { Exam } from '@microclass/shared';
+import { createSqliteAsyncDb, type AsyncDb } from '../async.js';
 import type { Db } from '../client.js';
 import * as attempts from './exam-attempts.js';
 import type { AttemptWithExam, AttemptWithStudent } from './exam-attempts.js';
@@ -38,23 +48,35 @@ import type {
 } from './exam-types.js';
 
 export type * from './exam-types.js';
+export type { AttemptWithExam, AttemptWithStudent } from './exam-attempts.js';
 
 export class ExamRepository {
-  constructor(private readonly db: Db) {}
+  constructor(
+    private readonly db: Db,
+    private readonly asyncDb?: AsyncDb,
+  ) {}
+
+  /** 已迁移的读方法统一走异步端口；单测只注入 `Db` 时退回 sqlite 包装（行为等价） */
+  private adb(): AsyncDb {
+    return this.asyncDb ?? createSqliteAsyncDb(this.db);
+  }
 
   /* ---------------- 考试主体 ---------------- */
 
-  listByCourse(courseId: number): Exam[] {
-    return crud.listByCourse(this.db, courseId);
+  async listByCourse(courseId: number): Promise<Exam[]> {
+    return crud.listByCourse(this.adb(), courseId);
   }
 
   /** 考试列表（含题量、参与人数与我的最近成绩） */
-  listByCourseWithStats(courseId: number, viewerId: number | null): (ExamWithStats & { my: ExamAttempt | null })[] {
-    return crud.listByCourseWithStats(this.db, courseId, viewerId);
+  async listByCourseWithStats(
+    courseId: number,
+    viewerId: number | null,
+  ): Promise<(ExamWithStats & { my: ExamAttempt | null })[]> {
+    return crud.listByCourseWithStats(this.adb(), courseId, viewerId);
   }
 
-  findById(id: number): Exam | undefined {
-    return crud.findById(this.db, id);
+  async findById(id: number): Promise<Exam | undefined> {
+    return crud.findById(this.adb(), id);
   }
 
   create(input: ExamInput): number {
@@ -77,13 +99,13 @@ export class ExamRepository {
   /* ---------------- 组卷 / 卷内题目 ---------------- */
 
   /** 已选入试卷的题目（按卷内顺序，含大题与分值） */
-  listQuestions(examId: number): ExamQuestionRow[] {
-    return questions.listQuestions(this.db, examId);
+  async listQuestions(examId: number): Promise<ExamQuestionRow[]> {
+    return questions.listQuestions(this.adb(), examId);
   }
 
   /** 单个题目的卷内配置（换题/改分值用） */
-  questionInExam(examId: number, questionId: number): ExamQuestionMeta | undefined {
-    return questions.questionInExam(this.db, examId, questionId);
+  async questionInExam(examId: number, questionId: number): Promise<ExamQuestionMeta | undefined> {
+    return questions.questionInExam(this.adb(), examId, questionId);
   }
 
   /** 改某题的分值 / 大题分组 */
@@ -120,66 +142,66 @@ export class ExamRepository {
     return questions.clearQuestions(this.db, examId);
   }
 
-  questionIds(examId: number): number[] {
-    return questions.questionIds(this.db, examId);
+  async questionIds(examId: number): Promise<number[]> {
+    return questions.questionIds(this.adb(), examId);
   }
 
   /* ---------------- 题池 / 统计 ---------------- */
 
   /** 挑题（组卷/选题的核心查询） */
-  pick(options: PickOptions): PickRow[] {
-    return pool.pick(this.db, options);
+  async pick(options: PickOptions): Promise<PickRow[]> {
+    return pool.pick(this.adb(), options);
   }
 
   /** 细目表参考数据：「知识点 × 题型 × 难度」各有多少题 */
-  taxonomy(options: TaxonomyOptions): TaxonomyPoint[] {
-    return stats.taxonomy(this.db, options);
+  async taxonomy(options: TaxonomyOptions): Promise<TaxonomyPoint[]> {
+    return stats.taxonomy(this.adb(), options);
   }
 
   /** 选题树数据（册次 → 章节，带题量） */
-  facets(options: FacetsOptions): FacetsResult {
-    return facetsRepo.facets(this.db, options);
+  async facets(options: FacetsOptions): Promise<FacetsResult> {
+    return facetsRepo.facets(this.adb(), options);
   }
 
   /** 知识点清单 + 题量（知识点树懒加载 / 搜索用） */
-  pointsOf(options: PointsOfOptions): PointRow[] {
-    return facetsRepo.pointsOf(this.db, options);
+  async pointsOf(options: PointsOfOptions): Promise<PointRow[]> {
+    return facetsRepo.pointsOf(this.adb(), options);
   }
 
   /** 符合筛选条件的全部题目 id（「全选筛选结果」用）；有上限保护 */
-  pickIds(options: PickOptions & { cap?: number }): number[] {
-    return pool.pickIds(this.db, options);
+  async pickIds(options: PickOptions & { cap?: number }): Promise<number[]> {
+    return pool.pickIds(this.adb(), options);
   }
 
   /** 挑题总数（分页用；条件与 `pick` 完全一致） */
-  pickCount(options: PickOptions): number {
-    return pool.pickCount(this.db, options);
+  async pickCount(options: PickOptions): Promise<number> {
+    return pool.pickCount(this.adb(), options);
   }
 
   /** 课程范围内的候选题目（课时直属题目或课时所属题库的题目） */
-  pool(courseId: number): PoolBudgetQuestion[] {
-    return pool.pool(this.db, courseId);
+  async pool(courseId: number): Promise<PoolBudgetQuestion[]> {
+    return pool.pool(this.adb(), courseId);
   }
 
   /** 全库候选题（跨题库）——按知识点 / 书册 / 难度筛题用 */
-  search(options: SearchOptions): PoolQuestion[] {
-    return pool.search(this.db, options);
+  async search(options: SearchOptions): Promise<PoolQuestion[]> {
+    return pool.search(this.adb(), options);
   }
 
   /** 按知识点聚合的题目统计（一个知识点有多少题、难度分布、来自几个题库） */
-  pointStats(options: PointStatsOptions): PointStatsRow[] {
-    return stats.pointStats(this.db, options);
+  async pointStats(options: PointStatsOptions): Promise<PointStatsRow[]> {
+    return stats.pointStats(this.adb(), options);
   }
 
   /* ---------------- 作答与成绩 ---------------- */
 
   /** 该学员在这场考试上的作答次数（学习通式"允许作答次数"要用） */
-  attemptCount(examId: number, userId: number): number {
-    return attempts.attemptCount(this.db, examId, userId);
+  async attemptCount(examId: number, userId: number): Promise<number> {
+    return attempts.attemptCount(this.adb(), examId, userId);
   }
 
-  findAttempt(examId: number, userId: number): ExamAttempt | undefined {
-    return attempts.findAttempt(this.db, examId, userId);
+  async findAttempt(examId: number, userId: number): Promise<ExamAttempt | undefined> {
+    return attempts.findAttempt(this.adb(), examId, userId);
   }
 
   createAttempt(input: AttemptInput): number {
@@ -187,12 +209,12 @@ export class ExamRepository {
   }
 
   /** 成绩单：某场考试的全部作答（含学生信息与统计） */
-  attemptsOf(examId: number): AttemptWithStudent[] {
-    return attempts.attemptsOf(this.db, examId);
+  async attemptsOf(examId: number): Promise<AttemptWithStudent[]> {
+    return attempts.attemptsOf(this.adb(), examId);
   }
 
   /** 我的所有考试成绩（个人中心用） */
-  attemptsByUser(userId: number): AttemptWithExam[] {
-    return attempts.attemptsByUser(this.db, userId);
+  async attemptsByUser(userId: number): Promise<AttemptWithExam[]> {
+    return attempts.attemptsByUser(this.adb(), userId);
   }
 }

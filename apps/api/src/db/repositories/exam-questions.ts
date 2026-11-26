@@ -5,13 +5,20 @@
  * - 卷内题目 `ORDER BY eq.sort, q.id`；
  * - reorder / replaceQuestion / addQuestions 的写操作仍在单事务内完成；
  * - 批量加题「已在卷内的自动跳过」，返回实际新增数。
+ *
+ * P0 阶段 2（批次 1）：读方法（listQuestions / questionInExam / questionIds）改走 `AsyncDb`；
+ * 写方法仍是同步 `Db`（含事务），批次 2 再迁。
  */
+import type { AsyncDb } from '../async.js';
 import type { Db } from '../client.js';
 import type { ExamQuestionMeta, ExamQuestionRow } from './exam-types.js';
 
+const QUESTION_IN_EXAM_SQL =
+  "SELECT sort, score, COALESCE(section, '') AS section FROM exam_questions WHERE exam_id = ? AND question_id = ?";
+
 /** 已选入试卷的题目（按卷内顺序，含大题与分值） */
-export function listQuestions(db: Db, examId: number): ExamQuestionRow[] {
-  return db.all<ExamQuestionRow>(
+export async function listQuestions(adb: AsyncDb, examId: number): Promise<ExamQuestionRow[]> {
+  return adb.all<ExamQuestionRow>(
     `SELECT q.id, q.bank_id, q.lesson_id, q.type, q.stem, q.image_path, q.options, q.answer, q.analysis,
             q.difficulty, q.difficulty_score, q.point, q.book,
             eq.sort, eq.score, COALESCE(eq.section, '') AS section
@@ -24,11 +31,17 @@ export function listQuestions(db: Db, examId: number): ExamQuestionRow[] {
 }
 
 /** 单个题目的卷内配置（换题/改分值用） */
-export function questionInExam(db: Db, examId: number, questionId: number): ExamQuestionMeta | undefined {
-  return db.get<ExamQuestionMeta>(
-    "SELECT sort, score, COALESCE(section, '') AS section FROM exam_questions WHERE exam_id = ? AND question_id = ?",
-    [examId, questionId],
-  );
+export async function questionInExam(
+  adb: AsyncDb,
+  examId: number,
+  questionId: number,
+): Promise<ExamQuestionMeta | undefined> {
+  return adb.get<ExamQuestionMeta>(QUESTION_IN_EXAM_SQL, [examId, questionId]);
+}
+
+/** ⚠️ 仅供写路径（replaceQuestion）读旧配置：批次 2 改造写方法时删掉 */
+function questionInExamSync(db: Db, examId: number, questionId: number): ExamQuestionMeta | undefined {
+  return db.get<ExamQuestionMeta>(QUESTION_IN_EXAM_SQL, [examId, questionId]);
 }
 
 /** 改某题的分值 / 大题分组 */
@@ -65,7 +78,7 @@ export function reorder(db: Db, examId: number, questionIds: number[]): void {
 
 /** 用另一道题替换卷内某题（保持位置/分值/大题） */
 export function replaceQuestion(db: Db, examId: number, oldQuestionId: number, newQuestionId: number): void {
-  const current = questionInExam(db, examId, oldQuestionId);
+  const current = questionInExamSync(db, examId, oldQuestionId);
   db.transaction(() => {
     db.run('DELETE FROM exam_questions WHERE exam_id = ? AND question_id = ?', [examId, oldQuestionId]);
     db.run('INSERT OR REPLACE INTO exam_questions (exam_id, question_id, sort, score, section) VALUES (?,?,?,?,?)', [
@@ -84,7 +97,7 @@ export function addQuestions(db: Db, examId: number, questionIds: number[]): num
   const maxSort = db.get<{ m: number | null }>('SELECT MAX(sort) AS m FROM exam_questions WHERE exam_id = ?', [
     examId,
   ])?.m;
-  let next = maxSort === null || maxSort === undefined ? 0 : maxSort + 1;
+  let next = maxSort === null || maxSort === undefined ? 0 : Number(maxSort) + 1;
   db.transaction(() => {
     for (const qid of questionIds) {
       if (!db.get<{ id: number }>('SELECT id FROM questions WHERE id = ?', [qid])) continue;
@@ -121,8 +134,9 @@ export function clearQuestions(db: Db, examId: number): number {
   return db.run('DELETE FROM exam_questions WHERE exam_id = ?', [examId]).changes;
 }
 
-export function questionIds(db: Db, examId: number): number[] {
-  return db
-    .all<{ question_id: number }>('SELECT question_id FROM exam_questions WHERE exam_id = ?', [examId])
-    .map((r) => r.question_id);
+export async function questionIds(adb: AsyncDb, examId: number): Promise<number[]> {
+  const rows = await adb.all<{ question_id: number }>('SELECT question_id FROM exam_questions WHERE exam_id = ?', [
+    examId,
+  ]);
+  return rows.map((r) => r.question_id);
 }

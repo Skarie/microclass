@@ -18,11 +18,11 @@ export interface ExamPaperDeps {
 }
 
 /** 卷面行（exam_questions JOIN questions，含卷面分值与大题） */
-export type PaperRow = ReturnType<ExamRepository['listQuestions']>[number];
+export type PaperRow = Awaited<ReturnType<ExamRepository['listQuestions']>>[number];
 
-/** 考试不存在时的错误口径与 `ExamService.findById` 一致 */
-export function findExam(exams: ExamRepository, examId: number): Exam {
-  const exam = exams.findById(examId);
+/** 考试不存在时的错误口径与 `ExamService.findById` 一致（读走 AsyncDb，故为异步） */
+export async function findExam(exams: ExamRepository, examId: number): Promise<Exam> {
+  const exam = await exams.findById(examId);
   if (!exam) throw AppError.notFound('考试不存在');
   return exam;
 }

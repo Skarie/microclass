@@ -346,10 +346,11 @@ describe('交卷编排（ExamService，内存库）', () => {
       passScore: 60,
       status: 'published',
     });
-    expect(examService.addQuestions(admin, scoredExamId, scoredQids)).toBe(5);
-    scoredQids.forEach((qid, index) => {
-      examService.setQuestionMeta(admin, scoredExamId, qid, { score: specs[index]?.score ?? 0 });
-    });
+    expect(await examService.addQuestions(admin, scoredExamId, scoredQids)).toBe(5);
+    for (const [index, qid] of scoredQids.entries()) {
+      // 改分值前会异步校验「这道题在卷内」，必须逐题 await（顺序与落库顺序一致）
+      await examService.setQuestionMeta(admin, scoredExamId, qid, { score: specs[index]?.score ?? 0 });
+    }
   });
 
   afterAll(async () => {
@@ -357,21 +358,21 @@ describe('交卷编排（ExamService，内存库）', () => {
     fs.rmSync(dataDir, { recursive: true, force: true });
   });
 
-  it('同一试卷重复交卷被拒，且只落一条成绩', () => {
-    const first = examService.submit(stu1, scoredExamId, allAnswers(), Date.now() - 5000);
+  it('同一试卷重复交卷被拒，且只落一条成绩', async () => {
+    const first = await examService.submit(stu1, scoredExamId, allAnswers(), Date.now() - 5000);
     expect(first).toMatchObject({ score: 40, total: 60, need: 36, passed: true, manual: 1 });
     expect(first.results).toBeUndefined();
-    expect(exams.attemptCount(scoredExamId, stu1.id)).toBe(1);
+    expect(await exams.attemptCount(scoredExamId, stu1.id)).toBe(1);
 
-    expect(() => examService.submit(stu1, scoredExamId, allAnswers())).toThrow('本场考试已交卷，不能重复作答');
-    expect(exams.attemptCount(scoredExamId, stu1.id)).toBe(1);
+    await expect(examService.submit(stu1, scoredExamId, allAnswers())).rejects.toThrow('本场考试已交卷，不能重复作答');
+    expect(await exams.attemptCount(scoredExamId, stu1.id)).toBe(1);
   });
 
-  it('作答只落四元组，成绩页按缓存的卷面重建完整结果', () => {
-    const submitted = examService.submit(stu2, scoredExamId, allAnswers());
+  it('作答只落四元组，成绩页按缓存的卷面重建完整结果', async () => {
+    const submitted = await examService.submit(stu2, scoredExamId, allAnswers());
     expect(submitted.score).toBe(40);
 
-    const attempt = exams.findAttempt(scoredExamId, stu2.id);
+    const attempt = await exams.findAttempt(scoredExamId, stu2.id);
     expect(attempt).toBeTruthy();
     const stored = JSON.parse(attempt?.answers ?? '[]') as Record<string, unknown>[];
     expect(stored).toHaveLength(5);
@@ -379,7 +380,7 @@ describe('交卷编排（ExamService，内存库）', () => {
       expect(Object.keys(item).sort()).toEqual(['correct', 'given', 'qid', 'score']);
     }
 
-    const result = examService.myResult(stu2, scoredExamId);
+    const result = await examService.myResult(stu2, scoredExamId);
     expect(result.results).toHaveLength(5);
     expect(result.need).toBe(36);
     expect(result.manual).toBe(1);
@@ -401,9 +402,9 @@ describe('交卷编排（ExamService，内存库）', () => {
     });
   });
 
-  it('漏交的题不写进判分结果', () => {
-    examService.submit(stu3, scoredExamId, allAnswers().slice(0, 2));
-    const result = examService.myResult(stu3, scoredExamId);
+  it('漏交的题不写进判分结果', async () => {
+    await examService.submit(stu3, scoredExamId, allAnswers().slice(0, 2));
+    const result = await examService.myResult(stu3, scoredExamId);
     expect(result.results?.map((r) => r.qid)).toEqual(scoredQids.slice(0, 2));
     expect(result.score).toBe(20);
     expect(result.total).toBe(60);
@@ -421,9 +422,9 @@ describe('交卷编排（ExamService，内存库）', () => {
       endAt: now - 60,
       status: 'published',
     });
-    examService.addQuestions(admin, withinBuffer, [firstQid]);
+    await examService.addQuestions(admin, withinBuffer, [firstQid]);
     // 新考试只有 1 道题且未设分值 → 按题数折算：1 题 1 分，及格线 ceil(1 × 60%) = 1
-    const ok = examService.submit(stu4, withinBuffer, [{ qid: firstQid, answer: 'A' }]);
+    const ok = await examService.submit(stu4, withinBuffer, [{ qid: firstQid, answer: 'A' }]);
     expect(ok).toMatchObject({ score: 1, total: 1, need: 1, passed: true });
 
     const expired = await examService.create(admin, {
@@ -432,7 +433,9 @@ describe('交卷编排（ExamService，内存库）', () => {
       endAt: now - 200,
       status: 'published',
     });
-    examService.addQuestions(admin, expired, [firstQid]);
-    expect(() => examService.submit(stu5, expired, [{ qid: firstQid, answer: 'A' }])).toThrow('考试已结束，不能再交卷');
+    await examService.addQuestions(admin, expired, [firstQid]);
+    await expect(examService.submit(stu5, expired, [{ qid: firstQid, answer: 'A' }])).rejects.toThrow(
+      '考试已结束，不能再交卷',
+    );
   });
 });

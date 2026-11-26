@@ -82,10 +82,12 @@ export function composePickAttempts(options: ComposePickOptions): PickQuery[] {
  *   1) `difficulty_score` 落在目标档区间（模型算出来的 0–100 分）；
  *   2) 退回旧的 `difficulty` 三档字段；
  *   3) 再不匹配就忽略难度，只保证题型与范围（宁可出题也不要空卷）。
+ *
+ * P0 阶段 2（批次 1）：`pick()` 改走 AsyncDb，三级回退必须**按序 await**（回退顺序即语义）。
  */
-export function pickForCompose(deps: ExamPaperDeps, options: ComposePickOptions): number | undefined {
+export async function pickForCompose(deps: ExamPaperDeps, options: ComposePickOptions): Promise<number | undefined> {
   for (const query of composePickAttempts(options)) {
-    const rows = deps.exams.pick(query);
+    const rows = await deps.exams.pick(query);
     if (rows.length > 0) return shuffle(rows)[0]?.id;
   }
   return undefined;

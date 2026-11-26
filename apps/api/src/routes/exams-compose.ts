@@ -41,15 +41,15 @@ export async function registerExamComposeRoutes(app: FastifyInstance, deps: Deps
       }
       return {
         ok: true,
-        ...deps.examService.addByQuota(user, id, quota, hasDifficultyQuota ? difficulty.quota : undefined),
+        ...(await deps.examService.addByQuota(user, id, quota, hasDifficultyQuota ? difficulty.quota : undefined)),
       };
     }
     if (hasDifficultyQuota) {
-      return { ok: true, ...deps.examService.addByQuota(user, id, {}, difficulty.quota) };
+      return { ok: true, ...(await deps.examService.addByQuota(user, id, {}, difficulty.quota)) };
     }
     const count = Number(body?.count ?? 5);
     if (!Number.isFinite(count) || count < 1) throw AppError.badRequest('抽题数量必须大于 0');
-    return { ok: true, added: deps.examService.addRandom(user, id, Math.floor(count)) };
+    return { ok: true, added: await deps.examService.addRandom(user, id, Math.floor(count)) };
   });
 
   /**

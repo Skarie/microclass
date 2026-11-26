@@ -3,6 +3,9 @@
  *
  * 判分口径全部在 `exam-grade`（纯函数），卷面读取走共享的 `ExamPaperCache`；
  * 本模块只做权限/时间判断与写入。所有错误文案与重构前逐字一致。
+ *
+ * P0 阶段 2（批次 1）：取卷/交卷前的**读**（考试、作答次数、最近一次作答、卷面）走 AsyncDb，
+ * 因此两个方法都是 async；**交卷落库 `createAttempt` 仍是同步写**（无事务改动），批次 2 再迁。
  */
 import { AppError, type Exam, type QuestionType, type User } from '@microclass/shared';
 import type { AuditRepository } from '../db/repositories/auditRepository.js';
@@ -22,16 +25,16 @@ export class ExamAttemptService {
   ) {}
 
   /** 取卷作答：已交卷返回 already，未发布仅管理端可见 */
-  take(
+  async take(
     viewer: User,
     examId: number,
-  ): {
+  ): Promise<{
     already: boolean;
     exam: Partial<Exam>;
     questions?: QuestionForViewer[];
     total?: number;
-  } {
-    const exam = this.lifecycle.findById(examId);
+  }> {
+    const exam = await this.lifecycle.findById(examId);
     const isManager = viewer.role === 'admin' || viewer.role === 'teacher';
     if (exam.status !== 'published' && !isManager) throw AppError.notFound('考试未发布');
     // 考试设置（学员才受限；老师随时可以查看卷子）
@@ -43,12 +46,12 @@ export class ExamAttemptService {
       if (endAt > 0 && now > endAt) throw AppError.badRequest('考试已结束，不能再作答');
       const limit = Number(exam.attempt_limit ?? 0);
       if (limit > 0) {
-        const used = this.exams.attemptCount(examId, viewer.id);
+        const used = await this.exams.attemptCount(examId, viewer.id);
         if (used >= limit) throw AppError.badRequest(`本场考试允许作答 ${limit} 次，已用完`);
       }
     }
-    const previous = this.exams.findAttempt(examId, viewer.id);
-    const questions = this.exams.listQuestions(examId).map((q) =>
+    const previous = await this.exams.findAttempt(examId, viewer.id);
+    const questions = (await this.exams.listQuestions(examId)).map((q) =>
       toViewer(
         {
           id: q.id,
@@ -88,16 +91,16 @@ export class ExamAttemptService {
   }
 
   /** 交卷：一次性作答，重复交卷被拒；用时上限为限时 + 30 秒缓冲 */
-  submit(
+  async submit(
     viewer: User,
     examId: number,
     answers: { qid: number; answer: string }[],
     startedAt?: number,
-  ): ExamSubmitResult {
-    const exam = this.lifecycle.findById(examId);
+  ): Promise<ExamSubmitResult> {
+    const exam = await this.lifecycle.findById(examId);
     const isManager = viewer.role === 'admin' || viewer.role === 'teacher';
     if (exam.status !== 'published' && !isManager) throw AppError.notFound('考试未发布');
-    if (this.exams.findAttempt(examId, viewer.id)) throw AppError.badRequest('本场考试已交卷，不能重复作答');
+    if (await this.exams.findAttempt(examId, viewer.id)) throw AppError.badRequest('本场考试已交卷，不能重复作答');
     if (!isManager) {
       const now = Math.floor(Date.now() / 1000);
       const endAt = Number(exam.end_at ?? 0);
@@ -105,7 +108,7 @@ export class ExamAttemptService {
       if (endAt > 0 && now > endAt + 120) throw AppError.badRequest('考试已结束，不能再交卷');
     }
 
-    const paper = this.paperCache.paperOf(examId);
+    const paper = await this.paperCache.paperOf(examId);
     if (paper.length === 0) throw AppError.badRequest('本场考试还没有组卷');
 
     // 判分口径全部在 exam-grade（纯函数），这里只负责取卷面、算用时与落库

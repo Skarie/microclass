@@ -3,6 +3,10 @@
  *
  * 从 `routes/exams.ts` 拆出；路径、方法、请求体 schema、返回结构全部保持不变。
  * 组卷在 `exams-paper` / `exams-compose`，题池在 `exams-pool`，作答与成绩在 `exams-attempts`。
+ *
+ * P0 阶段 2（批次 1）：考试读取走 AsyncDb，服务方法返回 Promise。
+ * 注意：`return service.x()` 交给 Fastify 会自动 await，但「先取字段再拼响应」必须显式 await，
+ * 否则响应体变成 `{}` / `Promise`（tsc 抓不到，见 docs/pg-migration-progress.md §3）。
  */
 import type { FastifyInstance } from 'fastify';
 import { AppError } from '@microclass/shared';
@@ -31,7 +35,7 @@ export async function registerExamCrudRoutes(app: FastifyInstance, deps: Deps): 
 
   app.get('/exams/:id', async (req, reply) => {
     const user = requireUser(req, reply);
-    const exam = deps.examService.findById(examIdOf(req));
+    const exam = await deps.examService.findById(examIdOf(req));
     if (exam.status !== 'published' && user.role === 'student') throw AppError.notFound('考试未发布');
     return { exam };
   });
@@ -44,7 +48,7 @@ export async function registerExamCrudRoutes(app: FastifyInstance, deps: Deps): 
 
   app.delete('/exams/:id', async (req, reply) => {
     const user = requireTeacherOrAdmin(req, reply);
-    deps.examService.remove(user, examIdOf(req));
+    await deps.examService.remove(user, examIdOf(req));
     return { ok: true };
   });
 }

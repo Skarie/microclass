@@ -43,17 +43,19 @@ export function allocateDifficultyBuckets(
  * 组卷：在课程题池里按「题型配额 + 难度配额」抽题。
  * 难度配额（如 `{easy:5, medium:3, hard:2}`）与题型配额可同时给，也可以只给难度。
  * 池内没有足够的某类题时按实际数量抽，并在返回值里如实报告缺口。
+ *
+ * P0 阶段 2（批次 1）：考试/卷内题目/题池读取走 AsyncDb；`addQuestions` 仍是同步写。
  */
-export function addByQuota(
+export async function addByQuota(
   deps: ExamPaperDeps,
   actor: User,
   examId: number,
   quota: Partial<Record<QuestionType, number>>,
   difficultyQuota?: Partial<Record<DifficultyLevel, number>>,
-): { added: number; requested: number; shortfall: number } {
-  const exam = findExam(deps.exams, examId);
-  const have = new Set(deps.exams.questionIds(examId));
-  const pool = deps.exams.pool(exam.course_id).filter((q) => !have.has(q.id));
+): Promise<{ added: number; requested: number; shortfall: number }> {
+  const exam = await findExam(deps.exams, examId);
+  const have = new Set(await deps.exams.questionIds(examId));
+  const pool = (await deps.exams.pool(exam.course_id)).filter((q) => !have.has(q.id));
   const typeEntries = positiveEntries(quota);
   const diffEntries = positiveEntries(difficultyQuota);
 

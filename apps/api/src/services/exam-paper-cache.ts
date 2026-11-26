@@ -3,10 +3,13 @@
  *
  * 起因：压测里 1064 题的卷、60 人同时交卷要 7 秒 —— 慢的不是判分（纯内存计算），
  * 而是每次提交都 `listQuestions` 读 1064 行（含题干/选项/解析），60 次就是 6.4 万行。
- * 卷面在考试期间只读，缓存 60 秒足够；改卷/换题/删除时主动失效。
+ * 卷面在考试期间只读，缓存 15 秒足够；改卷/换题/删除时主动失效。
  *
  * 缓存实例由 `ExamService` 持有并注入作答/成绩服务，
  * 保证「交卷读到的卷面」与「成绩页重建用的卷面」是同一份。
+ *
+ * P0 阶段 2（批次 1）：`listQuestions` 改为异步后 `paperOf` 也返回 Promise；
+ * **缓存语义保持不变**：命中直接返回同一份数组（不再读库），未命中才 `await` 读库后落缓存。
  */
 import type { ExamRepository } from '../db/repositories/examRepository.js';
 import type { PaperRow } from './paperCommon.js';
@@ -17,11 +20,11 @@ export class ExamPaperCache {
 
   constructor(private readonly exams: Pick<ExamRepository, 'listQuestions'>) {}
 
-  paperOf(examId: number): PaperRow[] {
+  async paperOf(examId: number): Promise<PaperRow[]> {
     const hit = this.paperCache.get(examId);
     const now = Date.now();
     if (hit && now - hit.at < ExamPaperCache.PAPER_TTL_MS) return hit.rows;
-    const rows = this.exams.listQuestions(examId);
+    const rows = await this.exams.listQuestions(examId);
     if (this.paperCache.size > 300) this.paperCache.clear();
     this.paperCache.set(examId, { rows, at: now });
     return rows;

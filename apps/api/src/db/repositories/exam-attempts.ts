@@ -8,7 +8,11 @@
  *
  * 作答行只存 {qid, given, correct, score} 四元组；题干/答案在取卷时按 question_id 回表，
  * 避免题库改题后历史成绩串味（与 exam-grading 的缓存卷面口径一致）。
+ *
+ * P0 阶段 2（批次 1）：**读方法**（attemptCount / findAttempt / attemptsOf / attemptsByUser）
+ * 改走 `AsyncDb`；交卷落库 `createAttempt` 仍是同步 `Db`，批次 2 再迁。
  */
+import type { AsyncDb } from '../async.js';
 import type { Db } from '../client.js';
 import type { AttemptInput, ExamAttempt } from './exam-types.js';
 
@@ -67,19 +71,21 @@ export function summarizeAttempts(
 }
 
 /** 该学员在这场考试上的作答次数（学习通式"允许作答次数"要用） */
-export function attemptCount(db: Db, examId: number, userId: number): number {
-  return (
-    db.get<{ c: number }>('SELECT COUNT(*) AS c FROM exam_attempts WHERE exam_id = ? AND user_id = ?', [examId, userId])
-      ?.c ?? 0
+export async function attemptCount(adb: AsyncDb, examId: number, userId: number): Promise<number> {
+  const row = await adb.get<{ c: number }>(
+    'SELECT COUNT(*) AS c FROM exam_attempts WHERE exam_id = ? AND user_id = ?',
+    [examId, userId],
   );
+  // PG 的 COUNT 是 int8，统一收成数字（方言 #17）
+  return Number(row?.c ?? 0);
 }
 
 /** 最近一次作答（学习通式"只保留一条成绩"的判重入口） */
-export function findAttempt(db: Db, examId: number, userId: number): ExamAttempt | undefined {
-  return db.get<ExamAttempt>('SELECT * FROM exam_attempts WHERE exam_id = ? AND user_id = ? ORDER BY id DESC LIMIT 1', [
-    examId,
-    userId,
-  ]);
+export async function findAttempt(adb: AsyncDb, examId: number, userId: number): Promise<ExamAttempt | undefined> {
+  return adb.get<ExamAttempt>(
+    'SELECT * FROM exam_attempts WHERE exam_id = ? AND user_id = ? ORDER BY id DESC LIMIT 1',
+    [examId, userId],
+  );
 }
 
 /**
@@ -107,8 +113,8 @@ export function createAttempt(db: Db, input: AttemptInput): number {
 }
 
 /** 成绩单：某场考试的全部作答（含学生信息与统计） */
-export function attemptsOf(db: Db, examId: number): AttemptWithStudent[] {
-  const rows = db.all<AttemptWithStudent>(
+export async function attemptsOf(adb: AsyncDb, examId: number): Promise<AttemptWithStudent[]> {
+  const rows = await adb.all<AttemptWithStudent>(
     `SELECT a.*, u.username, u.display_name
      FROM exam_attempts a
      JOIN users u ON u.id = a.user_id
@@ -120,8 +126,8 @@ export function attemptsOf(db: Db, examId: number): AttemptWithStudent[] {
 }
 
 /** 我的所有考试成绩（个人中心用） */
-export function attemptsByUser(db: Db, userId: number): AttemptWithExam[] {
-  return db.all<AttemptWithExam>(
+export async function attemptsByUser(adb: AsyncDb, userId: number): Promise<AttemptWithExam[]> {
+  return adb.all<AttemptWithExam>(
     `SELECT a.*, e.title AS exam_title, e.course_id, COALESCE(c.name, '') AS course_name
      FROM exam_attempts a
      JOIN exams e ON e.id = a.exam_id

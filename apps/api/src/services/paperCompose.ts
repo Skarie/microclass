@@ -6,6 +6,10 @@
  * 做法：先算每个题型/每格要几道；题型内按难度配比分配名额；
  *       在该范围内挑难度分最贴近目标的题（同分随机），知识点优先不重复；
  *       缺口如实报告（不硬凑、不重复用题）。
+ *
+ * P0 阶段 2（批次 1）：题库/卷面读取全部 `await`（AsyncDb）。
+ * 落库动作（clearQuestions / addQuestions / setQuestionMeta）仍是同步写，
+ * **执行顺序与事务边界不变**（批次 2 再迁）。
  */
 import { AppError, type QuestionType, type User } from '@microclass/shared';
 import { orderCellsForPick } from '../domain/blueprint.js';
@@ -15,13 +19,13 @@ import { levelRangeOf, pickForCompose } from './paperRange.js';
 import { allocateDifficultyBuckets, positiveEntries } from './paperQuota.js';
 import type { AutoComposeInput, AutoComposeResult, DifficultyLevel } from './paperTypes.js';
 
-export function autoCompose(
+export async function autoCompose(
   deps: ExamPaperDeps,
   actor: User,
   examId: number,
   input: AutoComposeInput,
-): AutoComposeResult {
-  const exam = findExam(deps.exams, examId);
+): Promise<AutoComposeResult> {
+  const exam = await findExam(deps.exams, examId);
   const ratio = input.ratio ?? {};
   const useRatio = Object.values(ratio).some((v) => (Number(v) || 0) > 0);
   /**
@@ -33,7 +37,7 @@ export function autoCompose(
   const scope: 'course' | 'all' = input.scope === 'all' ? 'all' : 'course';
   const scopeCourseId = scope === 'all' ? undefined : (input.courseId ?? exam.course_id);
   if (input.replaceExisting) deps.exams.clearQuestions(examId);
-  const existing = new Set(deps.exams.questionIds(examId));
+  const existing = new Set(await deps.exams.questionIds(examId));
   const chosen: number[] = [];
   const detail: { type: string; requested: number; added: number; missing: number }[] = [];
   const difficultyWanted: Record<DifficultyLevel, number> = { easy: 0, medium: 0, hard: 0 };
@@ -55,7 +59,7 @@ export function autoCompose(
       requested += cell.count;
       difficultyWanted[cell.level] += cell.count;
       // 该格题池可用量：让老师知道缺口是「题池本来就没有」还是「被别的格抽走」
-      const available = deps.exams.pickCount({
+      const available = await deps.exams.pickCount({
         ...poolBase,
         type: cell.type,
         ...levelRangeOf(cell.level),
@@ -64,7 +68,7 @@ export function autoCompose(
       });
       let added = 0;
       for (let i = 0; i < cell.count; i += 1) {
-        const picked = pickForCompose(deps, {
+        const picked = await pickForCompose(deps, {
           ...(scopeCourseId === undefined ? {} : { courseId: scopeCourseId }),
           ...(cell.point ? { point: cell.point } : {}),
           ...(input.chapter ? { chapter: input.chapter } : {}),
@@ -99,7 +103,7 @@ export function autoCompose(
       const buckets: DifficultyLevel[] = useRatio ? allocateDifficultyBuckets(count, ratio) : [];
       for (const level of buckets) {
         difficultyWanted[level] += 1;
-        const picked = pickForCompose(deps, {
+        const picked = await pickForCompose(deps, {
           courseId: scopeCourseId,
           point: input.point,
           chapter: input.chapter,
@@ -117,7 +121,7 @@ export function autoCompose(
         added += 1;
       }
       if (!useRatio) {
-        const more = deps.exams.pick({
+        const more = await deps.exams.pick({
           limit: count,
           type,
           courseId: scopeCourseId,
@@ -145,7 +149,7 @@ export function autoCompose(
     inserted = deps.exams.addQuestions(examId, chosen);
     // 生成后落分值/大题：老师按题型填的数量与分值，不必再逐题点一遍
     const typeOf = new Map<number, string>();
-    for (const row of deps.exams.listQuestions(examId)) typeOf.set(row.id, String(row.type));
+    for (const row of await deps.exams.listQuestions(examId)) typeOf.set(row.id, String(row.type));
     for (const qid of chosen) {
       const perType = input.scores?.[(typeOf.get(qid) ?? '') as QuestionType];
       deps.exams.setQuestionMeta(examId, qid, {
@@ -173,6 +177,6 @@ export function autoCompose(
       requested: difficultyWanted[level],
       added: difficultyAdded[level],
     })),
-    blueprint: buildBlueprint(findExam(deps.exams, examId), deps.exams.listQuestions(examId)),
+    blueprint: buildBlueprint(await findExam(deps.exams, examId), await deps.exams.listQuestions(examId)),
   };
 }

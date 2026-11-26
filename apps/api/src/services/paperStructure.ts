@@ -55,8 +55,10 @@ export function sectionLabel(index: number, section: PaperSection): string {
 /**
  * 保存试卷结构：大题分组（名称/题型/每题分值/说明）+ 目标难度配比 + 总分。
  * `applyScores` 会把「某大题下的题目」分值统一刷成该大题的标准分值。
+ *
+ * P0 阶段 2（批次 1）：考试存在性校验走 AsyncDb；`setStructure`/`applySection` 仍是同步写。
  */
-export function setStructure(
+export async function setStructure(
   deps: ExamPaperDeps,
   actor: User,
   examId: number,
@@ -64,8 +66,8 @@ export function setStructure(
   difficultyTarget?: DifficultyTarget,
   totalScore?: number,
   applyScores = true,
-): void {
-  findExam(deps.exams, examId);
+): Promise<void> {
+  await findExam(deps.exams, examId);
   deps.exams.setStructure(
     examId,
     JSON.stringify(sections),

@@ -5,24 +5,27 @@
  * 为什么改：原来的「换一题」是在 20 条里随机取一条，老师看不到换成了什么题，
  * 也没法比一比再决定。这里按匹配强度分组（同知识点同难度 → 同难度 → 相近难度 → 同题型），
  * 每组内按难度分接近程度排序，并带上题干/知识点/题库名。
+ *
+ * P0 阶段 2（批次 1）：考试/卷面/题池读取走 AsyncDb（候选分组顺序与回退顺序保持）；
+ * `replaceQuestion` 落库仍是同步写（含事务），批次 2 再迁。
  */
 import { AppError, type User } from '@microclass/shared';
 import { findExam, writeAudit, type ExamPaperDeps } from './paperCommon.js';
 import type { PickQuery } from './paperRange.js';
 import type { SimilarCandidatesResult } from './paperTypes.js';
 
-export function similarCandidates(
+export async function similarCandidates(
   deps: ExamPaperDeps,
   examId: number,
   questionId: number,
   options?: { limit?: number },
-): SimilarCandidatesResult {
-  findExam(deps.exams, examId); // 校验考试存在（不关心返回值）
-  const rows = deps.exams.listQuestions(examId);
+): Promise<SimilarCandidatesResult> {
+  await findExam(deps.exams, examId); // 校验考试存在（不关心返回值）
+  const rows = await deps.exams.listQuestions(examId);
   const current = rows.find((q) => q.id === questionId);
   if (!current) throw AppError.notFound('这道题不在试卷里');
   const limit = Math.min(20, Math.max(3, Number(options?.limit ?? 8) || 8));
-  const inExam = new Set(deps.exams.questionIds(examId));
+  const inExam = new Set(await deps.exams.questionIds(examId));
   const baseLevel = Number(current.difficulty_score ?? 50);
   const point = String(current.point ?? '');
   const currentDifficulty = String(current.difficulty ?? '');
@@ -54,7 +57,7 @@ export function similarCandidates(
   const groups: SimilarCandidatesResult['groups'] = [];
   const seen = new Set<number>([questionId]);
   for (const attempt of attempts) {
-    const picked = deps.exams.pick({
+    const picked = await deps.exams.pick({
       ...attempt.query,
       exclude: [...inExam],
       limit: limit * 3,
@@ -94,15 +97,15 @@ export function similarCandidates(
 }
 
 /** 用**指定**的题替换试卷里的某题（老师从候选里挑中的那道） */
-export function replaceWith(
+export async function replaceWith(
   deps: ExamPaperDeps,
   actor: User,
   examId: number,
   questionId: number,
   withId: number,
-): { ok: boolean; reason: string } {
-  findExam(deps.exams, examId);
-  const rows = deps.exams.listQuestions(examId);
+): Promise<{ ok: boolean; reason: string }> {
+  await findExam(deps.exams, examId);
+  const rows = await deps.exams.listQuestions(examId);
   if (!rows.some((q) => q.id === questionId)) throw AppError.notFound('这道题不在试卷里');
   if (rows.some((q) => q.id === withId)) throw AppError.badRequest('这道题已经在试卷里了');
   // 目标题必须真实存在于题库（避免前端传来任意 id）
@@ -117,17 +120,17 @@ export function replaceWith(
   return { ok: true, reason: '手工挑选候选' };
 }
 
-export function replaceQuestion(
+export async function replaceQuestion(
   deps: ExamPaperDeps,
   actor: User,
   examId: number,
   questionId: number,
   options?: { point?: string; difficulty?: string },
-): { ok: boolean; replacedWith: number | null; reason: string } {
-  findExam(deps.exams, examId);
-  const current = deps.exams.listQuestions(examId).find((q) => q.id === questionId);
+): Promise<{ ok: boolean; replacedWith: number | null; reason: string }> {
+  await findExam(deps.exams, examId);
+  const current = (await deps.exams.listQuestions(examId)).find((q) => q.id === questionId);
   if (!current) throw AppError.notFound('这道题不在试卷里');
-  const inExam = new Set(deps.exams.questionIds(examId));
+  const inExam = new Set(await deps.exams.questionIds(examId));
   const point = options?.point ?? current.point;
   const difficulty = options?.difficulty ?? current.difficulty;
   const attempts: { label: string; query: PickQuery }[] = [
@@ -148,7 +151,7 @@ export function replaceQuestion(
     { label: '只保证同题型', query: { type: current.type, exclude: [...inExam] } },
   ];
   for (const attempt of attempts) {
-    const rows = deps.exams.pick({ ...attempt.query, limit: 20 });
+    const rows = await deps.exams.pick({ ...attempt.query, limit: 20 });
     if (rows.length === 0) continue;
     const next = rows[Math.floor(Math.random() * rows.length)];
     if (!next) continue;

@@ -3,6 +3,9 @@
  * 生成一场新考试，并沿用原卷的分值、大题、考试设置与试卷结构。
  *
  * 配对逻辑在 `paperParallel`（纯查询 + 匹配），这里只负责建卷、抄结构、逐题落分值。
+ *
+ * P0 阶段 2（批次 1）：原卷读取/候选挑题走 AsyncDb（故 await 后续步骤）；
+ * 建卷、抄结构、逐题落分值仍是同步写（SQL/事务未动，批次 2 再迁）。
  */
 import { AppError, type User } from '@microclass/shared';
 import type { AuditRepository } from '../db/repositories/auditRepository.js';
@@ -37,8 +40,8 @@ export class ExamParallelService {
     shortfall: number;
     detail: { index: number; type: string; level: string; point: string; from: number; to: number | null }[];
   }> {
-    const source = this.lifecycle.findById(examId);
-    const questions = this.exams.listQuestions(examId);
+    const source = await this.lifecycle.findById(examId);
+    const questions = await this.exams.listQuestions(examId);
     if (questions.length === 0) throw AppError.badRequest('原卷里还没有题目，无法生成平行卷');
 
     const scope: 'course' | 'all' = input.scope === 'all' ? 'all' : 'course';
@@ -66,19 +69,19 @@ export class ExamParallelService {
       Number(source.total_score ?? 100),
     );
 
-    const { pickedIds, pairs, detail } = matchParallelQuestions(this.paperDeps, questions, scopeCourseId);
-    if (pickedIds.length > 0) this.paperEditor.addQuestions(actor, newId, pickedIds);
-    // 逐题沿用分值与大题（第 i 道新题对应原卷第 i 道题）
-    pairs.forEach(({ picked, from }) => {
-      this.paperEditor.setQuestionMeta(actor, newId, picked, {
+    const { pickedIds, pairs, detail } = await matchParallelQuestions(this.paperDeps, questions, scopeCourseId);
+    if (pickedIds.length > 0) await this.paperEditor.addQuestions(actor, newId, pickedIds);
+    // 逐题沿用分值与大题（第 i 道新题对应原卷第 i 道题）；写操作必须按序 await
+    for (const { picked, from } of pairs) {
+      await this.paperEditor.setQuestionMeta(actor, newId, picked, {
         score: Number(from.score ?? 0),
         section: String(from.section ?? ''),
       });
-    });
+    }
 
     return {
       examId: newId,
-      title: this.lifecycle.findById(newId).title,
+      title: (await this.lifecycle.findById(newId)).title,
       requested: questions.length,
       matched: pickedIds.length,
       shortfall: questions.length - pickedIds.length,

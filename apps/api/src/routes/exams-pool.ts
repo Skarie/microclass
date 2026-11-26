@@ -4,6 +4,9 @@
  * 从 `routes/exams.ts` 拆出；路径、方法、查询参数（含多选与 `scope=all` 语义）与
  * 返回结构保持不变。参数解析在 `domain/examPoolQuery` 与 `domain/examTaxonomyQuery`，
  * 响应拼装在 `domain/examPoolView`，这里只负责取考试、排除已在卷内的题、调用仓储。
+ *
+ * P0 阶段 2（批次 1）：考试/题池/选题树读取全部 `await`（AsyncDb）。
+ * 这些是纯读接口，返回 Promise 交给 Fastify 也会 await，但拼装响应时必须显式等待。
  */
 import type { FastifyInstance } from 'fastify';
 import { requireTeacherOrAdmin } from '../http/guards.js';
@@ -24,8 +27,8 @@ export async function registerExamPoolRoutes(app: FastifyInstance, deps: Deps): 
     const id = examIdOf(req);
     const q = req.query as Record<string, string | undefined>;
     // 范围默认落到**本考试所属课程**（与 facets/points 一致）：要跨课程必须显式 scope=all
-    const exam = deps.examService.findById(id);
-    const exclude = q.excludeInExam === '1' ? deps.exams.questionIds(id) : [];
+    const exam = await deps.examService.findById(id);
+    const exclude = q.excludeInExam === '1' ? await deps.exams.questionIds(id) : [];
     const parsed = parsePoolQuery(q, exam.course_id, exclude);
 
     /**
@@ -36,7 +39,7 @@ export async function registerExamPoolRoutes(app: FastifyInstance, deps: Deps): 
      */
     if (parsed.orderBy === 'error_desc') {
       const stats = deps.questionStats.errorByQuestion();
-      const window = deps.exams.pick({ ...parsed.picks, limit: 200 });
+      const window = await deps.exams.pick({ ...parsed.picks, limit: 200 });
       const page = buildErrorPoolPage(window, stats, {
         minAttempts: parsed.minAttempts,
         page: parsed.page,
@@ -53,13 +56,13 @@ export async function registerExamPoolRoutes(app: FastifyInstance, deps: Deps): 
       };
     }
 
-    const items = deps.exams.pick({
+    const items = await deps.exams.pick({
       ...parsed.picks,
       limit: parsed.pageSize,
       offset: (parsed.page - 1) * parsed.pageSize,
     });
     return {
-      total: deps.exams.pickCount(parsed.picks),
+      total: await deps.exams.pickCount(parsed.picks),
       page: parsed.page,
       pageSize: parsed.pageSize,
       // 普通模式也带上错率，界面可以直接显示「错率 50%（2 次作答）」
@@ -74,10 +77,10 @@ export async function registerExamPoolRoutes(app: FastifyInstance, deps: Deps): 
   app.get('/exams/:id/facets', async (req, reply) => {
     requireTeacherOrAdmin(req, reply);
     const id = examIdOf(req);
-    const exam = deps.examService.findById(id);
+    const exam = await deps.examService.findById(id);
     const q = req.query as Record<string, unknown>;
     // 树里的计数与题池同口径：排除已在试卷里的题，避免"树说 4 题、表格只列 2 题"
-    const exclude = q['excludeInExam'] === '1' ? deps.exams.questionIds(id) : [];
+    const exclude = q['excludeInExam'] === '1' ? await deps.exams.questionIds(id) : [];
     return deps.exams.facets(parseFacetsQuery(q, exam.course_id, exclude));
   });
 
@@ -85,10 +88,10 @@ export async function registerExamPoolRoutes(app: FastifyInstance, deps: Deps): 
   app.get('/exams/:id/points', async (req, reply) => {
     requireTeacherOrAdmin(req, reply);
     const id = examIdOf(req);
-    const exam = deps.examService.findById(id);
+    const exam = await deps.examService.findById(id);
     const q = req.query as Record<string, unknown>;
-    const exclude = q['excludeInExam'] === '1' ? deps.exams.questionIds(id) : [];
-    return { points: deps.exams.pointsOf(parsePointsQuery(q, exam.course_id, exclude)) };
+    const exclude = q['excludeInExam'] === '1' ? await deps.exams.questionIds(id) : [];
+    return { points: await deps.exams.pointsOf(parsePointsQuery(q, exam.course_id, exclude)) };
   });
 
   /**
@@ -97,7 +100,7 @@ export async function registerExamPoolRoutes(app: FastifyInstance, deps: Deps): 
    */
   app.get('/exams/:id/taxonomy', async (req, reply) => {
     requireTeacherOrAdmin(req, reply);
-    const exam = deps.examService.findById(examIdOf(req));
+    const exam = await deps.examService.findById(examIdOf(req));
     return deps.examService.taxonomy(parseTaxonomyQuery(req.query as Record<string, unknown>, exam.course_id));
   });
 }

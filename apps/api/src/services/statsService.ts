@@ -132,11 +132,11 @@ export class StatsService {
   }
 
   /** 个人学习总览：进度概览 + 考试成绩 + 错题数 */
-  meOverview(viewer: User): {
-    exams: ReturnType<ExamRepository['attemptsByUser']>;
+  async meOverview(viewer: User): Promise<{
+    exams: Awaited<ReturnType<ExamRepository['attemptsByUser']>>;
     exam_summary: { attempts: number; passed: number; avg: number };
-  } {
-    const attempts = this.exams.attemptsByUser(viewer.id);
+  }> {
+    const attempts = await this.exams.attemptsByUser(viewer.id);
     const passed = attempts.filter((a) => a.passed === 1).length;
     const avg =
       attempts.length > 0 ? Math.round((attempts.reduce((a, x) => a + x.score, 0) / attempts.length) * 10) / 10 : 0;

@@ -21,7 +21,7 @@ export async function registerExamAttemptRoutes(app: FastifyInstance, deps: Deps
   app.post('/exams/:id/submit', { schema: { body: submitSchema } }, async (req, reply) => {
     const user = requireUser(req, reply);
     const body = req.body as { answers: { qid: number; answer?: string }[]; startedAt?: number };
-    const result = deps.examService.submit(
+    const result = await deps.examService.submit(
       user,
       examIdOf(req),
       body.answers.map((a) => ({ qid: Number(a.qid), answer: String(a.answer ?? '') })),
@@ -45,7 +45,7 @@ export async function registerExamAttemptRoutes(app: FastifyInstance, deps: Deps
   /** 成绩单 CSV */
   app.get('/exams/:id/scores.csv', async (req, reply) => {
     requireTeacherOrAdmin(req, reply);
-    const { filename, rows } = deps.examService.scoreSheetCsv(examIdOf(req));
+    const { filename, rows } = await deps.examService.scoreSheetCsv(examIdOf(req));
     return reply.headers(csvHeaders(filename)).send(toCsv(rows));
   });
 }

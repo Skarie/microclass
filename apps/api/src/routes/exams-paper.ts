@@ -3,6 +3,10 @@
  *
  * 从 `routes/exams.ts` 拆出；路径、方法、参数与返回结构保持不变。
  * 智能组卷（随机/配额/细目表/平行卷）在 `exams-compose`，候选题池在 `exams-pool`。
+ *
+ * P0 阶段 2（批次 1）：卷面/题池读取走 AsyncDb，服务方法返回 Promise。
+ * 写接口（加题/改分值/结构/排序/删题）内部仍是同步落库，但前置校验是异步读，
+ * 因此这些路由必须 `await` 后再返回 `{ ok: true }`，否则写还没完成就先回包（tsc 不报错）。
  */
 import type { FastifyInstance } from 'fastify';
 import { AppError } from '@microclass/shared';
@@ -33,21 +37,21 @@ export async function registerExamPaperRoutes(app: FastifyInstance, deps: Deps):
     if (body?.filters && typeof body.filters === 'object') {
       const filters = poolFiltersFrom(body.filters as Record<string, unknown>);
       const limit = Math.min(5000, Math.max(1, Number(body.limit ?? 2000) || 2000));
-      const ids = deps.exams.pickIds({ ...filters, cap: limit });
+      const ids = await deps.exams.pickIds({ ...filters, cap: limit });
       if (ids.length === 0) throw AppError.badRequest('当前筛选条件下没有题目');
-      const added = deps.examService.addQuestions(user, id, ids);
+      const added = await deps.examService.addQuestions(user, id, ids);
       return { ok: true, added, matched: ids.length, truncated: ids.length >= limit };
     }
 
     const ids = parseQuestionIds(body?.questionIds);
     if (ids.length === 0) throw AppError.badRequest('请选择要加入试卷的题目');
-    return { ok: true, added: deps.examService.addQuestions(user, id, ids) };
+    return { ok: true, added: await deps.examService.addQuestions(user, id, ids) };
   });
 
   /** 导出试卷 Word（.docx）：`?answers=0` 导出不含答案解析的学生卷 */
   app.get('/exams/:id/paper.docx', async (req, reply) => {
     requireTeacherOrAdmin(req, reply);
-    const { filename, body } = deps.examService.paperDocx(examIdOf(req), {
+    const { filename, body } = await deps.examService.paperDocx(examIdOf(req), {
       withAnswers: (req.query as { answers?: string }).answers !== '0',
     });
     return reply
@@ -91,7 +95,7 @@ export async function registerExamPaperRoutes(app: FastifyInstance, deps: Deps):
     const body = req.body as { score?: number; section?: string };
     const score = body?.score === undefined ? undefined : Number(body.score);
     if (score !== undefined && (!Number.isFinite(score) || score < 0)) throw AppError.badRequest('分值必须是非负数');
-    deps.examService.setQuestionMeta(user, examId, questionId, {
+    await deps.examService.setQuestionMeta(user, examId, questionId, {
       ...(score === undefined ? {} : { score }),
       ...(body?.section === undefined ? {} : { section: String(body.section) }),
     });
@@ -107,7 +111,7 @@ export async function registerExamPaperRoutes(app: FastifyInstance, deps: Deps):
       totalScore?: number;
       applyScores?: boolean;
     };
-    deps.examService.setStructure(
+    await deps.examService.setStructure(
       user,
       examIdOf(req),
       parseStructureSections(body?.structure),
@@ -124,14 +128,14 @@ export async function registerExamPaperRoutes(app: FastifyInstance, deps: Deps):
     const body = req.body as { questionIds?: unknown };
     const ids = parseQuestionIds(body?.questionIds);
     if (ids.length === 0) throw AppError.badRequest('请提供题目顺序');
-    deps.examService.reorder(user, examIdOf(req), ids);
+    await deps.examService.reorder(user, examIdOf(req), ids);
     return { ok: true };
   });
 
   app.delete('/exams/:id/questions/:qid', async (req, reply) => {
     const user = requireTeacherOrAdmin(req, reply);
     const { examId, questionId } = examQuestionIdsOf(req);
-    deps.examService.removeQuestion(user, examId, questionId);
+    await deps.examService.removeQuestion(user, examId, questionId);
     return { ok: true };
   });
 }

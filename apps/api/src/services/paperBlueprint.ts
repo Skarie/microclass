@@ -137,18 +137,20 @@ export function buildBlueprint(exam: Exam, rows: PaperRow[]): BlueprintResult {
 /**
  * 细目表参考数据：当前范围里「知识点 × 题型 × 难度」各有多少可选题。
  * 老师在细目表编辑器里填目标数量时，能看到题池到底有多少，不用凭感觉填。
+ *
+ * P0 阶段 2（批次 1）：`taxonomy()` 走 AsyncDb，本函数改为异步（其余仍是纯计算）。
  */
-export function taxonomy(
+export async function taxonomy(
   exams: ExamRepository,
   options: { courseId?: number; scope?: 'course' | 'all'; limit?: number },
-): {
+): Promise<{
   scope: { mode: 'course' | 'all'; courseId: number | undefined };
   /** 数量为题的矩阵：每个知识点下按 题型×难度 计数 */
   points: { point: string; total: number; cells: { type: string; easy: number; medium: number; hard: number }[] }[];
   total: number;
-} {
+}> {
   const courseId = options.scope === 'all' ? undefined : options.courseId;
-  const rows = exams.taxonomy({
+  const rows = await exams.taxonomy({
     ...(courseId === undefined ? {} : { courseId }),
     ...(options.limit ? { limit: options.limit } : {}),
   });

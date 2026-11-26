@@ -5,8 +5,10 @@
  * 计数会跟随题型/难度/关键词/排除已选题变化；
  * 空册次/空章节统一映射成哨兵值 `__none__`（树里显示成「未标注」），
  * 保证勾选后真的能筛出题。册次分组抽成纯函数 `groupFacetBooks()`。
+ *
+ * P0 阶段 2（批次 1）：只读查询，统一走 `AsyncDb`。
  */
-import type { Db } from '../client.js';
+import type { AsyncDb } from '../async.js';
 import { buildPickWhere, clampLimit, type PickOptions } from './exam-pool-filter.js';
 import { pickCount } from './exam-pool.js';
 import { DIFFICULTY_BUCKET_SQL } from './exam-types.js';
@@ -72,7 +74,7 @@ export function groupFacetBooks(rows: FacetBookRow[]): FacetBook[] {
  *
  * 计数跟随题型/难度/关键词筛选变化：老师拖完筛选就能看到每章还剩多少题。
  */
-export function facets(db: Db, options: FacetsOptions): FacetsResult {
+export async function facets(adb: AsyncDb, options: FacetsOptions): Promise<FacetsResult> {
   const scope: PickOptions = {
     ...(options.courseId === undefined ? {} : { courseId: options.courseId }),
     ...(options.types ? { types: options.types } : {}),
@@ -82,9 +84,9 @@ export function facets(db: Db, options: FacetsOptions): FacetsResult {
     ...(options.exclude && options.exclude.length > 0 ? { exclude: options.exclude } : {}),
   };
   const { where, params } = buildPickWhere(scope);
-  const total = pickCount(db, scope);
+  const total = await pickCount(adb, scope);
 
-  const rows = db.all<FacetBookRow>(
+  const rows = await adb.all<FacetBookRow>(
     `SELECT COALESCE(q.book, '') AS book, COALESCE(q.chapter, '') AS chapter, COUNT(*) AS n
      FROM questions q LEFT JOIN banks b ON b.id = q.bank_id${where}
      GROUP BY q.book, q.chapter
@@ -92,18 +94,18 @@ export function facets(db: Db, options: FacetsOptions): FacetsResult {
     params,
   );
 
-  const typeRows = db.all<{ type: string; n: number }>(
+  const typeRows = await adb.all<{ type: string; n: number }>(
     `SELECT q.type AS type, COUNT(*) AS n FROM questions q LEFT JOIN banks b ON b.id = q.bank_id${where}
      GROUP BY q.type ORDER BY n DESC`,
     params,
   );
-  const levelRows = db.all<{ level: string; n: number }>(
+  const levelRows = await adb.all<{ level: string; n: number }>(
     `SELECT ${DIFFICULTY_BUCKET_SQL} AS level, COUNT(*) AS n
      FROM questions q LEFT JOIN banks b ON b.id = q.bank_id${where}
      GROUP BY level`,
     params,
   );
-  const bankRows = db.all<{ id: number; name: string; n: number }>(
+  const bankRows = await adb.all<{ id: number; name: string; n: number }>(
     `SELECT q.bank_id AS id, COALESCE(b.name, '') AS name, COUNT(*) AS n
      FROM questions q LEFT JOIN banks b ON b.id = q.bank_id${where}
      GROUP BY q.bank_id ORDER BY n DESC LIMIT ?`,
@@ -141,7 +143,7 @@ export interface PointRow {
 }
 
 /** 知识点清单 + 题量（知识点树懒加载 / 搜索用） */
-export function pointsOf(db: Db, options: PointsOfOptions): PointRow[] {
+export async function pointsOf(adb: AsyncDb, options: PointsOfOptions): Promise<PointRow[]> {
   const { where, params } = buildPickWhere({
     ...(options.courseId === undefined ? {} : { courseId: options.courseId }),
     ...(options.books ? { books: options.books } : {}),
@@ -153,17 +155,16 @@ export function pointsOf(db: Db, options: PointsOfOptions): PointRow[] {
     ...(options.exclude && options.exclude.length > 0 ? { exclude: options.exclude } : {}),
   });
   const limit = clampLimit(options.limit, 200, 500);
-  return db
-    .all<{ point: string; chapter: string; n: number }>(
-      `SELECT COALESCE(q.point, '') AS point, COALESCE(q.chapter, '') AS chapter, COUNT(*) AS n
+  const rows = await adb.all<{ point: string; chapter: string; n: number }>(
+    `SELECT COALESCE(q.point, '') AS point, COALESCE(q.chapter, '') AS chapter, COUNT(*) AS n
        FROM questions q LEFT JOIN banks b ON b.id = q.bank_id${where}
        GROUP BY q.point, q.chapter ORDER BY n DESC LIMIT ?`,
-      [...params, limit],
-    )
-    .map((r) => ({
-      point: r.point || '__none__',
-      label: r.point || '（未标注知识点）',
-      chapter: r.chapter || '__none__',
-      count: Number(r.n),
-    }));
+    [...params, limit],
+  );
+  return rows.map((r) => ({
+    point: r.point || '__none__',
+    label: r.point || '（未标注知识点）',
+    chapter: r.chapter || '__none__',
+    count: Number(r.n),
+  }));
 }

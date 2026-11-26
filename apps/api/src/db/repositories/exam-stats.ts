@@ -3,8 +3,11 @@
  *
  * 从 examRepository 抽出。难度档位统一走 `DIFFICULTY_BUCKET_SQL`（与挑题、选题树同口径）；
  * 行 → 知识点汇总抽成纯函数 `summarizeTaxonomy()`，便于单测锁住排序/分桶规则。
+ *
+ * P0 阶段 2（批次 1）：只读聚合，统一走 `AsyncDb`；聚合计数在 PG 侧是 int8，
+ * 汇总前统一 `Number()`（方言 #17）。
  */
-import type { Db } from '../client.js';
+import type { AsyncDb } from '../async.js';
 import { clampLimit } from './exam-pool-filter.js';
 import { DIFFICULTY_BUCKET_SQL } from './exam-types.js';
 
@@ -55,9 +58,10 @@ export function summarizeTaxonomy(rows: TaxonomyRow[], limit: number): TaxonomyP
     };
     const cell = entry.cells.get(row.type) ?? { easy: 0, medium: 0, hard: 0 };
     const bucket = row.bucket === 'easy' || row.bucket === 'hard' ? row.bucket : 'medium';
-    cell[bucket] += row.n;
+    const n = Number(row.n);
+    cell[bucket] += n;
     entry.cells.set(row.type, cell);
-    entry.total += row.n;
+    entry.total += n;
     byPoint.set(row.point, entry);
   }
   return [...byPoint.values()]
@@ -76,7 +80,7 @@ export function summarizeTaxonomy(rows: TaxonomyRow[], limit: number): TaxonomyP
  * 难度档位与 `ExamService.blueprint` 口径一致：优先用三档字段，
  * 旧数据没有就用 `difficulty_score` 按 42/71 分档。
  */
-export function taxonomy(db: Db, options: TaxonomyOptions): TaxonomyPoint[] {
+export async function taxonomy(adb: AsyncDb, options: TaxonomyOptions): Promise<TaxonomyPoint[]> {
   const where: string[] = ["q.point <> ''"];
   const params: unknown[] = [];
   if (options.courseId !== undefined) {
@@ -86,7 +90,7 @@ export function taxonomy(db: Db, options: TaxonomyOptions): TaxonomyPoint[] {
     );
     params.push(options.courseId, options.courseId, options.courseId);
   }
-  const rows = db.all<TaxonomyRow>(
+  const rows = await adb.all<TaxonomyRow>(
     `SELECT q.point AS point,
             q.type AS type,
             ${DIFFICULTY_BUCKET_SQL} AS bucket,
@@ -120,7 +124,7 @@ export interface PointStatsRow {
 }
 
 /** 按知识点聚合的题目统计（一个知识点有多少题、难度分布、来自几个题库） */
-export function pointStats(db: Db, options: PointStatsOptions): PointStatsRow[] {
+export async function pointStats(adb: AsyncDb, options: PointStatsOptions): Promise<PointStatsRow[]> {
   const clauses: string[] = ["q.point <> ''"];
   const params: unknown[] = [];
   if (options.subject) {
@@ -132,11 +136,12 @@ export function pointStats(db: Db, options: PointStatsOptions): PointStatsRow[] 
     params.push(options.book);
   }
   if (options.point) {
+    // ⚠️ 方言 TODO #8/#22：SQLite 的 LIKE 对 ASCII 大小写不敏感，PG 需要 ILIKE/lower()
     clauses.push('q.point LIKE ?');
     params.push(`%${options.point}%`);
   }
   const limit = clampLimit(options.limit, 50, 500);
-  return db.all<PointStatsRow>(
+  return adb.all<PointStatsRow>(
     `SELECT q.subject, q.book, q.point, COUNT(*) AS questions,
             SUM(CASE WHEN q.difficulty = 'easy' THEN 1 ELSE 0 END) AS easy,
             SUM(CASE WHEN q.difficulty = 'medium' THEN 1 ELSE 0 END) AS medium,

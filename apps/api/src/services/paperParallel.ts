@@ -40,11 +40,11 @@ export function pickParallelCandidate<T extends ParallelCandidate>(
   );
 }
 
-export function matchParallelQuestions(
+export async function matchParallelQuestions(
   deps: ExamPaperDeps,
   questions: PaperRow[],
   scopeCourseId: number | undefined,
-): ParallelMatch {
+): Promise<ParallelMatch> {
   // 原卷的题一律不作为候选（否则"平行卷"里会出现同一道题）
   const exclude = new Set<number>(questions.map((q) => q.id));
   const pickedIds: number[] = [];
@@ -63,14 +63,14 @@ export function matchParallelQuestions(
 
   for (const [type, indices] of byType) {
     const windowSize = Math.min(400, Math.max(120, indices.length * 10));
-    let pool = deps.exams.pick({
+    let pool = await deps.exams.pick({
       type,
       ...(scopeCourseId === undefined ? {} : { courseId: scopeCourseId }),
       exclude: [...exclude],
       limit: windowSize,
     });
     if (pool.length < indices.length) {
-      const more = deps.exams.pick({
+      const more = await deps.exams.pick({
         type,
         ...(scopeCourseId === undefined ? {} : { courseId: scopeCourseId }),
         exclude: [...exclude, ...pool.map((r) => r.id)],

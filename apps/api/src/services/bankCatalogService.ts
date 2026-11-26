@@ -158,7 +158,7 @@ export class BankCatalogService {
       ...(input.passScore ? { passScore: Math.max(0, Math.floor(input.passScore)) } : {}),
       status: input.publish === false ? 'draft' : 'published',
     });
-    const added = examService.addQuestions(
+    const added = await examService.addQuestions(
       actor,
       examId,
       rows.map((q) => q.id),

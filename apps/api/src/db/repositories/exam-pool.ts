@@ -6,8 +6,12 @@
  * - pick 的 limit 上限 400（平行组卷按题型批量取候选需要 min(400, …) 的窗口）；
  * - pickIds 上限 5000、默认 2000；pickCount 与 pick 条件完全一致；
  * - search 的 limit 上限 500、默认 50，`ORDER BY q.id`。
+ *
+ * P0 阶段 2（批次 1）：全部是只读查询，统一走 `AsyncDb`。
+ * ⚠️ 方言 TODO：`q.point LIKE` / `q.chapter LIKE` / `q.stem LIKE` 依赖 SQLite 默认
+ * 大小写不敏感（PG 的 LIKE 区分大小写，见 docs/postgres-migration.md §9 #8/#22）。
  */
-import type { Db } from '../client.js';
+import type { AsyncDb } from '../async.js';
 import { buildPickWhere, clampLimit, clampOffset, type PickOptions } from './exam-pool-filter.js';
 import type { PoolBudgetQuestion, PoolQuestion } from './exam-types.js';
 
@@ -26,7 +30,7 @@ export type PickRow = PoolQuestion & {
  * JOIN 不会产生重复行；而 DISTINCT 会强制 SQLite 先物化去重**整个**过滤结果集再 LIMIT，
  * 在 38 万题的库上代价很高（实测平行组卷因此到 5.2s）。
  */
-export function pick(db: Db, options: PickOptions): PickRow[] {
+export async function pick(adb: AsyncDb, options: PickOptions): Promise<PickRow[]> {
   const { where, params } = buildPickWhere(options);
   const order =
     options.orderBy === 'difficulty_asc'
@@ -38,7 +42,7 @@ export function pick(db: Db, options: PickOptions): PickRow[] {
   // 这里若顶在 200 会把它静默砍半（曾导致匹配质量下降）。对外接口的 limit 由路由 schema 约束。
   const limit = clampLimit(options.limit, 20, 400);
   const offset = clampOffset(options.offset);
-  return db.all<PickRow>(
+  return adb.all<PickRow>(
     `SELECT q.id, q.stem, q.type, q.bank_id, q.lesson_id, q.difficulty, q.subject, q.book, q.point,
             q.difficulty_score, COALESCE(b.name, '') AS bank_name
      FROM questions q LEFT JOIN banks b ON b.id = q.bank_id${where}
@@ -48,32 +52,33 @@ export function pick(db: Db, options: PickOptions): PickRow[] {
 }
 
 /** 符合筛选条件的全部题目 id（「全选筛选结果」用）；有上限保护，避免把几十万 id 传给前端 */
-export function pickIds(db: Db, options: PickOptions & { cap?: number }): number[] {
+export async function pickIds(adb: AsyncDb, options: PickOptions & { cap?: number }): Promise<number[]> {
   const { where, params } = buildPickWhere(options);
   const cap = clampLimit(options.cap, 2000, 5000);
-  return db
-    .all<{ id: number }>(
-      `SELECT q.id FROM questions q LEFT JOIN banks b ON b.id = q.bank_id${where} ORDER BY q.id LIMIT ?`,
-      [...params, cap],
-    )
-    .map((r) => r.id);
+  const rows = await adb.all<{ id: number }>(
+    `SELECT q.id FROM questions q LEFT JOIN banks b ON b.id = q.bank_id${where} ORDER BY q.id LIMIT ?`,
+    [...params, cap],
+  );
+  return rows.map((r) => r.id);
 }
 
 /** 挑题总数（分页用；条件与 `pick` 完全一致） */
-export function pickCount(db: Db, options: PickOptions): number {
+export async function pickCount(adb: AsyncDb, options: PickOptions): Promise<number> {
   const { where, params } = buildPickWhere(options);
-  return (
-    db.get<{ c: number }>(`SELECT COUNT(*) AS c FROM questions q LEFT JOIN banks b ON b.id = q.bank_id${where}`, params)
-      ?.c ?? 0
+  const row = await adb.get<{ c: number }>(
+    `SELECT COUNT(*) AS c FROM questions q LEFT JOIN banks b ON b.id = q.bank_id${where}`,
+    params,
   );
+  // PG 的 COUNT 是 int8，统一收成数字（方言 #17）
+  return Number(row?.c ?? 0);
 }
 
 /** 课程范围内的候选题目（课时直属题目或课时所属题库的题目） */
-export function pool(db: Db, courseId: number): PoolBudgetQuestion[] {
+export async function pool(adb: AsyncDb, courseId: number): Promise<PoolBudgetQuestion[]> {
   // 只给「随机增补 / 按配额组卷」用：它们只需要 id/type/difficulty，题干等大字段白读。
   // 课程范围与 pick() 对齐：题目归属课程 / 题库课时所属课程 / 题目课时所属课程
   //（前两项用迁移 0022 的冗余列走索引）。
-  return db.all<PoolBudgetQuestion>(
+  return adb.all<PoolBudgetQuestion>(
     `SELECT q.id, q.type, q.difficulty
      FROM questions q
      WHERE q.course_id = ?
@@ -100,7 +105,7 @@ export interface SearchOptions {
  * 全库候选题（跨题库）——按知识点 / 书册 / 难度筛题用。
  * 不传任何条件时会扫全表，因此调用方必须带分页上限。
  */
-export function search(db: Db, options: SearchOptions): PoolQuestion[] {
+export async function search(adb: AsyncDb, options: SearchOptions): Promise<PoolQuestion[]> {
   const clauses: string[] = [];
   const params: unknown[] = [];
   if (options.subject) {
@@ -130,7 +135,7 @@ export function search(db: Db, options: SearchOptions): PoolQuestion[] {
   const where = clauses.length > 0 ? ` WHERE ${clauses.join(' AND ')}` : '';
   const limit = clampLimit(options.limit, 50, 500);
   const offset = clampOffset(options.offset);
-  return db.all<PoolQuestion>(
+  return adb.all<PoolQuestion>(
     `SELECT q.id, q.stem, q.type, q.bank_id, q.lesson_id, q.difficulty, q.subject, q.book, q.point, b.name AS bank_name
      FROM questions q LEFT JOIN banks b ON b.id = q.bank_id${where}
      ORDER BY q.id LIMIT ? OFFSET ?`,
