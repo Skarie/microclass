@@ -233,6 +233,109 @@ describe('知识点懒加载', () => {
   });
 });
 
+describe('范围 scope=course / all（跨课程）', () => {
+  let otherCourseId = 0;
+  let otherBankId = 0;
+
+  beforeAll(async () => {
+    const course = await app.inject({
+      method: 'POST',
+      url: '/api/v1/courses',
+      payload: { name: '选题树跨课程测试', published: true },
+      headers: { cookie },
+    });
+    otherCourseId = json<{ id: number }>(course).id;
+    const bank = await app.inject({
+      method: 'POST',
+      url: '/api/v1/banks',
+      payload: { name: '跨课程题库', courseId: otherCourseId },
+      headers: { cookie },
+    });
+    otherBankId = json<{ id: number }>(bank).id;
+    await addQuestion(otherBankId, 'C册-第一章-知识点戊-单选易', 'single', {
+      book: '三年级上册',
+      chapter: '第一章 时分秒',
+      point: '知识点戊',
+      level: 'easy',
+    });
+    // 册次/章节/知识点都为空：树里必须归到「未标注」而不是消失
+    const untagged = await addQuestion(otherBankId, 'C册-未标注-判断易', 'judge', {
+      book: '',
+      chapter: '',
+      point: '',
+      level: 'easy',
+    });
+    db.run('UPDATE questions SET book = NULL, chapter = NULL, point = NULL WHERE id = ?', [untagged]);
+  });
+
+  it('scope=course（默认）只统计本考试课程', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/v1/exams/${examId}/facets?scope=course`,
+      headers: { cookie },
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    const body = json<{
+      total: number;
+      books: { book: string; count: number }[];
+      banks: { name: string; count: number }[];
+    }>(res);
+    expect(body.total).toBe(5);
+    expect(body.books.map((b) => b.book)).not.toContain('三年级上册');
+    expect(body.banks).toHaveLength(1);
+    expect(body.banks[0]?.count).toBe(5);
+  });
+
+  it('scope=all 跨课程统计，空册次/章节归到「未标注」', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/v1/exams/${examId}/facets?scope=all`,
+      headers: { cookie },
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    const body = json<{
+      total: number;
+      books: { book: string; label: string; count: number; chapters: { chapter: string; label: string }[] }[];
+      types: { type: string; count: number }[];
+      levels: { level: string; count: number }[];
+      banks: { id: number; name: string; count: number }[];
+    }>(res);
+    expect(body.total).toBe(7);
+    expect(body.books.find((b) => b.book === '三年级上册')?.count).toBe(1);
+    const none = body.books.find((b) => b.book === '__none__');
+    expect(none?.label).toBe('（未标注册次）');
+    expect(none?.count).toBe(1);
+    expect(none?.chapters[0]?.chapter).toBe('__none__');
+    expect(none?.chapters[0]?.label).toBe('（未标注章节）');
+    // 题型/难度跨课程汇总
+    expect(body.types).toEqual(
+      expect.arrayContaining([
+        { type: 'single', count: 4 },
+        { type: 'judge', count: 2 },
+        { type: 'fill', count: 1 },
+      ]),
+    );
+    expect(body.levels.find((l) => l.level === 'easy')?.count).toBe(5);
+    // 题库维度带名字（PG 下 b.name 不参与分组，靠聚合取回）
+    expect(body.banks.map((b) => b.name).sort()).toEqual(['选题树测试题库', '跨课程题库'].sort());
+    expect(body.banks.find((b) => b.name === '跨课程题库')?.count).toBe(2);
+  });
+
+  it('scope=all 时知识点也跨课程，空知识点归到「未标注」', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/v1/exams/${examId}/points?scope=all`,
+      headers: { cookie },
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    const body = json<{ points: { point: string; label: string; count: number }[] }>(res);
+    expect(body.points.find((p) => p.point === '知识点戊')?.count).toBe(1);
+    const none = body.points.find((p) => p.point === '__none__');
+    expect(none?.label).toBe('（未标注知识点）');
+    expect(none?.count).toBe(1);
+  });
+});
+
 describe('按筛选整批加入（全选筛选结果）', () => {
   it('把筛选出来的题一次加入试卷，并如实报告匹配数', async () => {
     const res = await app.inject({

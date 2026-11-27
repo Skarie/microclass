@@ -75,7 +75,7 @@ export async function catalogUnboundBooks(
             COUNT(*) AS "bankCount",
             COALESCE(SUM(b.question_count), 0) AS "questionCount"
      FROM banks b WHERE b.course_id IS NULL AND (? = '' OR b.kind = ?)
-     GROUP BY book ORDER BY COUNT(*) DESC`,
+     GROUP BY COALESCE(NULLIF(b.book, ''), '(无册次信息)') ORDER BY COUNT(*) DESC`,
     [kind, kind],
   );
 }

@@ -45,6 +45,18 @@ export interface FacetsResult {
   banks: { id: number; name: string; count: number }[];
 }
 
+/**
+ * 分组键的 SQL 片段：**SELECT 与 GROUP BY 必须逐字相同**。
+ *
+ * PG 比 SQLite 严格得多（`GROUP BY` 只认「表达式本身/输入列」，不会替你把
+ * `COALESCE(q.book, '')` 当作分组后的列），而 `GROUP BY book` 这种裸别名在 PG 里
+ * 会先匹配**输入列** `q.book` —— 空串与 NULL 被分成两组，输出就出现两个同名册次。
+ * 所以这里把键抽成常量，两处引用同一个字符串，两种库的结果与 SQLite 时代一致。
+ */
+const BOOK_KEY_SQL = `COALESCE(q.book, '')`;
+const CHAPTER_KEY_SQL = `COALESCE(q.chapter, '')`;
+const POINT_KEY_SQL = `COALESCE(q.point, '')`;
+
 /** 册次/章节分组行 → 册次节点（纯函数）：空值 → `__none__`，册次按题量倒序 */
 export function groupFacetBooks(rows: FacetBookRow[]): FacetBook[] {
   const byBook = new Map<string, FacetBook>();
@@ -87,10 +99,10 @@ export async function facets(adb: AsyncDb, options: FacetsOptions): Promise<Face
   const total = await pickCount(adb, scope);
 
   const rows = await adb.all<FacetBookRow>(
-    `SELECT COALESCE(q.book, '') AS book, COALESCE(q.chapter, '') AS chapter, COUNT(*) AS n
+    `SELECT ${BOOK_KEY_SQL} AS book, ${CHAPTER_KEY_SQL} AS chapter, COUNT(*) AS n
      FROM questions q LEFT JOIN banks b ON b.id = q.bank_id${where}
-     GROUP BY q.book, q.chapter
-     ORDER BY book, n DESC`,
+     GROUP BY ${BOOK_KEY_SQL}, ${CHAPTER_KEY_SQL}
+     ORDER BY ${BOOK_KEY_SQL}, n DESC`,
     params,
   );
 
@@ -102,11 +114,16 @@ export async function facets(adb: AsyncDb, options: FacetsOptions): Promise<Face
   const levelRows = await adb.all<{ level: string; n: number }>(
     `SELECT ${DIFFICULTY_BUCKET_SQL} AS level, COUNT(*) AS n
      FROM questions q LEFT JOIN banks b ON b.id = q.bank_id${where}
-     GROUP BY level`,
+     GROUP BY ${DIFFICULTY_BUCKET_SQL}`,
     params,
   );
+  /**
+   * 题库维度：`b.name` 不参与分组（PG 直接报「column b.name must appear in the GROUP BY clause」，
+   * 2.4.4 线上 500 的根因）。每个 bank_id 只对应一行 banks，用 MAX 取名字即可，
+   * `LEFT JOIN` 失配时 MAX 为 NULL，再 COALESCE 成空串。
+   */
   const bankRows = await adb.all<{ id: number; name: string; n: number }>(
-    `SELECT q.bank_id AS id, COALESCE(b.name, '') AS name, COUNT(*) AS n
+    `SELECT q.bank_id AS id, COALESCE(MAX(b.name), '') AS name, COUNT(*) AS n
      FROM questions q LEFT JOIN banks b ON b.id = q.bank_id${where}
      GROUP BY q.bank_id ORDER BY n DESC LIMIT ?`,
     [...params, clampLimit(options.bankLimit, 50, 200)],
@@ -156,9 +173,9 @@ export async function pointsOf(adb: AsyncDb, options: PointsOfOptions): Promise<
   });
   const limit = clampLimit(options.limit, 200, 500);
   const rows = await adb.all<{ point: string; chapter: string; n: number }>(
-    `SELECT COALESCE(q.point, '') AS point, COALESCE(q.chapter, '') AS chapter, COUNT(*) AS n
+    `SELECT ${POINT_KEY_SQL} AS point, ${CHAPTER_KEY_SQL} AS chapter, COUNT(*) AS n
        FROM questions q LEFT JOIN banks b ON b.id = q.bank_id${where}
-       GROUP BY q.point, q.chapter ORDER BY n DESC LIMIT ?`,
+       GROUP BY ${POINT_KEY_SQL}, ${CHAPTER_KEY_SQL} ORDER BY n DESC LIMIT ?`,
     [...params, limit],
   );
   return rows.map((r) => ({

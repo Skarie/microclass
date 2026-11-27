@@ -191,9 +191,11 @@ export class BankRepository {
   /** 题库类型/归属统计（管理端大题库总览） */
   async kindStats(): Promise<{ kind: BankKind; banks: number; questions: number }[]> {
     return this.adb().all(
+      // GROUP BY 必须重复 SELECT 里的表达式（PG 严格）：裸写 `GROUP BY kind` 会先匹配输入列
+      // `b.kind`，空串与 NULL 被拆成两组、同一 kind 在结果里出现两次。
       `SELECT COALESCE(NULLIF(b.kind, ''), 'lesson') AS kind, COUNT(DISTINCT b.id) AS banks, COUNT(q.id) AS questions
        FROM banks b LEFT JOIN questions q ON q.bank_id = b.id
-       GROUP BY kind ORDER BY questions DESC`,
+       GROUP BY COALESCE(NULLIF(b.kind, ''), 'lesson') ORDER BY questions DESC`,
     );
   }
 

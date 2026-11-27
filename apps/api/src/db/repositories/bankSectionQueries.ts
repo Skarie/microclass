@@ -76,12 +76,14 @@ interface SectionRow {
  */
 export async function catalogSectionsByBook(db: AsyncDb, kind: BankKind | '' = ''): Promise<BankBookCatalog> {
   const rows = await db.all<SectionRow>(
+    // GROUP BY 重复 SELECT 表达式：PG 里裸写 `GROUP BY book` 会匹配输入列 b.book，
+    // NULL 与 '' 各成一组，同一册次/章节会在树里出现两次（SQLite 则按输出别名分组）。
     `SELECT COALESCE(b.book, '') AS book, COALESCE(b.section, '') AS section,
             COUNT(*) AS "bankCount",
             COALESCE(SUM(b.question_count), 0) AS "questionCount",
             MAX(CASE WHEN b.course_id IS NULL THEN 1 ELSE 0 END) AS unbound
      FROM banks b WHERE (? = '' OR b.kind = ?)
-     GROUP BY book, section`,
+     GROUP BY COALESCE(b.book, ''), COALESCE(b.section, '')`,
     [kind, kind],
   );
   const books = new Map<string, SectionBook>();
@@ -118,7 +120,7 @@ export async function catalogSectionsByCourse(db: AsyncDb, kind: BankKind | '' =
             0 AS unbound
      FROM banks b JOIN courses c ON c.id = b.course_id
      WHERE (? = '' OR b.kind = ?)
-     GROUP BY c.id, book, section
+     GROUP BY c.id, COALESCE(b.book, ''), COALESCE(b.section, '')
      ORDER BY c.name, c.id`,
     [kind, kind],
   );

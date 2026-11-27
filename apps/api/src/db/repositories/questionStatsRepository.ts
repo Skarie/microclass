@@ -47,6 +47,8 @@ export class QuestionStatsRepository {
     const driver = this.asyncDb.driver;
     const qid = jsonIntField('je', 'qid', driver);
     const correct = jsonBoolIntField('je', 'correct', driver);
+    // 按序号分组：裸写 `GROUP BY qid` 在 PG 里会匹配 CTE 的输入列（展开后的文本值），
+    // 与 SELECT 里 CAST 成整数的结果可能不同组；序号始终指向 SELECT 表达式。
     const rows = await this.asyncDb.all<{ qid: number; n: number; wrong: number }>(
       `WITH graded AS (
          SELECT ${qid} AS qid, ${correct} AS correct
@@ -60,7 +62,7 @@ export class QuestionStatsRepository {
        SELECT CAST(qid AS INTEGER) AS qid, COUNT(*) AS n, SUM(CASE WHEN correct = 0 THEN 1 ELSE 0 END) AS wrong
        FROM graded
        WHERE qid IS NOT NULL
-       GROUP BY qid`,
+       GROUP BY 1`,
     );
 
     const value = new Map<number, QuestionErrorStat>();

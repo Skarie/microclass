@@ -186,6 +186,11 @@ export async function difficultyStats(
   const scope = bankId === undefined ? '' : ' AND bank_id = ?';
   const params = bankId === undefined ? [] : [bankId];
   const [p20, p40, p60, p80] = cuts.five;
+  /**
+   * 分组用**序号**而不是别名：`GROUP BY difficulty` 在 PG 里会先匹配**输入列** difficulty，
+   * NULL 与 '' 因此被拆成两组（SELECT 里 COALESCE 成同一个 ''）。序号引用 SELECT 表达式，
+   * 两种库语义一致，也不依赖「GROUP BY 输出别名」这条 PG 扩展。
+   */
   const raw = await db.all<DifficultyLevelRow>(
     `SELECT CASE
               WHEN difficulty_score IS NULL OR difficulty_score < 0 THEN 0
@@ -199,7 +204,7 @@ export async function difficultyStats(
             CASE WHEN difficulty_score IS NULL OR difficulty_score < 0 THEN -1 ELSE CAST(difficulty_score / 10 AS INTEGER) END AS bucket,
             COUNT(*) AS questions
      FROM questions WHERE 1=1${scope}
-     GROUP BY level, source, difficulty, bucket`,
+     GROUP BY 1, 2, 3, 4`,
     [p20, p40, p60, p80, ...params],
   );
   // int8 收敛（方言 #17）：`COUNT(*)` 在 PG 侧是字符串；level/bucket 用 int4 仍是 number，一并规整
