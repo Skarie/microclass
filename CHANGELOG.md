@@ -4,6 +4,36 @@
 
 ## [Unreleased]
 
+### 2.4.4：难度校准批量化 + 题库筛选折叠（2026-11-27）
+
+**主题**：两件独立改动 —— ① 难度校准不再逐题查库，10 万题从 1520 ms 降到 858 ms、落库从 1822 ms 降到 1188 ms（PG 下少 10 万次往返）；② 题库筛选条把低频条件折进「更多筛选」，首屏只留题型/难度/关键词，次级条件数挂在按钮上。
+
+**难度校准批量化（`45bf4f9`）**
+
+- **批量取数**：新增 `difficultyScoresByIds`，按 500 个 id 一条 `IN` 查询取先验分；`calibrate` 把候选按 500 题分块、块间让出事件循环，替代逐题 `difficultyScoreOf`；
+- **内存计算**：校准数学抽到 `domain/difficultyCalibration`（批量与逐题同口径），先验分、样例顺序、返回结构与 dry-run 语义保持不变；
+- **批量落库**：`setDifficulty` 先写临时表（多行 `VALUES`，500 行/条），再用一条 `UPDATE` 关联回 `questions`；PG 走 `UPDATE ... FROM`（hash join），SQLite 走 `id IN` + 相关子查询（SQLite 的 `UPDATE ... FROM` 会全表扫目标表：396,000 行实测 7.2 s vs 1.8 s）；
+- **preview/apply** 的逐题打分抽到 `services/difficultyScoring`，页大小 2000→1000 并让出事件循环；`apply` 仍跳过 manual/calibrated、`calibrate` 仍按作答样本做 Beta 收缩；
+- **实测**（本地临时 SQLite：396,000 题 / 100,000 题有作答 / 500,000 条 attempts）：先验分取数 **873 ms（100,000 次查询）→ 210 ms（200 次 IN 查询）**；校准全程（含 answerStats 647 ms）**1520 ms → 858 ms**；落库 100,000 条 **1822 ms → 1188 ms**；PG 下 100,000 次往返变 200 条 INSERT + 1 条 UPDATE（LAN 按 0.2–0.5 ms/次估算 20–50 s → <1 s）。`difficultyService.ts` 385 → 289 行，从行数基线移除。
+
+**题库筛选折叠（`0fa0135`）**
+
+- **首屏三个高频条件**：题型、难度、关键词；章节、小节、题组、标签、知识点、只看「解析只有图片」、显示偏好与重置收进「更多筛选」面板；
+- **按钮计数**：`更多筛选 · N` 的 N = 已启用的次级条件数（标签/知识点按单个值计数），与收起时那行可删除 chips 一一对应；选 ≥2 项且「同时包含」时 chip 带后缀；chip 的 `×` 与面板走同一套 setter / search；
+- **展开状态**记在 sessionStorage：分页、切题、切视图、刷新都不收起；重置只清条件、不收起面板；展开/收起 150 ms，只动透明度与位移；
+- ≤900 px 纵向排列，按钮 / 输入 / 下拉 / 移除按钮均 44 px，无横向溢出；`FilterMultiSelect` 的标签与下拉包成一对，空间不足时整对换行；
+- 组件拆为 `QuestionFilters.vue`（195 行）+ `QuestionFiltersMore.vue`（159 行）+ `QuestionFilterChips.vue`（95 行）；筛选语义与接口参数不变。
+
+**质量**
+
+- 新增 `apps/api/test/difficulty-batch.test.ts`（批量 vs 逐题分数/等级/样例逐题一致、0/1/恰好一块/跨块、dry-run 不写库、跨 500 行分块落库）+ `apps/api/test/perf-difficulty.ts`（性能对照）；
+- 基线：`vitest 1152 passed / 35 skipped`（只增不减）、E2E 40/40、typecheck 0 error、eslint 0 error、prettier、build、size guard（631 文件 / 技术债 19）。
+
+**发布与回滚**
+
+- 镜像 `microclass:2.4.4`；保留 `2.4.3` 用于回滚；`.env` 保持 `MC_DB=pg`；
+- 失败回滚：`printf '2.4.3' > .image-tag && bash redeploy.sh`（数据层不变，PG 数据不受影响）。
+
 ### 2.4.3：非法 id 返回 400（不再 500）+ 看门狗维护锁（2026-11-27）
 
 **主题**：修 2.4.2 切 PG 后暴露的两个小问题 —— ① 路径里的非数字 id 被 PG 当 bigint 绑参，
