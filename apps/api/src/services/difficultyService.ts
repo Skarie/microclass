@@ -15,20 +15,20 @@ import type { AuditRepository } from '../db/repositories/auditRepository.js';
 import type { QuestionRepository } from '../db/repositories/questionRepository.js';
 import type { SettingsRepository } from '../db/repositories/settingsRepository.js';
 import { AppError, type User } from '@microclass/shared';
-import {
-  LEVEL_LABEL,
-  bucketFromScore,
-  calibrateScore,
-  cutPoints,
-  levelFromScore,
-  scoreDifficulty,
-  type DifficultyCuts,
-} from '../domain/difficulty.js';
-import { parseOptions } from '../domain/question.js';
+import { LEVEL_LABEL, bucketFromScore, cutPoints, levelFromScore, type DifficultyCuts } from '../domain/difficulty.js';
+import { planCalibration, type CalibrationItem, type CalibrationSample } from '../domain/difficultyCalibration.js';
 import { DIFFICULTY_CUTS_KEY, parseDifficultyCuts } from '../domain/difficultyCuts.js';
+import { yieldToEventLoop } from '../utils/async.js';
+import { scoreBatch } from './difficultyScoring.js';
 
 /** 难度阈值的 settings key（解析逻辑在 domain/difficultyCuts，worker 侧复用同一份） */
 const CUTS_KEY = DIFFICULTY_CUTS_KEY;
+
+/** 校准分块大小（题量）：实测 500/1000/2000 后取性价比最高的一档，见提交说明 */
+const CALIBRATE_CHUNK = 500;
+
+/** 返回给界面的样例条数（保持接口语义不变：最多 10 条） */
+const CALIBRATE_SAMPLES = 10;
 
 export interface DifficultyPreview {
   scope: { bankId: number | null; name: string };
@@ -85,81 +85,6 @@ export class DifficultyService {
     return this.questions.difficultyStats(bankId, this.cuts());
   }
 
-  /**
-   * 给一批题打分（不写库）。
-   * `manual` / `calibrated` 的题默认跳过 —— 人工判断与真实数据都比模型先验可靠。
-   */
-  private async scoreBatch(
-    bankId: number | undefined,
-    options: { keepManual?: boolean; keepCalibrated?: boolean; onlyUnscored?: boolean },
-  ): Promise<{
-    items: { id: number; score: number; source: 'auto'; reasons: string; level: number; difficulty: string }[];
-    skippedManual: number;
-    skippedCalibrated: number;
-    total: number;
-  }> {
-    const keepManual = options.keepManual !== false;
-    const keepCalibrated = options.keepCalibrated !== false;
-    const out: { id: number; score: number; source: 'auto'; reasons: string; level: number; difficulty: string }[] = [];
-    let skippedManual = 0;
-    let skippedCalibrated = 0;
-    let afterId = 0;
-    let total = 0;
-    for (;;) {
-      const rows = await this.questions.difficultyFeatures({
-        ...(bankId === undefined ? {} : { bankId }),
-        afterId,
-        limit: 2000,
-        ...(options.onlyUnscored ? { onlyUnscored: true } : {}),
-      });
-      if (rows.length === 0) break;
-      for (const row of rows) {
-        afterId = row.id;
-        total += 1;
-        const source = String(row.difficulty_source ?? '');
-        if (keepManual && source === 'manual') {
-          skippedManual += 1;
-          continue;
-        }
-        if (keepCalibrated && source === 'calibrated') {
-          skippedCalibrated += 1;
-          continue;
-        }
-        const options_ = parseOptions(row.options);
-        const scored = scoreDifficulty({
-          type: row.type,
-          stem: row.stem,
-          options: options_,
-          answer: row.answer,
-          blanks: countBlanks(row.type, row.answer, row.stem),
-          hasImage: row.has_image === 1,
-          subject: row.subject,
-          stage: row.stage,
-          book: row.book,
-          chapter: row.chapter,
-          point: row.point,
-          bankKind: row.bank_kind,
-          bankName: row.bank_name,
-          legacyDifficulty: row.difficulty,
-        });
-        out.push({
-          id: row.id,
-          score: scored.score,
-          source: 'auto',
-          reasons: scored.reasons
-            .filter((r) => r.key !== 'base')
-            .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
-            .slice(0, 3)
-            .map((r) => `${r.label} ${r.delta > 0 ? '+' : ''}${r.delta}`)
-            .join('、'),
-          level: 3,
-          difficulty: 'medium',
-        });
-      }
-    }
-    return { items: out, skippedManual, skippedCalibrated, total };
-  }
-
   /** 预览：算出这批题的新分数与分布，不写库 */
   async preview(
     bankId?: number,
@@ -167,7 +92,7 @@ export class DifficultyService {
   ): Promise<DifficultyPreview> {
     let name = '全库';
     if (bankId !== undefined) name = await this.bankName(bankId);
-    const batch = await this.scoreBatch(bankId, options ?? {});
+    const batch = await scoreBatch(this.questions, bankId, options ?? {});
     const cuts = cutPoints(batch.items.map((i) => i.score));
     const scored = batch.items.map((i) => ({
       ...i,
@@ -236,7 +161,7 @@ export class DifficultyService {
     options?: { bankId?: number; keepManual?: boolean; keepCalibrated?: boolean; dryRun?: boolean },
   ): Promise<DifficultyApplyResult> {
     const bankId = options?.bankId;
-    const batch = await this.scoreBatch(bankId, options ?? {});
+    const batch = await scoreBatch(this.questions, bankId, options ?? {});
     // 阈值：整库用全库分位数；单题库也用全库阈值（保证跨题库可比），全库没算过就退回默认
     const globalScores = bankId === undefined ? batch.items.map((i) => i.score) : await this.allScores();
     const cuts = globalScores.length >= 20 ? cutPoints(globalScores) : this.cuts();
@@ -288,42 +213,41 @@ export class DifficultyService {
    * 数据来源：`attempts.answers`（JSON，逐题作答与是否正确）+ `wrong_questions`（错题本）。
    * 样本量不足（默认 < 5 次作答）的题不校准，保持先验分；
    * 校准过的题标 `calibrated`（之后的「重算先验」不会把它冲掉）。
+   *
+   * 批量策略：候选按 `chunkSize`（默认 500）分块，每块**一次**取回全部先验分
+   * （`difficultyScoresByIds` 内部再按 500 个 id 拆 `IN`），在内存里算完；
+   * 块与块之间让出事件循环。落库仍是一次 `setDifficulty`（一个事务 + 临时表批量 UPDATE）。
+   * 迁移前这里是「逐题 `difficultyScoreOf` + 最后统一写」，39.6 万题在 PG 上就是
+   * 几十万次小查询；除查询次数外，返回结构、样例顺序与 dry-run 语义都不变。
    */
   async calibrate(
     actor: User,
-    options?: { minSamples?: number; k?: number; dryRun?: boolean },
+    options?: { minSamples?: number; k?: number; dryRun?: boolean; chunkSize?: number },
   ): Promise<{
     candidates: number;
     calibrated: number;
     minSamples: number;
     k: number;
     dryRun: boolean;
-    samples: { id: number; prior: number; next: number; n: number; p: number }[];
+    samples: CalibrationSample[];
   }> {
     const minSamples = Math.max(1, options?.minSamples ?? 5);
     const k = Math.max(1, options?.k ?? 20);
     const dryRun = options?.dryRun !== false;
+    const chunkSize = Math.max(1, options?.chunkSize ?? CALIBRATE_CHUNK);
     const stats = await this.answerStats();
     const candidates = [...stats.values()].filter((s) => s.total >= minSamples);
-    const samples: { id: number; prior: number; next: number; n: number; p: number }[] = [];
-    const items: { id: number; score: number; difficulty: string; source: 'calibrated'; n: number; p: number }[] = [];
     const cuts = this.cuts();
-    for (const stat of candidates) {
-      const row = await this.question(stat.id);
-      if (!row) continue;
-      const prior = row.difficulty_score >= 0 ? row.difficulty_score : 50;
-      const blended = calibrateScore(prior, stat, { k });
-      items.push({
-        id: stat.id,
-        score: blended.score,
-        difficulty: bucketFromScore(blended.score, cuts),
-        source: 'calibrated',
-        n: stat.total,
-        p: blended.p,
-      });
-      if (samples.length < 10) {
-        samples.push({ id: stat.id, prior, next: blended.score, n: stat.total, p: blended.p });
-      }
+    const items: CalibrationItem[] = [];
+    const samples: CalibrationSample[] = [];
+    for (let start = 0; start < candidates.length; start += chunkSize) {
+      const chunk = candidates.slice(start, start + chunkSize);
+      // 一次取回本块先验分；缺失（题已删除）由 planCalibration 跳过，与原逐题实现一致
+      const priors = await this.questions.difficultyScoresByIds(chunk.map((s) => s.id));
+      const plan = planCalibration(chunk, priors, cuts, { k, sampleLimit: CALIBRATE_SAMPLES - samples.length });
+      items.push(...plan.items);
+      samples.push(...plan.samples);
+      if (start + chunkSize < candidates.length) await yieldToEventLoop();
     }
     if (!dryRun && items.length > 0) {
       await this.questions.setDifficulty(items);
@@ -354,23 +278,11 @@ export class DifficultyService {
     return this.questions.allDifficultyScores();
   }
 
-  private async question(id: number): Promise<{ id: number; difficulty_score: number } | undefined> {
-    return this.questions.difficultyScoreOf(id);
-  }
-
   /** 每题作答统计：从 attempts.answers 与错题本里汇总 */
   private async answerStats(): Promise<Map<number, { id: number; total: number; correct: number }>> {
     return this.questions.answerStats();
   }
 }
 
-/** 填空题空位数：优先看题干里的空位记号，其次看答案里的多空分隔符 */
-export function countBlanks(type: string, answer: string, stem: string): number {
-  if (type !== 'fill') return 0;
-  const marks = (stem.match(/_{2,}|＿{2,}|\(\s*\)|（\s*）/g) ?? []).length;
-  if (marks > 0) return marks;
-  const parts = String(answer ?? '')
-    .split(/[；;]/)
-    .filter((s) => s.trim() !== '');
-  return parts.length;
-}
+/** 兼容旧引用：空位数判定随打分一起搬到了 difficultyScoring */
+export { countBlanks } from './difficultyScoring.js';

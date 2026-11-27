@@ -135,6 +135,11 @@ export class QuestionRepository {
     return difficultyRepo.difficultyScoreOf(this.adb(), id);
   }
 
+  /** 批量取一批题的先验分（校准用：避免逐题查询，PG 下每块省掉 N 次往返） */
+  async difficultyScoresByIds(ids: number[]): Promise<Map<number, number>> {
+    return difficultyRepo.difficultyScoresByIds(this.adb(), ids);
+  }
+
   async answerStats(): Promise<Map<number, AnswerStat>> {
     return difficultyRepo.answerStats(this.adb());
   }
