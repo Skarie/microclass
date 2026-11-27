@@ -4,6 +4,40 @@
 
 ## [Unreleased]
 
+### 2.4.5：修复 PG 下组卷选题树 facets 500（2026-11-28）
+
+**主题**：`GET /api/v1/exams/:id/facets?scope=course|all` 在 PG 上**必 500**，组卷向导第①步「选范围」不可用。根因是 SQL 不满足 PG 的 `GROUP BY` 严格性（SQLite 宽松，sqlite 用例与 E2E 都抓不到，只有真库会撞出来）。修掉这一条，并把全仓同类写法审计了一遍。
+
+**根因**
+
+- `apps/api/src/db/repositories/exam-facets.ts` 的题库维度：`SELECT q.bank_id, COALESCE(b.name,''), COUNT(*) … GROUP BY q.bank_id` —— `b.name` 既不在 GROUP BY 也不在聚合里，PG 报 `column "b.name" must appear in the GROUP BY clause or be used in an aggregate function`；
+- 生产 PG **只读**复现（`docker exec microclass-db psql`，course=18）：同一条 SQL 直接报上述错误；`/taxonomy` 正常，所以只有 facets 挂；
+- 书册/题型/难度三条查询本身合法（PG 允许 GROUP BY 引用输出别名），真正的 500 只有题库那一条。
+
+**修复**
+
+- 题库维度改 `COALESCE(MAX(b.name), '')`：每个 `bank_id` 只对应一行 `banks`，`LEFT JOIN` 失配时 MAX 为 NULL 再 COALESCE 成空串，语义与 SQLite 时代一致；
+- 册次/章节、难度档、知识点清单把分组键抽成 SQL 常量（`BOOK_KEY_SQL` / `CHAPTER_KEY_SQL` / `POINT_KEY_SQL`），**SELECT 与 GROUP BY 引用同一个字符串**。顺带修掉 PG 的另一个坑：`GROUP BY book` 这类裸别名在 PG 里优先匹配**输入列**，`NULL` 与 `''` 会被拆成两组（树上出现两个「未标注」），SQLite 则按输出别名分组；
+- 生产 PG 只读实测（course=18，26,814 题）：册次 35 组 / **105 ms**、题库 50 组 / **125 ms**；`scope=all` 册次 1,042 组 / **183 ms**。
+
+**同类审计（全仓 `GROUP BY` / `HAVING` / `SELECT DISTINCT` + `ORDER BY`）**
+
+- **修**（都是「GROUP BY 裸别名被 PG 当输入列」的 NULL/'' 拆组，生产数据当前无 NULL，属潜在问题）：`bankCatalogQueries.catalogUnboundBooks`、`bankRepository.kindStats`、`bankSectionQueries` 的 `view=book` / `view=course`、`question-stats.difficultyStats`（改 `GROUP BY 1,2,3,4`）、`questionStatsRepository`（改 `GROUP BY 1`）；
+- **记**（本仓未发现）：`HAVING` 引用输出别名（PG 不允许）；`SELECT DISTINCT` + `ORDER BY` 表达式不在 select list；
+- **不在范围内**：`bankFolderBackfill` / `bankFolderReorg` / `practiceLinkBackfill` 是只在 SQLite 上跑的一次性运维脚本（`MC_DB=pg` 不触发）；
+- 方言清单新增 **#32 / #33**（`docs/postgres-migration.md`），含症状与守卫位置。
+
+**测试**
+
+- 新增 `apps/api/test/pg-facets.test.ts`：真 PG 装配**整站**走 HTTP 路由，facets `scope=course` / `scope=all` 均 200，断言册次→章节分组、题型/难度/题库计数、NULL 册次/章节只出现一棵「未标注」、题库名非空；points 两个 scope 同验（3 条用例）；
+- 扩充 `apps/api/test/exam-facets.test.ts`：sqlite 下 `scope=course`（只本课程）/ `scope=all`（跨课程）、空册次/章节/知识点归到「未标注」、题库计数（13 条用例）；
+- PG 套件在 NAS **一次性容器**（`microclass_test` 库、`--cpus 2 --memory 2g`、跑前 `guard-io.sh` 实测 `/vol1 util=21%`）实跑：**7 files / 59 tests passed**（含新增 pg-facets 3 条）；全程未启第二份 API、生产库 `questions` 396,505 行未变；
+- 基线：`vitest 1155 passed / 38 skipped`（改前 1152 / 35，+3 通过、+3 条 PG 用例默认 skip，只增不减）、`typecheck` 0 error、`eslint` 0 error（4 条既有 warning）、`prettier`、`build`、size guard（631 文件 / 技术债 19）。
+
+**发布与回滚**
+
+- 待部署后回填。
+
 ### 2.4.4：难度校准批量化 + 题库筛选折叠（2026-11-27）
 
 **主题**：两件独立改动 —— ① 难度校准不再逐题查库，10 万题从 1520 ms 降到 858 ms、落库从 1822 ms 降到 1188 ms（PG 下少 10 万次往返）；② 题库筛选条把低频条件折进「更多筛选」，首屏只留题型/难度/关键词，次级条件数挂在按钮上。
