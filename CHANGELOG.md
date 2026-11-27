@@ -36,7 +36,16 @@
 
 **发布与回滚**
 
-- 待部署后回填。
+- 镜像 `microclass:2.4.5`（sha `3f7572db3ffe`，895 MB）；**保留 `2.4.4`（`911fe77da712`）用于回滚**；`.env` 保持 `MC_DB=pg`，`MC_VERSION` 随 `.image-tag` 同步为 2.4.5；
+- 低峰部署（2026-11-28 01:02，带 `.maintenance` 维护锁）：redeploy **22 s**、readyz 第 **2 秒** 200、预热五个接口均 <4 ms；验证通过后已删除维护锁（看门狗 cron 仍 1 条）；
+- 线上验证（新建临时考试 id=15，课程 18）：`version=2.4.5`、`healthz 200`、`readyz {status:ready, db:ok, driver:pg}`；
+  - **`GET /exams/15/facets?scope=course` → 200**（0.60 s，total **26,814** / 3 册次 / 35 章节 / 2 题型 / 3 难度 / 50 题库，books 计数合计 = total）；
+  - **`GET /exams/15/facets?scope=all` → 200**（0.32 s，total **396,505** / 103 册次 / 1,042 章节 / 5 题型 / 3 难度 / 50 题库，books 计数合计 = total）；
+  - `excludeInExam=1` 同 200；组卷第①步同入口的 `/points?scope=course|all`（200，200 条）与 `/taxonomy`（200，106 个知识点）均正常；
+  - 其他关键接口：课程 200、题库目录 200（23 ms）、目录章节 200（392 ms）、题目列表 200、课时 quiz/practice 200、公告/设置 200、`/practice-links?bankId=6743` 200（不带 bankId 的 400 是既有参数校验）、8092 宿主进程 200；
+- 观察 **10 分钟**（20 次采样 / 30 s）：healthz / readyz / courses / banks **全 200，0 条非 200**；P50/P95 = **15.8/19.7 ms、2.5/3.4 ms、13.4/19.4 ms、26.2/32.7 ms**；`restarts=0`（api 与 db 均 0）、容器 healthy、api 日志 `level=50` 与 `statusCode=5xx` 均 **0 条**；
+- 数据面：临时考试已删除（`exams=0`），生产 `questions` 396,505 行未变、`microclass_test` 只在测试库重建 schema；
+- 失败回滚：`printf '2.4.4' > .image-tag && bash redeploy.sh`（数据层不变，PG 数据不受影响）。
 
 ### 2.4.4：难度校准批量化 + 题库筛选折叠（2026-11-27）
 
