@@ -31,7 +31,9 @@
 
 **发布与回滚**
 
-- 镜像 `microclass:2.4.4`；保留 `2.4.3` 用于回滚；`.env` 保持 `MC_DB=pg`；
+- 镜像 `microclass:2.4.4`（sha `911fe77da712`）；保留 `2.4.3`（`04fc99e56cfa`）用于回滚；`.env` 保持 `MC_DB=pg`，`MC_VERSION` 由残留的 2.4.2 同步为 2.4.4（NAS UI 重构不会再拉到旧镜像）；
+- 线上验证（2026-11-28 00:00 低峰 redeploy，带维护锁，**23/23 全绿**）：`version=2.4.4`、`readyz {db:ok,driver:pg}`、登录、课程 53 门（7 个分类 + 3 门未归类）、题库 13,258 库、题目详情、刷题（课时 38 / 3 题，提交 score 1/3）、组卷（建考试→随机抽 2 题→卷面 2 题→删除）、公告建改删、设置读取、8092 healthz 与首页全部 200；新接口 `GET /questions/difficulty` 200（首调 838 ms 冷查询、复调 160 ms）与 `POST /questions/difficulty/calibrate` dry-run 200；题库筛选页 `/admin/banks` 200、`/banks/:id/questions` 带筛选参数 200；PG `attempts` 20→22、`audit_logs` 29,580→29,594、`schema_migrations` 31、临时考试已删（exams=0）；
+- 观察 10 分钟（20 次采样 / 30 s）：healthz/courses/banks 全 200，**P50/P95 = 2.3/3.9 ms、26.2/40.3 ms、11.3/14.4 ms**；`restarts=0`（api 与 db 均 0）、api 5xx 日志 0 条；慢查询 1 条（00:00:15 难度 stats 首调 831 ms，复调 160 ms，已在部署窗口内焐热）；维护锁按时删除、watchdog cron 保持 1 条；
 - 失败回滚：`printf '2.4.3' > .image-tag && bash redeploy.sh`（数据层不变，PG 数据不受影响）。
 
 ### 2.4.3：非法 id 返回 400（不再 500）+ 看门狗维护锁（2026-11-27）
