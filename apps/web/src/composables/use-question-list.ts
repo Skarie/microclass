@@ -152,7 +152,7 @@ export function useQuestionList(deps: QuestionListDeps) {
     difficultyFilter.value = '';
     mediaOnlyFilter.value = false;
     groupFilter.value = null;
-    showMoreFilters.value = false;
+    // 「更多筛选」的展开状态是展示偏好，不随重置改变：老师通常会接着在面板里换条件
     sections.resetSectionFilters();
     tagFilterApi.resetTagFilter();
     pointFilterApi.resetPoints();

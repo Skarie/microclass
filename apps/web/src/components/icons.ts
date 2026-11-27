@@ -109,6 +109,7 @@ export const ICONS = {
   clock: [{ circle: [12, 12, 8.6] }, { d: 'M12 7.4V12l3.4 2' }],
   'arrow-left': [{ d: 'M19.5 12h-15' }, { d: 'm10 5.5-6.5 6.5 6.5 6.5' }],
   'arrow-right': [{ d: 'M4.5 12h15' }, { d: 'm14 5.5 6.5 6.5-6.5 6.5' }],
+  'chevron-up': [{ d: 'm6 14.5 6-6 6 6' }],
   'trending-up': [{ d: 'm4 16.5 6-6 4 4 6.5-7.5' }, { d: 'M16 7h4.5v4.5' }],
   'trending-down': [{ d: 'm4 7.5 6 6 4-4 6.5 7.5' }, { d: 'M16 17h4.5v-4.5' }],
   target: [{ circle: [12, 12, 8.4] }, { circle: [12, 12, 3.4] }],

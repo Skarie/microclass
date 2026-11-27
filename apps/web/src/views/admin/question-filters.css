@@ -30,10 +30,17 @@
   font-weight: var(--mc-font-medium);
 }
 
+/* 筛选条分三层：首屏条件 / 「更多筛选」面板 / 收起时的 chips 与计数 */
 .filters {
+  display: flex;
+  flex-direction: column;
   gap: var(--mc-space-2);
   padding-bottom: var(--mc-space-2);
   border-bottom: 1px solid var(--mc-border);
+}
+
+.filters__primary {
+  width: 100%;
 }
 
 .filters__keyword {
@@ -41,54 +48,68 @@
   width: 260px;
 }
 
-/* 章节 / 小节下拉：与关键词同一条筛选行，长章节名截断但保留悬停提示 */
-.filters__select {
-  flex: 0 1 160px;
-  min-width: 120px;
-  max-width: 200px;
+/* 「更多筛选 · N」：展开时按钮同步高亮，收起入口不会在面板里找不到 */
+.filters__toggle {
+  flex: none;
+  gap: var(--mc-space-1);
+}
+
+.filters__toggle--on {
+  border-color: var(--mc-primary-border);
+  background: var(--mc-primary-soft);
+  color: var(--mc-primary-fg);
+}
+
+.filters__meta {
+  gap: var(--mc-space-2);
 }
 
 /* 「筛选出 X / Y」：只在有标签筛选时出现 */
-.filters__count {
+.filters__result {
   font-size: var(--mc-text-sm);
   color: var(--mc-primary-fg);
   font-weight: var(--mc-font-medium);
   white-space: nowrap;
 }
 
-.filters__more {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
-  gap: 8px;
-  font-size: var(--mc-text-sm);
-  color: var(--mc-text-muted);
-  cursor: pointer;
+/* 展开/收起：150ms 只做透明度与位移（优先合成层，不逐帧改高度） */
+.fold-enter-active,
+.fold-leave-active {
+  transition:
+    opacity var(--mc-duration) var(--mc-ease-out),
+    transform var(--mc-duration) var(--mc-ease-out);
 }
 
-/* 整行 label 都是点击区：复选框本身只有 13px，手指点不准 */
-.filters__check {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
-  gap: var(--mc-space-1);
-  font-size: 0.9em;
-  color: var(--mc-text-muted);
-  white-space: nowrap;
-  cursor: pointer;
+.fold-enter-from,
+.fold-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 
 @media (max-width: 900px) {
-  .filters__keyword,
-  .filters__select {
-    flex: 1 1 100%;
+  /* 窄屏：首屏条件纵向排列，按钮与输入框都撑到 44px，任何一项都不横向溢出 */
+  .filters__primary {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--mc-space-2);
+  }
+
+  .filters__keyword {
+    flex: 1 1 auto;
     width: auto;
-    max-width: none;
+    min-height: var(--mc-touch-target-mobile);
   }
 
   .chip,
-  .filters__more,
-  .filters__check {
+  .filters__toggle {
     min-height: var(--mc-touch-target-mobile);
+  }
+
+  .filters__toggle {
+    width: 100%;
+  }
+
+  .filters__meta {
+    align-items: flex-start;
   }
 }

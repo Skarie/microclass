@@ -64,13 +64,16 @@ function remove(value: string): void {
 
 <template>
   <div class="fms">
-    <span class="fms__label">{{ label }}</span>
-    <select class="mc-select fms__select" :aria-label="`${label}筛选`" :value="''" @change="onPick">
-      <option value="">{{ available.length === 0 ? '没有更多可选' : placeholder }}</option>
-      <option v-for="option in available" :key="option.value" :value="option.value">
-        {{ option.label }}{{ option.hint ? `（${option.hint}）` : '' }}
-      </option>
-    </select>
+    <!-- 标签与下拉绑在一起：空间不够时整对换行，不会出现「标签」独占一行的断头 -->
+    <span class="fms__pair">
+      <span class="fms__label">{{ label }}</span>
+      <select class="mc-select fms__select" :aria-label="`${label}筛选`" :value="''" @change="onPick">
+        <option value="">{{ available.length === 0 ? '没有更多可选' : placeholder }}</option>
+        <option v-for="option in available" :key="option.value" :value="option.value">
+          {{ option.label }}{{ option.hint ? `（${option.hint}）` : '' }}
+        </option>
+      </select>
+    </span>
 
     <span v-if="chips.length > 0" class="fms__chips">
       <span v-for="chip in chips" :key="chip.value" class="fms__chip">
@@ -115,6 +118,13 @@ function remove(value: string): void {
   align-items: center;
   gap: var(--mc-space-2);
   flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.fms__pair {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mc-space-2);
   max-width: 100%;
 }
 
@@ -185,6 +195,10 @@ function remove(value: string): void {
 }
 
 @media (max-width: 900px) {
+  .fms__pair {
+    flex: 1 1 100%;
+  }
+
   .fms__select {
     flex: 1 1 140px;
     max-width: none;
